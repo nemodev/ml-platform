@@ -1,0 +1,69 @@
+<section class="pipelines-page">
+  <header class="page-header">
+    <div>
+      <h2>Pipelines</h2>
+      <p>Trigger notebook pipelines and monitor execution status.</p>
+    </div>
+
+    <div class="actions">
+      <label>
+        <span>Status</span>
+        <select [value]="selectedStatus" (change)="changeFilter($any($event.target).value)">
+          <option value="">All</option>
+          <option value="PENDING">PENDING</option>
+          <option value="RUNNING">RUNNING</option>
+          <option value="SUCCEEDED">SUCCEEDED</option>
+          <option value="FAILED">FAILED</option>
+        </select>
+      </label>
+
+      <button type="button" (click)="openTriggerDialog()">Run Pipeline</button>
+    </div>
+  </header>
+
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <div class="grid-layout">
+    <section class="list-card">
+      <div class="loading" *ngIf="loadingRuns">Loading pipeline runs...</div>
+
+      <table *ngIf="!loadingRuns && runs.length > 0">
+        <thead>
+          <tr>
+            <th>Notebook</th>
+            <th>Status</th>
+            <th>Spark</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let run of runs"
+            [class.active]="selectedRun?.id === run.id"
+            (click)="selectRun(run.id)"
+          >
+            <td>{{ run.notebookName }}</td>
+            <td><span class="status-badge" [class]="'status-badge ' + run.status.toLowerCase()">{{ run.status }}</span></td>
+            <td>{{ run.enableSpark ? 'Yes' : 'No' }}</td>
+            <td>{{ run.createdAt | date: 'short' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="empty" *ngIf="!loadingRuns && runs.length === 0">
+        No pipeline runs yet. Trigger your first notebook pipeline.
+      </p>
+    </section>
+
+    <section>
+      <div class="loading" *ngIf="loadingDetail">Loading run detail...</div>
+      <app-run-detail *ngIf="!loadingDetail" [run]="selectedRun" (refresh)="refreshSelectedRun()"></app-run-detail>
+    </section>
+  </div>
+</section>
+
+<app-trigger-dialog
+  *ngIf="showTriggerDialog"
+  (close)="onDialogClose()"
+  (triggered)="onRunTriggered($event)"
+></app-trigger-dialog>

@@ -1,0 +1,45 @@
+<div class="dialog-backdrop" (click)="cancel()"></div>
+<section class="dialog-card" (click)="$event.stopPropagation()">
+  <header>
+    <h3>Run Notebook Pipeline</h3>
+    <button type="button" class="ghost" (click)="cancel()">Close</button>
+  </header>
+
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <div class="loading" *ngIf="loadingNotebooks">Loading notebooks...</div>
+
+  <div class="form-grid" *ngIf="!loadingNotebooks">
+    <label>
+      <span>Notebook</span>
+      <select [(ngModel)]="selectedNotebook">
+        <option *ngFor="let notebook of notebooks" [value]="notebook.path">{{ notebook.path }}</option>
+      </select>
+    </label>
+
+    <label class="checkbox-row">
+      <input type="checkbox" [(ngModel)]="enableSpark" />
+      <span>Enable Spark (2 executors, 1 CPU, 2Gi memory each)</span>
+    </label>
+
+    <div class="parameters">
+      <div class="parameters-header">
+        <h4>Parameters</h4>
+        <button type="button" class="ghost" (click)="addParameter()">Add</button>
+      </div>
+
+      <div class="param-row" *ngFor="let parameter of parameters; index as i">
+        <input type="text" placeholder="key" [(ngModel)]="parameter.key" />
+        <input type="text" placeholder="value" [(ngModel)]="parameter.value" />
+        <button type="button" class="ghost" (click)="removeParameter(i)">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <button type="button" class="ghost" (click)="cancel()">Cancel</button>
+    <button type="button" (click)="trigger()" [disabled]="submitting || loadingNotebooks">
+      {{ submitting ? 'Triggering...' : 'Trigger' }}
+    </button>
+  </footer>
+</section>

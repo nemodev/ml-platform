@@ -22,6 +22,7 @@ cleanup() {
   if [[ -n "${BACKEND_PID:-}" ]]; then kill "$BACKEND_PID" 2>/dev/null || true; fi
   if [[ -n "${MLFLOW_PID:-}" ]]; then kill "$MLFLOW_PID" 2>/dev/null || true; fi
   if [[ -n "${MINIO_PID:-}" ]]; then kill "$MINIO_PID" 2>/dev/null || true; fi
+  if [[ -n "${AIRFLOW_PID:-}" ]]; then kill "$AIRFLOW_PID" 2>/dev/null || true; fi
 }
 
 trap cleanup EXIT INT TERM
@@ -50,7 +51,7 @@ BACKEND_PID=$!
 
 MLFLOW_PID=""
 if kctl get svc/mlflow -n "$NAMESPACE" >/dev/null 2>&1; then
-  kctl port-forward svc/mlflow 5000:5000 -n "$NAMESPACE" &
+  kctl port-forward svc/mlflow 15000:5000 -n "$NAMESPACE" &
   MLFLOW_PID=$!
 fi
 
@@ -58,6 +59,12 @@ MINIO_PID=""
 if kctl get svc/minio -n "$NAMESPACE" >/dev/null 2>&1; then
   kctl port-forward svc/minio 9000:9000 9001:9001 -n "$NAMESPACE" &
   MINIO_PID=$!
+fi
+
+AIRFLOW_PID=""
+if kctl get svc/airflow-webserver -n "$NAMESPACE" >/dev/null 2>&1; then
+  kctl port-forward svc/airflow-webserver 8280:8080 -n "$NAMESPACE" &
+  AIRFLOW_PID=$!
 fi
 
 wait

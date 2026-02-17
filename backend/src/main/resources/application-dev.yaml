@@ -26,3 +26,14 @@ services:
   mlflow:
     url: https://mlflow-api.example.invalid
     tracking-url: https://mlflow-ui.example.invalid
+  airflow:
+    url: https://airflow-api.example.invalid
+    username: dev-admin
+    password: dev-admin
+    mock-enabled: true
+  minio:
+    endpoint: https://minio.example.invalid
+    access-key: dev-access
+    secret-key: dev-secret
+    pipelines-bucket: ml-platform-pipelines
+    presign-expiry-seconds: 900

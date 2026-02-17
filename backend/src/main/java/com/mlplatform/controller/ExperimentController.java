@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -49,7 +50,11 @@ public class ExperimentController {
     private final RestTemplate mlflowRestTemplate;
     private final ObjectMapper objectMapper;
 
-    public ExperimentController(MlflowService mlflowService, RestTemplate mlflowRestTemplate, ObjectMapper objectMapper) {
+    public ExperimentController(
+            MlflowService mlflowService,
+            @Qualifier("mlflowRestTemplate") RestTemplate mlflowRestTemplate,
+            ObjectMapper objectMapper
+    ) {
         this.mlflowService = mlflowService;
         this.mlflowRestTemplate = mlflowRestTemplate;
         this.objectMapper = objectMapper;

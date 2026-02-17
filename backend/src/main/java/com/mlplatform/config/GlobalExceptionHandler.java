@@ -1,8 +1,10 @@
 package com.mlplatform.config;
 
 import com.mlplatform.dto.ErrorResponse;
+import com.mlplatform.service.AirflowUnavailableException;
 import com.mlplatform.service.JupyterHubUnavailableException;
 import com.mlplatform.service.MlflowUnavailableException;
+import com.mlplatform.service.NotebookStorageUnavailableException;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +39,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMlflowUnavailable(MlflowUnavailableException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new ErrorResponse("ServiceUnavailable", "Experiment tracking server is unavailable", Instant.now()));
+    }
+
+    @ExceptionHandler(AirflowUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleAirflowUnavailable(AirflowUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse("ServiceUnavailable", "Pipeline orchestration service is unavailable", Instant.now()));
+    }
+
+    @ExceptionHandler(NotebookStorageUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleNotebookStorageUnavailable(NotebookStorageUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse("ServiceUnavailable", ex.getMessage(), Instant.now()));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

@@ -15,7 +15,7 @@ persistence:
 auth:
   rootUser: minioadmin
   rootPassword: minioadmin
-defaultBuckets: ml-platform-mlflow,ml-platform-sample-data
+defaultBuckets: ml-platform-mlflow,ml-platform-sample-data,ml-platform-pipelines
 
 # Official MinIO chart keys
 rootUser: minioadmin
@@ -26,6 +26,9 @@ buckets:
     policy: none
     purge: false
   - name: ml-platform-sample-data
+    policy: none
+    purge: false
+  - name: ml-platform-pipelines
     policy: none
     purge: false
 

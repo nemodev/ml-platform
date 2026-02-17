@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -48,7 +49,7 @@ public class MlflowService {
     private final Environment environment;
 
     public MlflowService(
-            RestTemplate mlflowRestTemplate,
+            @Qualifier("mlflowRestTemplate") RestTemplate mlflowRestTemplate,
             MlflowProperties properties,
             ObjectMapper objectMapper,
             Environment environment

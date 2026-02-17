@@ -5,6 +5,10 @@ jupyterhub:
       url: postgresql://postgres:localdevpassword@postgresql.ml-platform.svc.cluster.local:5432/jupyterhub
       # SQLite fallback option for quick local experiments:
       # type: sqlite-pvc
+    services:
+      ml-platform-backend:
+        apiToken: ml-platform-jupyterhub-token
+        admin: true
     config:
       GenericOAuthenticator:
         authorize_url: http://keycloak.ml-platform.svc:8080/realms/ml-platform/protocol/openid-connect/auth

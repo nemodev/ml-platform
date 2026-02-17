@@ -35,7 +35,17 @@ app:
 services:
   jupyterhub:
     url: http://jupyterhub-hub.ml-platform.svc:8081
-    api-token: ${JUPYTERHUB_API_TOKEN:local-dev-token}
+    api-token: ${JUPYTERHUB_API_TOKEN:ml-platform-jupyterhub-token}
   mlflow:
     url: http://mlflow.ml-platform.svc:5000
     tracking-url: http://mlflow.ml-platform.svc:5000
+  airflow:
+    url: http://airflow-webserver.ml-platform.svc:8080
+    username: admin
+    password: admin
+  minio:
+    endpoint: http://minio.ml-platform.svc:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    pipelines-bucket: ml-platform-pipelines
+    presign-expiry-seconds: 900

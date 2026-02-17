@@ -28,6 +28,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.postgresql:postgresql")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8")
+    implementation("io.minio:minio:8.5.17")
 
     runtimeOnly("com.h2database:h2")
 

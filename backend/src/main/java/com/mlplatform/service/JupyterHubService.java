@@ -4,14 +4,21 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mlplatform.config.JupyterHubConfig.JupyterHubProperties;
 import com.mlplatform.model.Workspace.WorkspaceStatus;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.util.UriUtils;
 
 @Service
 public class JupyterHubService {
@@ -22,6 +29,13 @@ public class JupyterHubService {
             Instant lastActivity,
             String podName,
             String message
+    ) {}
+
+    public record NotebookFileInfo(
+            String name,
+            String path,
+            Instant lastModified,
+            Long sizeBytes
     ) {}
 
     private final WebClient webClient;
@@ -127,6 +141,130 @@ public class JupyterHubService {
         return properties.getUrl().replaceAll("/$", "") + "/user/" + username + "/lab";
     }
 
+    public List<NotebookFileInfo> listNotebookFiles(String username) {
+        List<NotebookFileInfo> notebooks = new ArrayList<>();
+        collectNotebookFiles(username, "", notebooks);
+        notebooks.sort(Comparator.comparing(NotebookFileInfo::path));
+        return notebooks;
+    }
+
+    public byte[] getNotebookContent(String username, String notebookPath) {
+        String normalizedPath = normalizePath(notebookPath);
+        JsonNode notebookNode = fetchContents(username, normalizedPath, true, null);
+
+        String type = notebookNode.path("type").asText("");
+        if (!"notebook".equals(type) && !"file".equals(type)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Path does not reference a notebook file");
+        }
+
+        JsonNode contentNode = notebookNode.path("content");
+        if (contentNode.isMissingNode() || contentNode.isNull()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notebook content is unavailable");
+        }
+
+        String format = notebookNode.path("format").asText("");
+        if ("base64".equalsIgnoreCase(format) && contentNode.isTextual()) {
+            return Base64.getDecoder().decode(contentNode.asText(""));
+        }
+
+        try {
+            if (contentNode.isTextual()) {
+                return contentNode.asText("").getBytes(StandardCharsets.UTF_8);
+            }
+            return objectMapper.writeValueAsBytes(contentNode);
+        } catch (Exception ex) {
+            throw new JupyterHubUnavailableException("Unable to read notebook content", ex);
+        }
+    }
+
+    private void collectNotebookFiles(String username, String path, List<NotebookFileInfo> notebooks) {
+        JsonNode root = fetchContents(username, path, true, null);
+        String type = root.path("type").asText("");
+
+        if ("directory".equals(type)) {
+            JsonNode items = root.path("content");
+            if (!items.isArray()) {
+                return;
+            }
+            for (JsonNode item : items) {
+                String itemType = item.path("type").asText("");
+                String itemPath = item.path("path").asText(null);
+                if (itemPath == null || itemPath.isBlank()) {
+                    continue;
+                }
+
+                if ("directory".equals(itemType)) {
+                    if (itemPath.contains(".ipynb_checkpoints")) {
+                        continue;
+                    }
+                    collectNotebookFiles(username, itemPath, notebooks);
+                    continue;
+                }
+
+                if ("notebook".equals(itemType) || itemPath.toLowerCase().endsWith(".ipynb")) {
+                    notebooks.add(toNotebookInfo(item));
+                }
+            }
+            return;
+        }
+
+        if (("notebook".equals(type) || path.toLowerCase().endsWith(".ipynb")) && !path.isBlank()) {
+            notebooks.add(toNotebookInfo(root));
+        }
+    }
+
+    private NotebookFileInfo toNotebookInfo(JsonNode node) {
+        String name = node.path("name").asText(null);
+        String path = node.path("path").asText(null);
+        Instant lastModified = parseInstant(node.path("last_modified").asText(null));
+        Long size = node.path("size").isNumber() ? node.path("size").asLong() : null;
+        return new NotebookFileInfo(name, path, lastModified, size);
+    }
+
+    private JsonNode fetchContents(String username, String path, boolean includeContent, String format) {
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                String encodedPath = path == null || path.isBlank() ? "" : "/" + UriUtils.encodePath(path, StandardCharsets.UTF_8);
+                String response = webClient.get()
+                        .uri(uriBuilder -> {
+                            var builder = uriBuilder.path("/user/{username}/api/contents" + encodedPath);
+                            if (includeContent) {
+                                builder = builder.queryParam("content", 1);
+                            }
+                            if (format != null && !format.isBlank()) {
+                                builder = builder.queryParam("format", format);
+                            }
+                            return builder.build(username);
+                        })
+                        .header("Authorization", "Bearer " + properties.getApiToken())
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .block();
+                return objectMapper.readTree(response);
+            } catch (WebClientResponseException ex) {
+                if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notebook not found");
+                }
+                throw ex;
+            } catch (WebClientRequestException ex) {
+                if (attempt == 2) {
+                    throw new JupyterHubUnavailableException("JupyterHub is unreachable", ex);
+                }
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new JupyterHubUnavailableException("JupyterHub is unreachable", ex);
+                }
+            } catch (ResponseStatusException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                throw new JupyterHubUnavailableException("Unable to read notebook metadata from JupyterHub", ex);
+            }
+        }
+        throw new IllegalStateException("Unreachable code");
+    }
+
     private void executePost(String uri, String username) {
         try {
             webClient.post()
@@ -140,6 +278,17 @@ public class JupyterHubService {
         } catch (WebClientRequestException ex) {
             throw new JupyterHubUnavailableException("JupyterHub is unreachable", ex);
         }
+    }
+
+    private String normalizePath(String value) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = value.trim();
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized;
     }
 
     private Instant parseInstant(String value) {

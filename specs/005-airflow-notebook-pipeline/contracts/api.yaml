@@ -117,7 +117,8 @@ paths:
       summary: Get output notebook download URL
       description: >
         Returns a pre-signed URL to download the executed output
-        notebook from MinIO. Only available for SUCCEEDED runs.
+        notebook from MinIO. Available after terminal states
+        (SUCCEEDED or FAILED) when an output notebook exists.
       operationId: getPipelineOutput
       tags: [Pipelines]
       parameters:
@@ -139,7 +140,7 @@ paths:
         '404':
           description: Run not found or not owned by user
         '409':
-          description: Run has not completed successfully
+          description: Run has not finished yet or output is unavailable
           content:
             application/json:
               schema:

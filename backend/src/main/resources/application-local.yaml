@@ -17,7 +17,17 @@ app:
 services:
   jupyterhub:
     url: http://localhost:8181
-    api-token: local-dev-token
+    api-token: ml-platform-jupyterhub-token
   mlflow:
-    url: http://localhost:5000
-    tracking-url: http://localhost:5000
+    url: http://localhost:15000
+    tracking-url: http://localhost:15000
+  airflow:
+    url: http://localhost:8280
+    username: admin
+    password: admin
+  minio:
+    endpoint: http://127.0.0.1:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    pipelines-bucket: ml-platform-pipelines
+    presign-expiry-seconds: 900
