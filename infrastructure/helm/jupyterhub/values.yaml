@@ -60,9 +60,16 @@ jupyterhub:
       MLFLOW_TRACKING_URI: http://backend.ml-platform.svc:8080/api/v1/mlflow-proxy
       AWS_ENDPOINT_URL: "http://minio.ml-platform.svc:9000"
       AWS_ALLOW_HTTP: "true"
-    extraEnvFrom:
-      - secretRef:
-          name: sample-data-readonly-credentials
+      AWS_ACCESS_KEY_ID:
+        valueFrom:
+          secretKeyRef:
+            name: sample-data-readonly-credentials
+            key: AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: sample-data-readonly-credentials
+            key: AWS_SECRET_ACCESS_KEY
     networkPolicy:
       egressAllowRules:
         privateIPs: true
@@ -76,19 +83,19 @@ jupyterhub:
           cpu_limit: 2
           mem_guarantee: 2G
           mem_limit: 4G
-    extraVolumes:
-      - name: sample-notebook
-        configMap:
-          name: sample-notebook
-    extraVolumeMounts:
-      - name: sample-notebook
-        mountPath: /home/jovyan/examples/sample-delta-data.ipynb
-        subPath: sample-delta-data.ipynb
-        readOnly: true
     storage:
       type: dynamic
       capacity: 10Gi
       homeMountPath: /home/jovyan
+      extraVolumes:
+        - name: sample-notebook
+          configMap:
+            name: sample-notebook
+      extraVolumeMounts:
+        - name: sample-notebook
+          mountPath: /home/jovyan/examples/sample-delta-data.ipynb
+          subPath: sample-delta-data.ipynb
+          readOnly: true
 
   cull:
     enabled: true
