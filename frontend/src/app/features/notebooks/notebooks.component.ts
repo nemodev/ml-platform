@@ -75,7 +75,16 @@ export class NotebooksComponent implements OnInit, OnDestroy {
 
   private refreshStatus(): void {
     this.workspaceService.getStatus().subscribe({
-      next: (status) => this.applyStatus(status),
+      next: (status) => {
+        this.applyStatus(status);
+        if (status.status === 'RUNNING' || status.status === 'IDLE') {
+          this.loadWorkspaceUrl();
+          return;
+        }
+        if (status.status === 'PENDING') {
+          this.startPolling();
+        }
+      },
       error: () => {
         this.status = 'FAILED';
         this.errorMessage = 'Workspace status is unavailable.';

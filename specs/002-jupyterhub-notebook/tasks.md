@@ -110,8 +110,8 @@
 ### Implementation for User Story 3
 
 - [X] T036 [US3] Verify GenericOAuthenticator SSO flow: confirm JupyterHub Helm values have correct Keycloak authorize_url, token_url, userdata_url, client_id, and client_secret. Verify `username_claim: preferred_username` and `allow_all: true` are set
-- [ ] T037 [US3] Verify iframe SSO passthrough: log in to portal as scientist1, navigate to Notebooks, observe browser DevTools Network tab — confirm the iframe does NOT show a JupyterHub login page. The Keycloak SSO session cookie should be recognized by JupyterHub's OAuth flow, completing authentication silently
-- [ ] T038 [US3] Verify page refresh preserves session: while JupyterLab is loaded in the iframe, refresh the portal page (F5), confirm the notebook reloads without re-authentication
+- [X] T037 [US3] Verify iframe SSO passthrough: log in to portal as scientist1, navigate to Notebooks, observe browser DevTools Network tab — confirm the iframe does NOT show a JupyterHub login page. The Keycloak SSO session cookie should be recognized by JupyterHub's OAuth flow, completing authentication silently
+- [X] T038 [US3] Verify page refresh preserves session: while JupyterLab is loaded in the iframe, refresh the portal page (F5), confirm the notebook reloads without re-authentication
 - [ ] T039 [US3] Verify session expiry redirect: configure Keycloak access token lifespan to 1 minute (temporarily), let the token expire without silent refresh, navigate to Notebooks, confirm the user is redirected to the portal login page (not a JupyterHub login page). Restore normal token lifespan after test
 
 **Checkpoint**: User Story 3 complete. SSO passthrough verified — no secondary login required. US3 acceptance scenarios 1-3 verifiable.
