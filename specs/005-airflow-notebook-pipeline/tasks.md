@@ -110,7 +110,7 @@
 - [X] T036 Verify failed pipeline handling — trigger a notebook with intentional error, confirm FAILED status with error_message populated, confirm output notebook shows failing cell with traceback
 - [ ] T037 Verify resource exhaustion edge case — trigger pipeline when cluster resources are limited, confirm PENDING status with appropriate messaging
 - [X] T038 Add dev profile mock responses for AirflowService — return mock pipeline runs with simulated status transitions for backend development without Airflow in backend/src/main/resources/application-dev.yaml
-- [ ] T039 Run full quickstart.md validation (all 12 steps)
+- [X] T039 Run full quickstart.md validation (all 12 steps)
 - [X] T040 Verify pipeline completes within 5 minutes for simple notebook (SC-001)
 
 ---
