@@ -1,0 +1,406 @@
+openapi: 3.0.3
+info:
+  title: ML Platform API - Model Serving & Inference
+  description: >
+    REST API for feature 006-model-serving-inference.
+    Backend proxy endpoints for MLflow Model Registry, KServe model
+    deployment, and inference request proxying.
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  /models:
+    get:
+      summary: List registered models
+      description: >
+        Returns registered models from the MLflow Model Registry,
+        filtered by the authenticated user's prefix.
+      operationId: listRegisteredModels
+      tags: [Models]
+      responses:
+        '200':
+          description: List of registered models
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RegisteredModelInfo'
+        '401':
+          description: Invalid or missing token
+
+  /models/{modelName}/versions:
+    get:
+      summary: List model versions
+      description: >
+        Returns all versions for a registered model. Verifies the
+        model belongs to the authenticated user.
+      operationId: listModelVersions
+      tags: [Models]
+      parameters:
+        - name: modelName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of model versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelVersionInfo'
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Model not found or not owned by user
+
+  /serving/deployments:
+    post:
+      summary: Deploy a model version
+      description: >
+        Deploys a registered model version from the MLflow Model
+        Registry to a KServe inference endpoint. Creates an
+        InferenceService CRD and a ModelDeployment record.
+      operationId: deployModel
+      tags: [Serving]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeployModelRequest'
+      responses:
+        '201':
+          description: Deployment initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentInfo'
+        '400':
+          description: Invalid request (model not found, version invalid)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing token
+        '409':
+          description: Endpoint already exists for this model version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List user's deployments
+      description: >
+        Returns all active model deployments for the authenticated
+        user, ordered by creation time.
+      operationId: listDeployments
+      tags: [Serving]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [DEPLOYING, READY, FAILED]
+      responses:
+        '200':
+          description: List of deployments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeploymentInfo'
+        '401':
+          description: Invalid or missing token
+
+  /serving/deployments/{deploymentId}:
+    get:
+      summary: Get deployment details
+      description: >
+        Returns details of a specific deployment. If status is
+        DEPLOYING, polls KServe for the latest status.
+      operationId: getDeployment
+      tags: [Serving]
+      parameters:
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deployment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentDetail'
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Deployment not found or not owned by user
+
+    delete:
+      summary: Delete a deployment
+      description: >
+        Deletes a model deployment. Removes the KServe
+        InferenceService and marks the deployment as DELETED.
+      operationId: deleteDeployment
+      tags: [Serving]
+      parameters:
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deployment deleted
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Deployment not found or not owned by user
+
+  /serving/deployments/{deploymentId}/predict:
+    post:
+      summary: Send inference request
+      description: >
+        Proxies an inference request to the deployed KServe endpoint.
+        Uses the V2 inference protocol. Authentication is handled by
+        the backend — KServe endpoint is cluster-internal only.
+      operationId: predict
+      tags: [Serving]
+      parameters:
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictionRequest'
+      responses:
+        '200':
+          description: Prediction response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+        '400':
+          description: Invalid input data format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Deployment not found or not owned by user
+        '503':
+          description: Endpoint not ready or overloaded
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisteredModelInfo:
+      type: object
+      required: [name, latestVersion]
+      properties:
+        name:
+          type: string
+          description: Model name (user prefix stripped)
+          example: iris-classifier
+        latestVersion:
+          type: integer
+          example: 3
+        description:
+          type: string
+        lastUpdatedAt:
+          type: string
+          format: date-time
+
+    ModelVersionInfo:
+      type: object
+      required: [version, status, artifactUri]
+      properties:
+        version:
+          type: integer
+          example: 1
+        status:
+          type: string
+          enum: [PENDING_REGISTRATION, READY, FAILED_REGISTRATION]
+        stage:
+          type: string
+          enum: [None, Staging, Production, Archived]
+          example: Production
+        artifactUri:
+          type: string
+          example: s3://ml-platform-mlflow/artifacts/1/abc123/artifacts/model
+        runId:
+          type: string
+          description: MLflow run ID that produced this version
+        createdAt:
+          type: string
+          format: date-time
+
+    DeployModelRequest:
+      type: object
+      required: [modelName, modelVersion]
+      properties:
+        modelName:
+          type: string
+          description: Registered model name (without user prefix)
+          example: iris-classifier
+        modelVersion:
+          type: integer
+          description: Version number to deploy
+          example: 1
+
+    DeploymentInfo:
+      type: object
+      required: [id, modelName, modelVersion, endpointName, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        modelName:
+          type: string
+          example: iris-classifier
+        modelVersion:
+          type: integer
+          example: 1
+        endpointName:
+          type: string
+          example: scientist1-iris-classifier-v1
+        status:
+          type: string
+          enum: [DEPLOYING, READY, FAILED, DELETING, DELETED]
+        createdAt:
+          type: string
+          format: date-time
+        readyAt:
+          type: string
+          format: date-time
+
+    DeploymentDetail:
+      type: object
+      required: [id, modelName, modelVersion, endpointName, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        modelName:
+          type: string
+        modelVersion:
+          type: integer
+        endpointName:
+          type: string
+        status:
+          type: string
+          enum: [DEPLOYING, READY, FAILED, DELETING, DELETED]
+        inferenceUrl:
+          type: string
+          description: Cluster-internal URL (for reference)
+        storageUri:
+          type: string
+          description: S3 URI to model artifacts
+        errorMessage:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        readyAt:
+          type: string
+          format: date-time
+
+    PredictionRequest:
+      type: object
+      required: [inputs]
+      properties:
+        inputs:
+          type: array
+          items:
+            type: object
+            required: [name, shape, datatype, data]
+            properties:
+              name:
+                type: string
+                example: predict
+              shape:
+                type: array
+                items:
+                  type: integer
+                example: [1, 8]
+              datatype:
+                type: string
+                example: FP64
+              data:
+                type: array
+                items: {}
+                example: [[8.3252, 41.0, 6.98, 1.02, 322.0, 2.56, 37.88, -122.23]]
+
+    PredictionResponse:
+      type: object
+      required: [outputs]
+      properties:
+        modelName:
+          type: string
+        modelVersion:
+          type: string
+        outputs:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: predict
+              shape:
+                type: array
+                items:
+                  type: integer
+                example: [1, 1]
+              datatype:
+                type: string
+                example: FP64
+              data:
+                type: array
+                items: {}
+                example: [[4.526]]
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          example: Conflict
+        message:
+          type: string
+          example: Endpoint already exists for this model version
+        timestamp:
+          type: string
+          format: date-time

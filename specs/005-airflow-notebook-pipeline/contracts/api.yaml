@@ -1,0 +1,306 @@
+openapi: 3.0.3
+info:
+  title: ML Platform API - Pipeline Orchestration
+  description: >
+    REST API for feature 005-airflow-notebook-pipeline.
+    Backend proxy endpoints for triggering and monitoring notebook
+    pipeline jobs via Airflow.
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  /pipelines:
+    post:
+      summary: Trigger a notebook pipeline job
+      description: >
+        Copies the specified notebook from the user's JupyterHub
+        workspace to MinIO, creates a PipelineRun record, and triggers
+        the Airflow notebook_runner DAG. Returns the created run with
+        its initial PENDING status.
+      operationId: triggerPipeline
+      tags: [Pipelines]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerPipelineRequest'
+      responses:
+        '201':
+          description: Pipeline run created and triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineRunInfo'
+        '400':
+          description: Invalid request (missing notebook, bad parameters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Notebook not found in user's workspace
+
+    get:
+      summary: List user's pipeline runs
+      description: >
+        Returns all pipeline runs for the authenticated user, ordered
+        by creation time (most recent first).
+      operationId: listPipelineRuns
+      tags: [Pipelines]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, RUNNING, SUCCEEDED, FAILED]
+          description: Filter by status
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Maximum number of runs to return
+      responses:
+        '200':
+          description: List of pipeline runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PipelineRunInfo'
+        '401':
+          description: Invalid or missing token
+
+  /pipelines/{runId}:
+    get:
+      summary: Get pipeline run details
+      description: >
+        Returns details of a specific pipeline run. If the run is
+        still active, the backend polls Airflow for the latest status
+        before responding.
+      operationId: getPipelineRun
+      tags: [Pipelines]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Pipeline run details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineRunDetail'
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Run not found or not owned by user
+
+  /pipelines/{runId}/output:
+    get:
+      summary: Get output notebook download URL
+      description: >
+        Returns a pre-signed URL to download the executed output
+        notebook from MinIO. Only available for SUCCEEDED runs.
+      operationId: getPipelineOutput
+      tags: [Pipelines]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Output notebook URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PipelineOutputUrl'
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Run not found or not owned by user
+        '409':
+          description: Run has not completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pipelines/notebooks:
+    get:
+      summary: List notebooks available for pipeline execution
+      description: >
+        Returns a list of notebook files from the user's JupyterHub
+        workspace that can be triggered as pipeline jobs.
+      operationId: listNotebooks
+      tags: [Pipelines]
+      responses:
+        '200':
+          description: List of available notebooks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotebookInfo'
+        '401':
+          description: Invalid or missing token
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    TriggerPipelineRequest:
+      type: object
+      required: [notebookPath]
+      properties:
+        notebookPath:
+          type: string
+          description: >
+            Path to the notebook in the user's JupyterHub workspace
+            (relative to /home/jovyan/).
+          example: my-training.ipynb
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: >
+            Papermill parameters to inject into the notebook.
+          example:
+            n_estimators: "200"
+            learning_rate: "0.01"
+        enableSpark:
+          type: boolean
+          default: false
+          description: >
+            Whether to configure Spark environment for this pipeline
+            run (sets up SparkSession, executor pod template).
+
+    PipelineRunInfo:
+      type: object
+      required: [id, notebookName, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        notebookName:
+          type: string
+          example: my-training.ipynb
+        status:
+          type: string
+          enum: [PENDING, RUNNING, SUCCEEDED, FAILED]
+        enableSpark:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    PipelineRunDetail:
+      type: object
+      required: [id, notebookName, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        notebookName:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, RUNNING, SUCCEEDED, FAILED]
+        enableSpark:
+          type: boolean
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+        inputPath:
+          type: string
+          description: S3 path to input notebook snapshot
+        outputPath:
+          type: string
+          description: S3 path to executed output notebook
+        errorMessage:
+          type: string
+          description: Error details (populated only for FAILED runs)
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    PipelineOutputUrl:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Pre-signed URL to download the output notebook
+        expiresAt:
+          type: string
+          format: date-time
+          description: URL expiration time
+
+    NotebookInfo:
+      type: object
+      required: [name, path]
+      properties:
+        name:
+          type: string
+          example: my-training.ipynb
+        path:
+          type: string
+          description: Relative path in user's workspace
+          example: experiments/my-training.ipynb
+        lastModified:
+          type: string
+          format: date-time
+        sizeBytes:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          example: Conflict
+        message:
+          type: string
+          example: Pipeline run has not completed successfully
+        timestamp:
+          type: string
+          format: date-time

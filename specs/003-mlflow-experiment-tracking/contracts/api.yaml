@@ -1,0 +1,261 @@
+openapi: 3.0.3
+info:
+  title: ML Platform API - Experiment Tracking
+  description: >
+    REST API for feature 003-mlflow-experiment-tracking.
+    Backend proxy endpoints for MLflow experiment management,
+    plus MLflow UI URL for iframe embedding.
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  /experiments:
+    post:
+      summary: Create a new experiment
+      description: >
+        Creates a new experiment in MLflow for the authenticated user.
+        The backend automatically prefixes the experiment name with
+        the user's username for isolation (e.g., scientist1/my-experiment).
+      operationId: createExperiment
+      tags: [Experiments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExperimentRequest'
+      responses:
+        '201':
+          description: Experiment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentInfo'
+        '401':
+          description: Invalid or missing token
+        '409':
+          description: Experiment with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List user's experiments
+      description: >
+        Returns all experiments belonging to the authenticated user.
+        Filters by user-prefixed names and strips the prefix before
+        returning results.
+      operationId: listExperiments
+      tags: [Experiments]
+      responses:
+        '200':
+          description: List of experiments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExperimentInfo'
+        '401':
+          description: Invalid or missing token
+
+  /experiments/{experimentId}:
+    get:
+      summary: Get experiment details
+      description: >
+        Returns details of a specific experiment including its runs.
+        Verifies the experiment belongs to the authenticated user.
+      operationId: getExperiment
+      tags: [Experiments]
+      parameters:
+        - name: experimentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Experiment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentDetail'
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Experiment not found or not owned by user
+
+  /experiments/{experimentId}/runs:
+    get:
+      summary: List runs for an experiment
+      description: >
+        Returns all runs within the specified experiment. Verifies the
+        experiment belongs to the authenticated user.
+      operationId: listRuns
+      tags: [Experiments]
+      parameters:
+        - name: experimentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RunInfo'
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Experiment not found or not owned by user
+
+  /experiments/tracking-url:
+    get:
+      summary: Get MLflow UI URL for iframe embedding
+      description: >
+        Returns the MLflow tracking UI URL for embedding in the
+        portal iframe. In local dev, this is the port-forwarded URL.
+        In production, this is the cluster-internal URL accessible
+        via Ingress or proxy.
+      operationId: getTrackingUrl
+      tags: [Experiments]
+      responses:
+        '200':
+          description: MLflow UI URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingUrl'
+        '401':
+          description: Invalid or missing token
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateExperimentRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: >
+            Experiment name (without user prefix — prefix is added
+            automatically by the backend).
+          example: sklearn-classification
+
+    ExperimentInfo:
+      type: object
+      required: [experimentId, name, lifecycleStage]
+      properties:
+        experimentId:
+          type: string
+          example: "1"
+        name:
+          type: string
+          description: >
+            Experiment name as seen by the user (prefix stripped).
+          example: sklearn-classification
+        artifactLocation:
+          type: string
+          example: s3://ml-platform-mlflow/artifacts/1
+        lifecycleStage:
+          type: string
+          enum: [active, deleted]
+          example: active
+        creationTime:
+          type: string
+          format: date-time
+        lastUpdateTime:
+          type: string
+          format: date-time
+
+    ExperimentDetail:
+      type: object
+      required: [experimentId, name, lifecycleStage, runs]
+      properties:
+        experimentId:
+          type: string
+        name:
+          type: string
+        lifecycleStage:
+          type: string
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunInfo'
+
+    RunInfo:
+      type: object
+      required: [runId, experimentId, status]
+      properties:
+        runId:
+          type: string
+          format: uuid
+        experimentId:
+          type: string
+        status:
+          type: string
+          enum: [RUNNING, SCHEDULED, FINISHED, FAILED, KILLED]
+          example: FINISHED
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            learning_rate: "0.01"
+            n_estimators: "100"
+        metrics:
+          type: object
+          additionalProperties:
+            type: number
+          example:
+            accuracy: 0.95
+            rmse: 0.23
+        artifactUri:
+          type: string
+
+    TrackingUrl:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: MLflow UI URL for iframe embedding
+          example: http://localhost:5000
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          example: Conflict
+        message:
+          type: string
+          example: Experiment with this name already exists
+        timestamp:
+          type: string
+          format: date-time
