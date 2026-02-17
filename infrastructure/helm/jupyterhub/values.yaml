@@ -6,6 +6,22 @@ jupyterhub:
     config:
       JupyterHub:
         authenticator_class: generic-oauth
+        load_roles:
+          - name: jupyterhub-idle-culler
+            scopes:
+              - list:users
+              - read:users:activity
+              - admin:servers
+              - delete:servers
+              - admin:users
+            services:
+              - jupyterhub-idle-culler
+          - name: platform-api-role
+            scopes:
+              - admin:users
+              - admin:servers
+            services:
+              - platform-api
       GenericOAuthenticator:
         client_id: ml-platform-jupyterhub
         client_secret: ml-platform-jupyterhub-secret

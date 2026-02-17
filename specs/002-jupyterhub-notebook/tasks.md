@@ -77,8 +77,8 @@
 - [X] T027 [US1] Replace notebooks placeholder component in frontend/src/app/features/notebooks/notebooks.component.ts — implement workspace launcher and iframe embedding: show "Launch Workspace" button when status is STOPPED, show loading spinner with status text when PENDING, show JupyterLab iframe when RUNNING (using DomSanitizer.bypassSecurityTrustResourceUrl), show error message with retry button when FAILED
 - [X] T028 [US1] Create notebooks.component.html in frontend/src/app/features/notebooks/notebooks.component.html — template with conditional rendering: launcher view (profile info + launch button), pending view (spinner + "Starting notebook server..."), running view (full-height iframe with `allow="clipboard-read; clipboard-write"`), failed view (error message + retry)
 - [X] T029 [US1] Create notebooks.component.scss in frontend/src/app/features/notebooks/notebooks.component.scss — styles for iframe (width: 100%, height: calc(100vh - 180px), border styling), launcher card, loading spinner, error state
-- [ ] T030 [US1] Deploy JupyterHub and verify workspace launch end-to-end: build custom image, helm install jupyterhub with local-values, port-forward JupyterHub (8181:80), run backend with `local` profile, run frontend with `ng serve`, log in as `scientist1`, click Notebooks, confirm workspace launches and JupyterLab loads in iframe
-- [ ] T031 [US1] Verify user isolation (SC-003): log in as `scientist1` in Chrome and `scientist2` in Firefox, confirm each gets separate workspace, create a notebook in scientist1's workspace, confirm it is NOT visible in scientist2's workspace
+- [X] T030 [US1] Deploy JupyterHub and verify workspace launch end-to-end: build custom image, helm install jupyterhub with local-values, port-forward JupyterHub (8181:80), run backend with `local` profile, run frontend with `ng serve`, log in as `scientist1`, click Notebooks, confirm workspace launches and JupyterLab loads in iframe
+- [X] T031 [US1] Verify user isolation (SC-003): log in as `scientist1` in Chrome and `scientist2` in Firefox, confirm each gets separate workspace, create a notebook in scientist1's workspace, confirm it is NOT visible in scientist2's workspace
 
 **Checkpoint**: User can launch a notebook workspace from the portal and see JupyterLab embedded in an iframe. US1 acceptance scenarios 1-3 verifiable.
 
@@ -92,8 +92,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T032 [US2] Verify and finalize infrastructure/docker/notebook-image/requirements.txt — ensure all libraries from FR-004 are included with pinned versions: numpy, pandas, scikit-learn, matplotlib, mlflow, scipy, seaborn, plotly, torch (CPU build for smaller image), tensorflow, jupyterlab, notebook, ipywidgets, ipykernel, pyarrow. Build the image and verify it starts successfully
-- [ ] T033 [US2] Verify code execution end-to-end: launch workspace, create new notebook, execute `import pandas as pd; pd.DataFrame({'a': [1,2,3]})`, confirm dataframe renders. Execute `import numpy, scipy, sklearn, matplotlib, seaborn, plotly, torch, tensorflow, mlflow; print("All imports successful!")`, confirm all imports succeed
+- [X] T032 [US2] Verify and finalize infrastructure/docker/notebook-image/requirements.txt — ensure all libraries from FR-004 are included with pinned versions: numpy, pandas, scikit-learn, matplotlib, mlflow, scipy, seaborn, plotly, torch (CPU build for smaller image), tensorflow, jupyterlab, notebook, ipywidgets, ipykernel, pyarrow. Build the image and verify it starts successfully
+- [X] T033 [US2] Verify code execution end-to-end: launch workspace, create new notebook, execute `import pandas as pd; pd.DataFrame({'a': [1,2,3]})`, confirm dataframe renders. Execute `import numpy, scipy, sklearn, matplotlib, seaborn, plotly, torch, tensorflow, mlflow; print("All imports successful!")`, confirm all imports succeed
 - [ ] T034 [US2] Verify matplotlib inline rendering: execute `import matplotlib.pyplot as plt; plt.plot([1,2,3],[4,5,6]); plt.show()`, confirm plot renders inline in cell output
 - [ ] T035 [US2] Verify error handling: execute code that raises an exception (e.g., `1/0`), confirm traceback is displayed in cell output
 
@@ -109,7 +109,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T036 [US3] Verify GenericOAuthenticator SSO flow: confirm JupyterHub Helm values have correct Keycloak authorize_url, token_url, userdata_url, client_id, and client_secret. Verify `username_claim: preferred_username` and `allow_all: true` are set
+- [X] T036 [US3] Verify GenericOAuthenticator SSO flow: confirm JupyterHub Helm values have correct Keycloak authorize_url, token_url, userdata_url, client_id, and client_secret. Verify `username_claim: preferred_username` and `allow_all: true` are set
 - [ ] T037 [US3] Verify iframe SSO passthrough: log in to portal as scientist1, navigate to Notebooks, observe browser DevTools Network tab — confirm the iframe does NOT show a JupyterHub login page. The Keycloak SSO session cookie should be recognized by JupyterHub's OAuth flow, completing authentication silently
 - [ ] T038 [US3] Verify page refresh preserves session: while JupyterLab is loaded in the iframe, refresh the portal page (F5), confirm the notebook reloads without re-authentication
 - [ ] T039 [US3] Verify session expiry redirect: configure Keycloak access token lifespan to 1 minute (temporarily), let the token expire without silent refresh, navigate to Notebooks, confirm the user is redirected to the portal login page (not a JupyterHub login page). Restore normal token lifespan after test
@@ -122,7 +122,7 @@
 
 **Purpose**: Persistence verification, error handling, dev profile support, and deployment readiness
 
-- [ ] T040 [P] Verify persistent storage (SC-005): launch workspace as scientist1, create and save a notebook file, terminate the workspace (or wait for 30-min idle culler), relaunch workspace, confirm the previously saved file is still present
+- [X] T040 [P] Verify persistent storage (SC-005): launch workspace as scientist1, create and save a notebook file, terminate the workspace (or wait for 30-min idle culler), relaunch workspace, confirm the previously saved file is still present
 - [ ] T041 [P] Verify cold start performance (SC-001): stop the workspace, navigate to Notebooks to trigger a cold start, measure time from click to JupyterLab ready — confirm under 120 seconds. Then verify warm start (server already running, navigate away and back) is under 60 seconds
 - [X] T042 Add dev profile mock workspace support: create DevWorkspaceService (or conditional logic in WorkspaceService) that returns mock responses when `dev` profile is active — `getStatus()` returns RUNNING, `getWorkspaceUrl()` returns a placeholder URL or static JupyterLab demo page. This allows frontend development without JupyterHub deployed
 - [X] T043 Add error handling for JupyterHub unreachable scenario in WorkspaceController — catch connection errors from JupyterHubService, return user-friendly ErrorResponse with 503 status
