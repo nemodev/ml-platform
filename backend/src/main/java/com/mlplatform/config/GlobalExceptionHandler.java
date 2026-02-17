@@ -2,6 +2,7 @@ package com.mlplatform.config;
 
 import com.mlplatform.dto.ErrorResponse;
 import com.mlplatform.service.JupyterHubUnavailableException;
+import com.mlplatform.service.MlflowUnavailableException;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleJupyterHubUnavailable(JupyterHubUnavailableException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new ErrorResponse("ServiceUnavailable", ex.getMessage(), Instant.now()));
+    }
+
+    @ExceptionHandler(MlflowUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleMlflowUnavailable(MlflowUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse("ServiceUnavailable", "Experiment tracking server is unavailable", Instant.now()));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

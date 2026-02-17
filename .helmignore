@@ -1,0 +1,16 @@
+# VCS
+.git/
+.gitignore
+
+# MacOS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Build and temp
+*.tmp
+*.log
+node_modules/
+dist/
+build/

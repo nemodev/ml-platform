@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: mlflow
+    app.kubernetes.io/name: mlflow
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: mlflow
+        app.kubernetes.io/name: mlflow
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      initContainers:
+        - name: install-python-deps
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - pip install --no-cache-dir --target /opt/mlflow-deps psycopg2-binary boto3
+          volumeMounts:
+            - name: mlflow-deps
+              mountPath: /opt/mlflow-deps
+      containers:
+        - name: mlflow
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - >
+              mlflow server
+              --host 0.0.0.0
+              --port 5000
+              --backend-store-uri "${BACKEND_STORE_URI}"
+              --default-artifact-root "${MLFLOW_DEFAULT_ARTIFACT_ROOT}"
+              --serve-artifacts
+              --workers {{ .Values.mlflow.gunicornWorkers }}
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-config
+          env:
+            - name: PYTHONPATH
+              value: /opt/mlflow-deps
+            - name: AWS_ACCESS_KEY_ID
+{{- if .Values.minio.secretName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.secretName }}
+                  key: {{ .Values.minio.accessKeyKey }}
+{{- else }}
+              value: {{ .Values.minio.accessKey | quote }}
+{{- end }}
+            - name: AWS_SECRET_ACCESS_KEY
+{{- if .Values.minio.secretName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.secretName }}
+                  key: {{ .Values.minio.secretKeyKey }}
+{{- else }}
+              value: {{ .Values.minio.secretKey | quote }}
+{{- end }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+{{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: mlflow-deps
+              mountPath: /opt/mlflow-deps
+      volumes:
+        - name: mlflow-deps
+          emptyDir: {}

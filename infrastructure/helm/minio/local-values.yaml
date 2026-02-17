@@ -1,0 +1,12 @@
+mode: standalone
+replicas: 1
+
+auth:
+  rootUser: minioadmin
+  rootPassword: minioadmin
+
+defaultBuckets: ml-platform-mlflow
+
+persistence:
+  enabled: true
+  size: 10Gi

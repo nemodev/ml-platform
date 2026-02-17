@@ -1,0 +1,38 @@
+image:
+  repository: ghcr.io/mlflow/mlflow
+  tag: v2.15.0
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 5000
+
+database:
+  host: postgresql.ml-platform.svc
+  port: 5432
+  name: mlflow
+  user: postgres
+  password: localdevpassword
+
+minio:
+  endpoint: http://minio.ml-platform.svc:9000
+  secretName: minio
+  accessKeyKey: root-user
+  secretKeyKey: root-password
+  accessKey: ""
+  secretKey: ""
+
+mlflow:
+  gunicornWorkers: 2
+  artifactRoot: s3://ml-platform-mlflow/artifacts
+  s3EndpointUrl: http://minio.ml-platform.svc:9000
+  s3IgnoreTls: "true"
+  backendStoreUri: postgresql://postgres:localdevpassword@postgresql.ml-platform.svc:5432/mlflow
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi

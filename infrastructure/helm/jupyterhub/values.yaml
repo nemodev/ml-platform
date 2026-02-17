@@ -56,6 +56,8 @@ jupyterhub:
       name: ml-platform-notebook
       tag: latest
       pullPolicy: IfNotPresent
+    extraEnv:
+      MLFLOW_TRACKING_URI: http://backend.ml-platform.svc:8080/api/v1/mlflow-proxy
     profileList:
       - display_name: Exploratory
         description: Interactive data exploration and small experiments

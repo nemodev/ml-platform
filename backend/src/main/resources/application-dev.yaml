@@ -23,3 +23,6 @@ services:
   jupyterhub:
     url: https://jupyter.example.invalid
     api-token: dev-token
+  mlflow:
+    url: https://mlflow-api.example.invalid
+    tracking-url: https://mlflow-ui.example.invalid

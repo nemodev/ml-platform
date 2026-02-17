@@ -1,0 +1,18 @@
+database:
+  host: localhost
+  port: 5432
+  name: mlflow
+  user: postgres
+  password: localdevpassword
+
+minio:
+  endpoint: http://localhost:9000
+  secretName: ""
+  accessKey: minioadmin
+  secretKey: minioadmin
+
+mlflow:
+  artifactRoot: s3://ml-platform-mlflow/artifacts
+  s3EndpointUrl: http://localhost:9000
+  s3IgnoreTls: "true"
+  backendStoreUri: postgresql://postgres:localdevpassword@localhost:5432/mlflow

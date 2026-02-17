@@ -18,3 +18,6 @@ services:
   jupyterhub:
     url: http://localhost:8181
     api-token: local-dev-token
+  mlflow:
+    url: http://localhost:5000
+    tracking-url: http://localhost:5000

@@ -36,3 +36,6 @@ services:
   jupyterhub:
     url: http://jupyterhub-hub.ml-platform.svc:8081
     api-token: ${JUPYTERHUB_API_TOKEN:local-dev-token}
+  mlflow:
+    url: http://mlflow.ml-platform.svc:5000
+    tracking-url: http://mlflow.ml-platform.svc:5000
