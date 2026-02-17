@@ -29,7 +29,7 @@ data:
           ],
           "attributes": {
             "pkce.code.challenge.method": "S256",
-            "post.logout.redirect.uris": "http://localhost:4200/* http://localhost:8080/*"
+            "post.logout.redirect.uris": "+"
           },
           "defaultClientScopes": [
             "openid",

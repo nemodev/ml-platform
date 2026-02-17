@@ -62,12 +62,20 @@ export class AuthService {
   logout(): Observable<void> {
     return this.http.post<void>(`${environment.apiUrl}/auth/logout`, {}).pipe(
       catchError(() => of(void 0)),
-      tap(() => {
-        if (environment.enableOidc && this.oidc) {
-          this.oidc.logoff();
+      switchMap(() => {
+        if (!environment.enableOidc || !this.oidc) {
+          return of(void 0);
         }
-      }),
-      map(() => void 0)
+
+        return this.oidc.logoff().pipe(
+          map(() => void 0),
+          catchError(() => {
+            // Fallback to local logout state clear if provider logout fails.
+            this.oidc?.logoffLocal();
+            return of(void 0);
+          })
+        );
+      })
     );
   }
 }
