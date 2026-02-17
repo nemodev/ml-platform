@@ -1,0 +1,11 @@
+apiVersion: v2
+name: jupyterhub-wrapper
+description: Wrapper chart for JupyterHub deployment in ML Platform
+type: application
+version: 0.1.0
+appVersion: "3.3.8"
+
+dependencies:
+  - name: jupyterhub
+    version: 3.3.8
+    repository: https://hub.jupyter.org/helm-chart/

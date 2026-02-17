@@ -1,0 +1,234 @@
+openapi: 3.0.3
+info:
+  title: ML Platform API - Workspace & Notebooks
+  description: >
+    REST API for feature 002-jupyterhub-notebook.
+    Covers workspace lifecycle management (launch, status, terminate)
+    and JupyterLab URL retrieval for iframe embedding.
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  /workspaces/profiles:
+    get:
+      summary: List available compute profiles
+      description: >
+        Returns the list of compute profiles available for launching
+        notebook servers. For MVP, only the "Exploratory" profile
+        is returned.
+      operationId: getProfiles
+      tags: [Workspace]
+      responses:
+        '200':
+          description: List of compute profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ComputeProfile'
+        '401':
+          description: Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /workspaces:
+    post:
+      summary: Launch a notebook workspace
+      description: >
+        Creates and starts a new notebook server for the authenticated
+        user. If the user already has an active workspace, returns
+        409 Conflict. The server is launched with the specified compute
+        profile (defaults to "Exploratory").
+      operationId: launchWorkspace
+      tags: [Workspace]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LaunchWorkspaceRequest'
+      responses:
+        '202':
+          description: Workspace launch initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceStatus'
+        '401':
+          description: Invalid or missing token
+        '409':
+          description: User already has an active workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: Get current workspace status
+      description: >
+        Returns the status of the authenticated user's current
+        workspace. If no workspace exists, returns the status as
+        "STOPPED" with no additional details.
+      operationId: getWorkspaceStatus
+      tags: [Workspace]
+      responses:
+        '200':
+          description: Current workspace status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceStatus'
+        '401':
+          description: Invalid or missing token
+
+    delete:
+      summary: Terminate the current workspace
+      description: >
+        Stops and terminates the authenticated user's active notebook
+        server. User data in the persistent volume is preserved.
+      operationId: terminateWorkspace
+      tags: [Workspace]
+      responses:
+        '204':
+          description: Workspace termination initiated
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: No active workspace found
+
+  /workspaces/url:
+    get:
+      summary: Get JupyterLab URL for iframe embedding
+      description: >
+        Returns the JupyterLab URL for the authenticated user's
+        running workspace. The URL is used by the frontend to
+        populate the iframe src attribute. Returns 404 if no
+        workspace is running.
+      operationId: getWorkspaceUrl
+      tags: [Workspace]
+      responses:
+        '200':
+          description: JupyterLab URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceUrl'
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: No running workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Keycloak-issued JWT from feature 001 authentication.
+
+  schemas:
+    ComputeProfile:
+      type: object
+      required: [id, name, cpuRequest, cpuLimit, memoryRequest,
+        memoryLimit]
+      properties:
+        id:
+          type: string
+          example: exploratory
+        name:
+          type: string
+          example: Exploratory
+        description:
+          type: string
+          example: Interactive data exploration and small experiments
+        cpuRequest:
+          type: string
+          example: "1"
+        cpuLimit:
+          type: string
+          example: "2"
+        memoryRequest:
+          type: string
+          example: 2Gi
+        memoryLimit:
+          type: string
+          example: 4Gi
+        gpuLimit:
+          type: integer
+          example: 0
+
+    LaunchWorkspaceRequest:
+      type: object
+      properties:
+        profile:
+          type: string
+          description: >
+            Compute profile ID. Defaults to "exploratory" if not
+            specified.
+          example: exploratory
+
+    WorkspaceStatus:
+      type: object
+      required: [status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, RUNNING, IDLE, STOPPED, FAILED]
+          example: RUNNING
+        profile:
+          type: string
+          example: exploratory
+        startedAt:
+          type: string
+          format: date-time
+        lastActivity:
+          type: string
+          format: date-time
+        message:
+          type: string
+          description: >
+            Human-readable message, especially useful for FAILED
+            status to communicate error details.
+
+    WorkspaceUrl:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: >
+            Full JupyterLab URL for iframe embedding. Includes
+            the user-specific path segment.
+          example: http://localhost:8180/user/scientist1/lab
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          example: Conflict
+        message:
+          type: string
+          example: User already has an active workspace
+        timestamp:
+          type: string
+          format: date-time

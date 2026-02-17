@@ -31,3 +31,8 @@ management:
 app:
   cors:
     allowed-origins: https://portal.ml-platform.local
+
+services:
+  jupyterhub:
+    url: http://jupyterhub-hub.ml-platform.svc:8081
+    api-token: ${JUPYTERHUB_API_TOKEN:local-dev-token}

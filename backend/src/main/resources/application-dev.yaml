@@ -18,3 +18,8 @@ spring:
 app:
   cors:
     allowed-origins: http://localhost:4200,http://localhost:8080
+
+services:
+  jupyterhub:
+    url: https://jupyter.example.invalid
+    api-token: dev-token

@@ -15,6 +15,7 @@ backend/build/
 # Node / Angular
 frontend/node_modules/
 frontend/dist/
+frontend/.angular/
 coverage/
 
 # Env

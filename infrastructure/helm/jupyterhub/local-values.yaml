@@ -1,0 +1,20 @@
+jupyterhub:
+  hub:
+    db:
+      type: postgres
+      url: postgresql://postgres:localdevpassword@localhost:5432/jupyterhub
+      # SQLite fallback option for quick local experiments:
+      # type: sqlite-pvc
+    config:
+      GenericOAuthenticator:
+        authorize_url: http://localhost:8180/realms/ml-platform/protocol/openid-connect/auth
+        token_url: http://localhost:8180/realms/ml-platform/protocol/openid-connect/token
+        userdata_url: http://localhost:8180/realms/ml-platform/protocol/openid-connect/userinfo
+        oauth_callback_url: http://localhost:8181/hub/oauth_callback
+    extraConfig:
+      00-security.py: |
+        c.JupyterHub.tornado_settings = {
+          "headers": {
+            "Content-Security-Policy": "frame-ancestors 'self' http://localhost:4200 http://localhost:8080"
+          }
+        }

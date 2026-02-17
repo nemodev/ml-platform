@@ -1,0 +1,58 @@
+jupyterhub:
+  hub:
+    db:
+      type: postgres
+      url: postgresql://postgres:localdevpassword@postgresql.ml-platform.svc.cluster.local:5432/jupyterhub
+    config:
+      JupyterHub:
+        authenticator_class: generic-oauth
+      GenericOAuthenticator:
+        client_id: ml-platform-jupyterhub
+        client_secret: ml-platform-jupyterhub-secret
+        authorize_url: http://keycloak.ml-platform.svc:8080/realms/ml-platform/protocol/openid-connect/auth
+        token_url: http://keycloak.ml-platform.svc:8080/realms/ml-platform/protocol/openid-connect/token
+        userdata_url: http://keycloak.ml-platform.svc:8080/realms/ml-platform/protocol/openid-connect/userinfo
+        login_service: Keycloak
+        username_claim: preferred_username
+        scope:
+          - openid
+          - profile
+          - email
+        allow_all: true
+    services:
+      platform-api:
+        api_token: platform-api-service-token
+    extraConfig:
+      00-security.py: |
+        c.JupyterHub.tornado_settings = {
+          "headers": {
+            "Content-Security-Policy": "frame-ancestors 'self' https://portal.ml-platform.local"
+          }
+        }
+
+  singleuser:
+    image:
+      name: ml-platform-notebook
+      tag: latest
+      pullPolicy: IfNotPresent
+    profileList:
+      - display_name: Exploratory
+        description: Interactive data exploration and small experiments
+        slug: exploratory
+        default: true
+        kubespawner_override:
+          cpu_guarantee: 1
+          cpu_limit: 2
+          mem_guarantee: 2G
+          mem_limit: 4G
+    storage:
+      type: dynamic
+      capacity: 10Gi
+      homeMountPath: /home/jovyan
+
+  cull:
+    enabled: true
+    timeout: 1800
+    every: 300
+    users: true
+    removeNamedServers: true

@@ -39,6 +39,30 @@ data:
           "standardFlowEnabled": true,
           "directAccessGrantsEnabled": false,
           "serviceAccountsEnabled": false
+        },
+        {
+          "clientId": "ml-platform-jupyterhub",
+          "name": "ML Platform JupyterHub",
+          "enabled": true,
+          "publicClient": false,
+          "secret": "ml-platform-jupyterhub-secret",
+          "protocol": "openid-connect",
+          "redirectUris": [
+            "http://localhost:8181/hub/oauth_callback",
+            "https://portal.ml-platform.local/hub/oauth_callback"
+          ],
+          "webOrigins": [
+            "http://localhost:8181",
+            "https://portal.ml-platform.local"
+          ],
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false,
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email"
+          ]
         }
       ],
       "users": [

@@ -1,0 +1,28 @@
+<section class="workspace-page">
+  <h2>Notebooks</h2>
+
+  <div class="launcher-card" *ngIf="status === 'STOPPED'">
+    <h3>{{ profile?.name || 'Exploratory' }}</h3>
+    <p>{{ profile?.description || 'Interactive data exploration and small experiments' }}</p>
+    <button type="button" (click)="launchWorkspace()">Launch Workspace</button>
+  </div>
+
+  <div class="pending-card" *ngIf="status === 'PENDING'">
+    <div class="spinner"></div>
+    <p>{{ statusMessage || 'Starting notebook server...' }}</p>
+  </div>
+
+  <div class="running-card" *ngIf="(status === 'RUNNING' || status === 'IDLE') && iframeUrl">
+    <div class="toolbar">
+      <span>{{ statusMessage }}</span>
+      <button type="button" (click)="terminateWorkspace()">Terminate Workspace</button>
+    </div>
+    <iframe [src]="iframeUrl" title="JupyterLab" allow="clipboard-read; clipboard-write"></iframe>
+  </div>
+
+  <div class="error-card" *ngIf="status === 'FAILED'">
+    <h3>Workspace Error</h3>
+    <p>{{ errorMessage || 'Unable to start notebook workspace.' }}</p>
+    <button type="button" (click)="retry()">Retry</button>
+  </div>
+</section>

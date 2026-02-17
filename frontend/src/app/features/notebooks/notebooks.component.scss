@@ -1,0 +1,65 @@
+.workspace-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.launcher-card,
+.pending-card,
+.error-card,
+.running-card {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.launcher-card button,
+.error-card button,
+.toolbar button {
+  background: #2563eb;
+  border: 0;
+  border-radius: 0.25rem;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 0.45rem 0.8rem;
+}
+
+.pending-card {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+  border: 3px solid #cbd5e1;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  height: 1.1rem;
+  width: 1.1rem;
+}
+
+.running-card iframe {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.35rem;
+  height: calc(100vh - 180px);
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+.toolbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.error-card {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
