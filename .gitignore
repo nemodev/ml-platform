@@ -1,0 +1,28 @@
+# macOS and editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.tmp
+
+# Java / Gradle
+backend/.gradle/
+backend/build/
+*.class
+*.jar
+*.log
+
+# Node / Angular
+frontend/node_modules/
+frontend/dist/
+coverage/
+
+# Env
+.env
+.env.*
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl

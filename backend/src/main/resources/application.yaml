@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: ml-platform-backend
+  datasource:
+    url: jdbc:postgresql://postgresql.ml-platform.svc:5432/ml_platform
+    username: postgres
+    password: localdevpassword
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://keycloak.ml-platform.svc:8080/realms/ml-platform
+          jwk-set-uri: http://keycloak.ml-platform.svc:8080/realms/ml-platform/protocol/openid-connect/certs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  cors:
+    allowed-origins: https://portal.ml-platform.local

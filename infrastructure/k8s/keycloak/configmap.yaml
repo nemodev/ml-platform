@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm-config
+  namespace: ml-platform
+data:
+  ml-platform-realm.json: |
+    {
+      "realm": "ml-platform",
+      "enabled": true,
+      "registrationAllowed": false,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "resetPasswordAllowed": true,
+      "clients": [
+        {
+          "clientId": "ml-platform-portal",
+          "name": "ML Platform Portal",
+          "enabled": true,
+          "publicClient": true,
+          "protocol": "openid-connect",
+          "redirectUris": [
+            "http://localhost:4200/*",
+            "http://localhost:8080/*"
+          ],
+          "webOrigins": [
+            "http://localhost:4200",
+            "http://localhost:8080"
+          ],
+          "attributes": {
+            "pkce.code.challenge.method": "S256",
+            "post.logout.redirect.uris": "http://localhost:4200/* http://localhost:8080/*"
+          },
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email"
+          ],
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false
+        }
+      ],
+      "users": [
+        {
+          "username": "scientist1",
+          "enabled": true,
+          "emailVerified": true,
+          "firstName": "Scientist",
+          "lastName": "One",
+          "email": "scientist1@ml-platform.local",
+          "credentials": [
+            {
+              "type": "password",
+              "value": "password1",
+              "temporary": false
+            }
+          ]
+        },
+        {
+          "username": "scientist2",
+          "enabled": true,
+          "emailVerified": true,
+          "firstName": "Scientist",
+          "lastName": "Two",
+          "email": "scientist2@ml-platform.local",
+          "credentials": [
+            {
+              "type": "password",
+              "value": "password2",
+              "temporary": false
+            }
+          ]
+        }
+      ]
+    }

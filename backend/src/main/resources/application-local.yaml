@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ml_platform
+    username: postgres
+    password: localdevpassword
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/ml-platform
+          jwk-set-uri: http://localhost:8180/realms/ml-platform/protocol/openid-connect/certs
+
+app:
+  cors:
+    allowed-origins: http://localhost:4200,http://localhost:8080

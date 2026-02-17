@@ -1,0 +1,178 @@
+openapi: 3.0.3
+info:
+  title: ML Platform API - Auth & Portal
+  description: >
+    REST API for feature 001-keycloak-auth-portal.
+    Covers authentication userinfo, health check, and portal
+    navigation endpoints.
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check (unauthenticated)
+      description: >
+        Returns backend health status. Does not require
+        authentication (FR-008).
+      operationId: getHealth
+      security: []
+      tags: [Health]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /auth/userinfo:
+    get:
+      summary: Get authenticated user profile
+      description: >
+        Returns the current user's profile extracted from the JWT
+        token. Creates or updates the user record in the backend
+        database on first call.
+      operationId: getUserInfo
+      tags: [Auth]
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+        '401':
+          description: Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      summary: Logout (backend session cleanup)
+      description: >
+        Signals the backend that the user is logging out. The
+        frontend handles the Keycloak OIDC logout redirect
+        separately. This endpoint is for any backend-side cleanup.
+      operationId: logout
+      tags: [Auth]
+      responses:
+        '204':
+          description: Logout acknowledged
+        '401':
+          description: Invalid or missing token
+
+  /portal/sections:
+    get:
+      summary: Get portal navigation sections
+      description: >
+        Returns the list of portal sections available to the
+        authenticated user. Used by the frontend to render
+        navigation.
+      operationId: getPortalSections
+      tags: [Portal]
+      responses:
+        '200':
+          description: List of portal sections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PortalSection'
+        '401':
+          description: Invalid or missing token
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Keycloak-issued JWT. Obtained via OIDC Authorization Code
+        Flow with PKCE.
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN]
+          example: UP
+        timestamp:
+          type: string
+          format: date-time
+
+    UserInfo:
+      type: object
+      required: [id, username]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Backend-generated user ID
+        oidcSubject:
+          type: string
+          description: Keycloak subject claim
+        username:
+          type: string
+          description: Preferred username from Keycloak
+          example: scientist1
+        displayName:
+          type: string
+          description: Full display name
+          example: Test Scientist 1
+        email:
+          type: string
+          format: email
+          example: scientist1@ml-platform.local
+
+    PortalSection:
+      type: object
+      required: [id, name, path, enabled]
+      properties:
+        id:
+          type: string
+          example: notebooks
+        name:
+          type: string
+          example: Notebooks
+        path:
+          type: string
+          description: Frontend route path
+          example: /notebooks
+        icon:
+          type: string
+          description: Icon identifier
+          example: terminal
+        enabled:
+          type: boolean
+          description: >
+            Whether the section is active. Placeholder sections
+            return enabled=true but load placeholder content.
+          example: true
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          example: Unauthorized
+        message:
+          type: string
+          example: Invalid or expired token
+        timestamp:
+          type: string
+          format: date-time

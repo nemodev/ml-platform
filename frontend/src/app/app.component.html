@@ -1,0 +1,30 @@
+<div class="portal-shell">
+  <header class="topbar">
+    <h1>ML Platform</h1>
+    <div class="user-controls">
+      <span>{{ username$ | async }}</span>
+      <button type="button" (click)="logout()">Sign Out</button>
+    </div>
+  </header>
+
+  <div class="error-banner" *ngIf="initError$ | async as authError">
+    {{ authError }}
+  </div>
+
+  <div class="layout">
+    <nav class="sidebar">
+      <a
+        *ngFor="let section of sections"
+        [routerLink]="section.path"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: section.path === '/dashboard' }"
+      >
+        {{ section.name }}
+      </a>
+    </nav>
+
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>
