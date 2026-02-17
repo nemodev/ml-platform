@@ -22,6 +22,8 @@ jupyterhub:
               - admin:servers
             services:
               - platform-api
+      Authenticator:
+        auto_login: true
       GenericOAuthenticator:
         client_id: ml-platform-jupyterhub
         client_secret: ml-platform-jupyterhub-secret
@@ -35,6 +37,9 @@ jupyterhub:
           - profile
           - email
         allow_all: true
+      KubeSpawner:
+        args:
+          - "--ServerApp.tornado_settings={\"headers\":{\"Content-Security-Policy\":\"frame-ancestors 'self' http://localhost:4200 http://localhost:8080\"}}"
     services:
       platform-api:
         api_token: platform-api-service-token
