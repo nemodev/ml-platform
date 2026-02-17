@@ -1,0 +1,41 @@
+# MinIO local development values
+# Chart: official MinIO Helm chart from https://charts.min.io/
+# Install: helm install minio minio/minio -n ml-platform -f local-values.yaml
+mode: standalone
+
+replicas: 1
+
+resources:
+  requests:
+    memory: 256Mi
+
+persistence:
+  enabled: true
+  size: 10Gi
+
+rootUser: minioadmin
+rootPassword: minioadmin
+
+buckets:
+  - name: ml-platform-mlflow
+    policy: none
+    purge: false
+  - name: ml-platform-sample-data
+    policy: none
+    purge: false
+
+users:
+  - accessKey: sample-data-readonly
+    secretKey: sample-data-readonly-secret
+    policy: sample-data-readonly-policy
+
+policies:
+  - name: sample-data-readonly-policy
+    statements:
+      - effect: Allow
+        actions:
+          - "s3:GetObject"
+          - "s3:ListBucket"
+        resources:
+          - "arn:aws:s3:::ml-platform-sample-data"
+          - "arn:aws:s3:::ml-platform-sample-data/*"

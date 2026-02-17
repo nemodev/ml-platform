@@ -46,8 +46,8 @@ configuration required to serve it.
 | `ml-platform-mlflow` | MLflow artifacts (feature 003) | MinIO Helm |
 | `ml-platform-sample-data` | Sample Delta tables (this feature) | MinIO Helm |
 
-Both buckets are created by the MinIO Bitnami Helm chart via the
-`defaultBuckets` parameter.
+Both buckets are created by the official MinIO Helm chart (`charts.min.io`)
+via the `buckets` list in values.yaml.
 
 ### Access Control
 

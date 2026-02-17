@@ -18,6 +18,13 @@ frontend/dist/
 frontend/.angular/
 coverage/
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
 # Env
 .env
 .env.*

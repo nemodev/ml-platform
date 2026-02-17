@@ -15,11 +15,9 @@
 Upgrade the MinIO deployment to include the new bucket:
 
 ```bash
-helm upgrade minio oci://registry-1.docker.io/bitnamicharts/minio \
+helm upgrade minio minio/minio \
   --namespace ml-platform \
-  --set auth.rootUser=minioadmin \
-  --set auth.rootPassword=minioadmin \
-  --set defaultBuckets="ml-platform-mlflow\,ml-platform-sample-data"
+  -f infrastructure/helm/minio/local-values.yaml
 ```
 
 Wait for MinIO to be ready:

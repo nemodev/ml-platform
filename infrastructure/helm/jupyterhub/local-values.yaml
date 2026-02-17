@@ -18,3 +18,10 @@ jupyterhub:
             "Content-Security-Policy": "frame-ancestors 'self' http://localhost:4200 http://localhost:8080"
           }
         }
+
+  singleuser:
+    extraEnv:
+      AWS_ENDPOINT_URL: "http://minio.ml-platform.svc:9000"
+      AWS_ACCESS_KEY_ID: "sample-data-readonly"
+      AWS_SECRET_ACCESS_KEY: "sample-data-readonly-secret"
+      AWS_ALLOW_HTTP: "true"
