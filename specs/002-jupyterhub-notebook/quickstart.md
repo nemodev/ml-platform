@@ -87,7 +87,7 @@ Verify workspace endpoint:
 # Get a token first (requires jq)
 TOKEN=$(curl -s -X POST \
   "http://localhost:8180/realms/ml-platform/protocol/openid-connect/token" \
-  -d "client_id=ml-platform-portal" \
+  -d "client_id=ml-platform-cli" \
   -d "username=scientist1" \
   -d "password=password1" \
   -d "grant_type=password" \

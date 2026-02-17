@@ -64,7 +64,7 @@ Verify model endpoints:
 ```bash
 TOKEN=$(curl -s -X POST \
   "http://localhost:8180/realms/ml-platform/protocol/openid-connect/token" \
-  -d "client_id=ml-platform-portal" \
+  -d "client_id=ml-platform-cli" \
   -d "username=scientist1" \
   -d "password=password1" \
   -d "grant_type=password" \
@@ -98,9 +98,14 @@ ng serve
 ```python
 import mlflow
 import mlflow.sklearn
+import os
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import train_test_split
+
+# Use direct in-cluster MLflow from notebooks for local dev.
+mlflow.set_tracking_uri("http://mlflow.ml-platform.svc:5000")
+username = os.getenv("JUPYTERHUB_USER", "scientist1")
 
 # Load data
 data = fetch_california_housing()
@@ -109,7 +114,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # Train and log model
-mlflow.set_experiment("housing-model")
+mlflow.set_experiment(f"{username}/housing-model")
 with mlflow.start_run() as run:
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
@@ -118,7 +123,7 @@ with mlflow.start_run() as run:
 
 # Register model in Model Registry
 model_uri = f"runs:/{run.info.run_id}/model"
-mv = mlflow.register_model(model_uri, "housing-regressor")
+mv = mlflow.register_model(model_uri, f"{username}/housing-regressor")
 print(f"Registered model: {mv.name}, version: {mv.version}")
 ```
 
@@ -202,7 +207,7 @@ import requests
 import json
 
 # Call inference endpoint (in-cluster URL)
-endpoint_url = "http://scientist1-housing-regressor-v1.ml-platform-serving.svc.cluster.local/v2/models/scientist1-housing-regressor-v1/infer"
+endpoint_url = "http://scientist1-housing-regressor-v1-predictor.ml-platform-serving.svc.cluster.local/v2/models/scientist1-housing-regressor-v1/infer"
 
 payload = {
     "inputs": [{

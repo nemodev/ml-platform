@@ -43,6 +43,12 @@ services:
     url: http://airflow-webserver.ml-platform.svc:8080
     username: admin
     password: admin
+  kserve:
+    namespace: ml-platform-serving
+    service-account-name: kserve-s3-sa
+    model-format-name: mlflow
+    runtime-name: kserve-mlserver
+    mock-enabled: false
   minio:
     endpoint: http://minio.ml-platform.svc:9000
     access-key: minioadmin

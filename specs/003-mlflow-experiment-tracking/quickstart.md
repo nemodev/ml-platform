@@ -97,7 +97,7 @@ Verify experiment endpoints:
 ```bash
 TOKEN=$(curl -s -X POST \
   "http://localhost:8180/realms/ml-platform/protocol/openid-connect/token" \
-  -d "client_id=ml-platform-portal" \
+  -d "client_id=ml-platform-cli" \
   -d "username=scientist1" \
   -d "password=password1" \
   -d "grant_type=password" \
@@ -132,17 +132,22 @@ ng serve
    ```python
    import mlflow
    import mlflow.sklearn
+   import os
    from sklearn.ensemble import RandomForestClassifier
    from sklearn.datasets import load_iris
    from sklearn.model_selection import train_test_split
    from sklearn.metrics import accuracy_score
+
+   # In local dev notebook kernels, set tracking URI explicitly.
+   mlflow.set_tracking_uri("http://mlflow.ml-platform.svc:5000")
+   username = os.getenv("JUPYTERHUB_USER", "scientist1")
 
    # Load data
    X, y = load_iris(return_X_y=True)
    X_train, X_test, y_train, y_test = train_test_split(X, y)
 
    # Start MLflow run
-   mlflow.set_experiment("iris-classification")
+   mlflow.set_experiment(f"{username}/iris-classification")
    with mlflow.start_run():
        model = RandomForestClassifier(n_estimators=100)
        model.fit(X_train, y_train)

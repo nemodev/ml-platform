@@ -3,6 +3,7 @@ package com.mlplatform.config;
 import com.mlplatform.dto.ErrorResponse;
 import com.mlplatform.service.AirflowUnavailableException;
 import com.mlplatform.service.JupyterHubUnavailableException;
+import com.mlplatform.service.KServeUnavailableException;
 import com.mlplatform.service.MlflowUnavailableException;
 import com.mlplatform.service.NotebookStorageUnavailableException;
 import java.time.Instant;
@@ -49,6 +50,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NotebookStorageUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleNotebookStorageUnavailable(NotebookStorageUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse("ServiceUnavailable", ex.getMessage(), Instant.now()));
+    }
+
+    @ExceptionHandler(KServeUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleKServeUnavailable(KServeUnavailableException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new ErrorResponse("ServiceUnavailable", ex.getMessage(), Instant.now()));
     }

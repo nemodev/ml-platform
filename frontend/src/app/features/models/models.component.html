@@ -1,0 +1,60 @@
+<section class="models-page">
+  <header class="page-header">
+    <div>
+      <h2>Models</h2>
+      <p>Deploy MLflow registered models to KServe and test inference.</p>
+    </div>
+
+    <button type="button" class="ghost" (click)="refreshModels()" [disabled]="loadingModels">
+      {{ loadingModels ? 'Refreshing...' : 'Refresh Models' }}
+    </button>
+  </header>
+
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <section class="card">
+    <header class="card-header">
+      <h3>Registered Models</h3>
+      <span>{{ models.length }} total</span>
+    </header>
+
+    <div class="loading" *ngIf="loadingModels">Loading registered models...</div>
+
+    <table *ngIf="!loadingModels && models.length > 0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Latest Version</th>
+          <th>Updated</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let model of models">
+          <td>
+            <div class="name">{{ model.name }}</div>
+            <div class="description" *ngIf="model.description">{{ model.description }}</div>
+          </td>
+          <td>{{ model.latestVersion ?? 'n/a' }}</td>
+          <td>{{ model.lastUpdatedAt ? (model.lastUpdatedAt | date: 'short') : 'n/a' }}</td>
+          <td class="actions">
+            <button type="button" (click)="openDeployDialog(model.name)">Deploy</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="empty" *ngIf="!loadingModels && models.length === 0">
+      No models found. Register a model from Notebooks first.
+    </p>
+  </section>
+
+  <app-deployments></app-deployments>
+</section>
+
+<app-deploy-dialog
+  *ngIf="dialogModelName"
+  [modelName]="dialogModelName"
+  (close)="closeDeployDialog()"
+  (deployed)="onDeployed($event)"
+></app-deploy-dialog>

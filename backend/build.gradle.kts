@@ -29,6 +29,8 @@ dependencies {
     implementation("org.postgresql:postgresql")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8")
     implementation("io.minio:minio:8.5.17")
+    implementation("io.kubernetes:client-java:21.0.1")
+    implementation("io.kubernetes:client-java-extended:21.0.1")
 
     runtimeOnly("com.h2database:h2")
 

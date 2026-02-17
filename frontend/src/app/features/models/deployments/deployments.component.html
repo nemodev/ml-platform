@@ -1,0 +1,65 @@
+<section class="card">
+  <header class="card-header">
+    <h3>Deployments</h3>
+    <button type="button" class="ghost" (click)="refreshDeployments()" [disabled]="loadingDeployments">
+      {{ loadingDeployments ? 'Refreshing...' : 'Refresh' }}
+    </button>
+  </header>
+
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <div class="loading" *ngIf="loadingDeployments">Loading deployments...</div>
+
+  <table *ngIf="!loadingDeployments && deployments.length > 0">
+    <thead>
+      <tr>
+        <th>Endpoint</th>
+        <th>Model</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th>Ready</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let deployment of deployments">
+        <td>{{ deployment.endpointName }}</td>
+        <td>{{ deployment.modelName }} v{{ deployment.modelVersion }}</td>
+        <td>
+          <span class="status-badge" [class]="statusClass(deployment.status)">
+            {{ deployment.status }}
+          </span>
+        </td>
+        <td>{{ deployment.createdAt | date: 'short' }}</td>
+        <td>{{ deployment.readyAt ? (deployment.readyAt | date: 'short') : 'n/a' }}</td>
+        <td class="actions">
+          <button
+            type="button"
+            class="ghost"
+            (click)="openPredictDialog(deployment)"
+            [disabled]="deployment.status !== 'READY'"
+          >
+            Predict
+          </button>
+          <button
+            type="button"
+            class="danger"
+            (click)="deleteDeployment(deployment)"
+            [disabled]="deployment.status === 'DELETING'"
+          >
+            Delete
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="empty" *ngIf="!loadingDeployments && deployments.length === 0">
+    No deployments yet.
+  </p>
+</section>
+
+<app-predict-dialog
+  *ngIf="selectedForPredict"
+  [deployment]="selectedForPredict"
+  (close)="closePredictDialog()"
+></app-predict-dialog>

@@ -25,6 +25,14 @@ services:
     url: http://localhost:8280
     username: admin
     password: admin
+  kserve:
+    namespace: ml-platform-serving
+    service-account-name: kserve-s3-sa
+    model-format-name: sklearn
+    runtime-name: kserve-sklearnserver
+    kubeconfig-path: ${KUBECONFIG_PATH:${user.home}/.kube/config}
+    kube-context: ${KUBECONFIG_CONTEXT:local}
+    mock-enabled: false
   minio:
     endpoint: http://127.0.0.1:9000
     access-key: minioadmin

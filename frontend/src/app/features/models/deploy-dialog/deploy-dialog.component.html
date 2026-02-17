@@ -1,0 +1,30 @@
+<div class="dialog-backdrop" (click)="cancel()"></div>
+<section class="dialog-card" (click)="$event.stopPropagation()">
+  <header>
+    <h3>Deploy Model</h3>
+    <button type="button" class="ghost" (click)="cancel()">Close</button>
+  </header>
+
+  <p class="model-name">{{ modelName }}</p>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <div class="loading" *ngIf="loadingVersions">Loading model versions...</div>
+
+  <div class="form-grid" *ngIf="!loadingVersions">
+    <label>
+      <span>Model Version</span>
+      <select [(ngModel)]="selectedVersion">
+        <option *ngFor="let version of versions" [ngValue]="version.version">
+          v{{ version.version }} · {{ version.stage || 'None' }} · {{ version.status }}
+        </option>
+      </select>
+    </label>
+  </div>
+
+  <footer>
+    <button type="button" class="ghost" (click)="cancel()">Cancel</button>
+    <button type="button" (click)="deploy()" [disabled]="submitting || loadingVersions || versions.length === 0">
+      {{ submitting ? 'Deploying...' : 'Deploy' }}
+    </button>
+  </footer>
+</section>

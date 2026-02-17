@@ -130,7 +130,7 @@ In raw mode, KServe creates a ClusterIP Service:
 `http://{endpoint-name}.ml-platform-serving.svc.cluster.local`
 
 V2 inference endpoint:
-`http://{endpoint-name}.ml-platform-serving.svc.cluster.local/v2/models/{endpoint-name}/infer`
+`http://{endpoint-name}-predictor.ml-platform-serving.svc.cluster.local/v2/models/{endpoint-name}/infer`
 
 ## Kubernetes Resources
 

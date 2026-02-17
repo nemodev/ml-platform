@@ -1,4 +1,10 @@
 jupyterhub:
+  prePuller:
+    hook:
+      enabled: false
+    continuous:
+      enabled: false
+
   hub:
     db:
       type: postgres
@@ -11,7 +17,7 @@ jupyterhub:
         admin: true
     config:
       GenericOAuthenticator:
-        authorize_url: http://keycloak.ml-platform.svc:8080/realms/ml-platform/protocol/openid-connect/auth
+        authorize_url: http://localhost:8180/realms/ml-platform/protocol/openid-connect/auth
         token_url: http://keycloak.ml-platform.svc:8080/realms/ml-platform/protocol/openid-connect/token
         userdata_url: http://keycloak.ml-platform.svc:8080/realms/ml-platform/protocol/openid-connect/userinfo
         oauth_callback_url: http://localhost:8181/hub/oauth_callback

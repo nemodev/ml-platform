@@ -41,6 +41,21 @@ data:
           "serviceAccountsEnabled": false
         },
         {
+          "clientId": "ml-platform-cli",
+          "name": "ML Platform CLI",
+          "enabled": true,
+          "publicClient": true,
+          "protocol": "openid-connect",
+          "standardFlowEnabled": false,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": false,
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email"
+          ]
+        },
+        {
           "clientId": "ml-platform-jupyterhub",
           "name": "ML Platform JupyterHub",
           "enabled": true,

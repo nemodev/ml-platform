@@ -15,11 +15,11 @@
 
 **Purpose**: KServe installation, serving namespace, and shared infrastructure
 
-- [ ] T001 Install KServe CRDs and controller in raw deployment mode — apply upstream kserve.yaml and kserve-cluster-resources.yaml, patch inferenceservice-config for RawDeployment default
-- [ ] T002 [P] Create serving namespace manifest at infrastructure/k8s/kserve/serving-namespace.yaml — namespace `ml-platform-serving`
-- [ ] T003 [P] Create KServe S3 Secret for MinIO access at infrastructure/k8s/kserve/s3-secret.yaml — annotated with serving.kserve.io/s3-endpoint and s3-usehttps=0, contains MinIO credentials
-- [ ] T004 [P] Create ServiceAccount `kserve-s3-sa` at infrastructure/k8s/kserve/service-account.yaml — references the S3 Secret for model artifact download
-- [ ] T005 Apply namespace, Secret, and ServiceAccount: `kubectl apply -f infrastructure/k8s/kserve/`
+- [X] T001 Install KServe CRDs and controller in raw deployment mode — apply upstream kserve.yaml and kserve-cluster-resources.yaml, patch inferenceservice-config for RawDeployment default
+- [X] T002 [P] Create serving namespace manifest at infrastructure/k8s/kserve/serving-namespace.yaml — namespace `ml-platform-serving`
+- [X] T003 [P] Create KServe S3 Secret for MinIO access at infrastructure/k8s/kserve/s3-secret.yaml — annotated with serving.kserve.io/s3-endpoint and s3-usehttps=0, contains MinIO credentials
+- [X] T004 [P] Create ServiceAccount `kserve-s3-sa` at infrastructure/k8s/kserve/service-account.yaml — references the S3 Secret for model artifact download
+- [X] T005 Apply namespace, Secret, and ServiceAccount: `kubectl apply -f infrastructure/k8s/kserve/`
 
 ---
 
@@ -29,16 +29,16 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Create Flyway migration V006__create_model_deployments.sql with model_deployments table (id, user_id FK, model_name, model_version, endpoint_name UNIQUE, status, inference_url, storage_uri, error_message, created_at, ready_at, deleted_at) and indexes in backend/src/main/resources/db/migration/V006__create_model_deployments.sql
-- [ ] T007 [P] Create ModelDeployment JPA entity with status enum (DEPLOYING, READY, FAILED, DELETING, DELETED), endpoint_name unique constraint, relationships to User in backend/src/main/java/com/mlplatform/model/ModelDeployment.java
-- [ ] T008 [P] Create ModelDeploymentRepository (Spring Data JPA) with findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc, findByEndpointName methods in backend/src/main/java/com/mlplatform/repository/ModelDeploymentRepository.java
-- [ ] T009 [P] Create KServeConfig configuration class with serving namespace, K8s API client bean in backend/src/main/java/com/mlplatform/config/KServeConfig.java
-- [ ] T010 [P] Create DTO classes: RegisteredModelInfoDto, ModelVersionInfoDto, DeployModelRequest, DeploymentInfoDto, DeploymentDetailDto, PredictionRequestDto, PredictionResponseDto in backend/src/main/java/com/mlplatform/dto/
-- [ ] T011 Create ModelRegistryService — MLflow Model Registry REST API client: listRegisteredModels (filtered by user prefix), getModelVersions, getModelVersionDetail (resolves artifact URI) in backend/src/main/java/com/mlplatform/service/ModelRegistryService.java
-- [ ] T012 Create KServeService — Kubernetes Java client for InferenceService CRDs: createInferenceService (builds CRD with mlflow modelFormat, storageUri, raw deployment annotation, ServiceAccount), getInferenceServiceStatus, deleteInferenceService in backend/src/main/java/com/mlplatform/service/KServeService.java
-- [ ] T013 [P] Add kserve config section (serving namespace) and kubernetes client config to backend/src/main/resources/application.yaml, application-local.yaml, and application-dev.yaml
-- [ ] T014 [P] Create model.service.ts Angular HTTP client with methods: listRegisteredModels(), getModelVersions(modelName) in frontend/src/app/core/services/model.service.ts
-- [ ] T015 [P] Create serving.service.ts Angular HTTP client with methods: deployModel(), listDeployments(), getDeployment(), deleteDeployment(), predict() in frontend/src/app/core/services/serving.service.ts
+- [X] T006 Create Flyway migration V006__create_model_deployments.sql with model_deployments table (id, user_id FK, model_name, model_version, endpoint_name UNIQUE, status, inference_url, storage_uri, error_message, created_at, ready_at, deleted_at) and indexes in backend/src/main/resources/db/migration/V006__create_model_deployments.sql
+- [X] T007 [P] Create ModelDeployment JPA entity with status enum (DEPLOYING, READY, FAILED, DELETING, DELETED), endpoint_name unique constraint, relationships to User in backend/src/main/java/com/mlplatform/model/ModelDeployment.java
+- [X] T008 [P] Create ModelDeploymentRepository (Spring Data JPA) with findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc, findByEndpointName methods in backend/src/main/java/com/mlplatform/repository/ModelDeploymentRepository.java
+- [X] T009 [P] Create KServeConfig configuration class with serving namespace, K8s API client bean in backend/src/main/java/com/mlplatform/config/KServeConfig.java
+- [X] T010 [P] Create DTO classes: RegisteredModelInfoDto, ModelVersionInfoDto, DeployModelRequest, DeploymentInfoDto, DeploymentDetailDto, PredictionRequestDto, PredictionResponseDto in backend/src/main/java/com/mlplatform/dto/
+- [X] T011 Create ModelRegistryService — MLflow Model Registry REST API client: listRegisteredModels (filtered by user prefix), getModelVersions, getModelVersionDetail (resolves artifact URI) in backend/src/main/java/com/mlplatform/service/ModelRegistryService.java
+- [X] T012 Create KServeService — Kubernetes Java client for InferenceService CRDs: createInferenceService (builds CRD with mlflow modelFormat, storageUri, raw deployment annotation, ServiceAccount), getInferenceServiceStatus, deleteInferenceService in backend/src/main/java/com/mlplatform/service/KServeService.java
+- [X] T013 [P] Add kserve config section (serving namespace) and kubernetes client config to backend/src/main/resources/application.yaml, application-local.yaml, and application-dev.yaml
+- [X] T014 [P] Create model.service.ts Angular HTTP client with methods: listRegisteredModels(), getModelVersions(modelName) in frontend/src/app/core/services/model.service.ts
+- [X] T015 [P] Create serving.service.ts Angular HTTP client with methods: deployModel(), listDeployments(), getDeployment(), deleteDeployment(), predict() in frontend/src/app/core/services/serving.service.ts
 
 **Checkpoint**: Foundation ready — database schema, JPA entity, MLflow registry client, KServe client, and Angular services all in place
 
@@ -52,16 +52,16 @@
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Create ServingService with deployModel() method — validates model exists in MLflow registry, resolves artifact URI, creates ModelDeployment record (DEPLOYING), calls KServeService.createInferenceService() with endpoint name `{username}-{model}-v{version}` in backend/src/main/java/com/mlplatform/service/ServingService.java
-- [ ] T017 [US1] Add getDeployment() method to ServingService — fetches from DB, if DEPLOYING polls KServeService.getInferenceServiceStatus() and updates status/inferenceUrl/errorMessage accordingly in backend/src/main/java/com/mlplatform/service/ServingService.java
-- [ ] T018 [US1] Add listDeployments() and deleteDeployment() methods to ServingService — list filtered by user (excluding soft-deleted), delete calls KServeService.deleteInferenceService() and sets status to DELETING/DELETED in backend/src/main/java/com/mlplatform/service/ServingService.java
-- [ ] T019 [US1] Create ModelController with endpoints: GET /models (list registered models), GET /models/{modelName}/versions (list versions) — secured with @AuthenticationPrincipal Jwt, user prefix filtering in backend/src/main/java/com/mlplatform/controller/ModelController.java
-- [ ] T020 [US1] Create ServingController with endpoints: POST /serving/deployments (deploy), GET /serving/deployments (list), GET /serving/deployments/{id} (detail), DELETE /serving/deployments/{id} (delete) — secured with @AuthenticationPrincipal Jwt in backend/src/main/java/com/mlplatform/controller/ServingController.java
-- [ ] T021 [P] [US1] Create models.component — lists registered models from MLflow registry with latest version, "Deploy" button per model in frontend/src/app/features/models/models.component.ts|html|scss
-- [ ] T022 [P] [US1] Create deploy-dialog.component — select model version from dropdown, confirm deploy button in frontend/src/app/features/models/deploy-dialog/deploy-dialog.component.ts|html|scss
-- [ ] T023 [P] [US1] Create deployments.component — lists active deployments with status badges (DEPLOYING/READY/FAILED), endpoint name, model info, delete button, auto-refresh for DEPLOYING status in frontend/src/app/features/models/deployments/deployments.component.ts|html|scss
-- [ ] T024 [US1] Wire models and deployments routes in Angular router, add "Models" navigation item to portal sidebar
-- [ ] T025 [US1] Verify US1 end-to-end: register a scikit-learn model in notebook (`mlflow.register_model()`), navigate to Models UI, deploy version 1, watch status DEPLOYING → READY, verify `kubectl get inferenceservices -n ml-platform-serving` shows READY, verify health check at `/v2/models/{name}/ready`
+- [X] T016 [US1] Create ServingService with deployModel() method — validates model exists in MLflow registry, resolves artifact URI, creates ModelDeployment record (DEPLOYING), calls KServeService.createInferenceService() with endpoint name `{username}-{model}-v{version}` in backend/src/main/java/com/mlplatform/service/ServingService.java
+- [X] T017 [US1] Add getDeployment() method to ServingService — fetches from DB, if DEPLOYING polls KServeService.getInferenceServiceStatus() and updates status/inferenceUrl/errorMessage accordingly in backend/src/main/java/com/mlplatform/service/ServingService.java
+- [X] T018 [US1] Add listDeployments() and deleteDeployment() methods to ServingService — list filtered by user (excluding soft-deleted), delete calls KServeService.deleteInferenceService() and sets status to DELETING/DELETED in backend/src/main/java/com/mlplatform/service/ServingService.java
+- [X] T019 [US1] Create ModelController with endpoints: GET /models (list registered models), GET /models/{modelName}/versions (list versions) — secured with @AuthenticationPrincipal Jwt, user prefix filtering in backend/src/main/java/com/mlplatform/controller/ModelController.java
+- [X] T020 [US1] Create ServingController with endpoints: POST /serving/deployments (deploy), GET /serving/deployments (list), GET /serving/deployments/{id} (detail), DELETE /serving/deployments/{id} (delete) — secured with @AuthenticationPrincipal Jwt in backend/src/main/java/com/mlplatform/controller/ServingController.java
+- [X] T021 [P] [US1] Create models.component — lists registered models from MLflow registry with latest version, "Deploy" button per model in frontend/src/app/features/models/models.component.ts|html|scss
+- [X] T022 [P] [US1] Create deploy-dialog.component — select model version from dropdown, confirm deploy button in frontend/src/app/features/models/deploy-dialog/deploy-dialog.component.ts|html|scss
+- [X] T023 [P] [US1] Create deployments.component — lists active deployments with status badges (DEPLOYING/READY/FAILED), endpoint name, model info, delete button, auto-refresh for DEPLOYING status in frontend/src/app/features/models/deployments/deployments.component.ts|html|scss
+- [X] T024 [US1] Wire models and deployments routes in Angular router, add "Models" navigation item to portal sidebar
+- [X] T025 [US1] Verify US1 end-to-end: register a scikit-learn model in notebook (`mlflow.register_model()`), navigate to Models UI, deploy version 1, watch status DEPLOYING → READY, verify `kubectl get inferenceservices -n ml-platform-serving` shows READY, verify health check at `/v2/models/{name}/ready`
 
 **Checkpoint**: User Story 1 complete — model deployment lifecycle from registry to live endpoint working
 
@@ -75,12 +75,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Add predict() method to ServingService — validates deployment is READY, forwards request to KServe endpoint using V2 inference protocol (`POST /v2/models/{name}/infer`), returns PredictionResponse in backend/src/main/java/com/mlplatform/service/ServingService.java
-- [ ] T027 [US2] Add predict endpoint to ServingController: POST /serving/deployments/{id}/predict — proxies inference request through backend, handles V2 request/response mapping in backend/src/main/java/com/mlplatform/controller/ServingController.java
-- [ ] T028 [P] [US2] Create predict-dialog.component — JSON input editor for V2 inference request, submit button, displays prediction response, shows errors for malformed input in frontend/src/app/features/models/predict-dialog/predict-dialog.component.ts|html|scss
-- [ ] T029 [US2] Verify inference via portal: open predict dialog for a READY deployment, enter California Housing features as V2 input, submit, confirm numeric prediction response
-- [ ] T030 [US2] Verify inference from pipeline DAG: create notebook that calls inference endpoint via in-cluster URL (`http://{name}.ml-platform-serving.svc.cluster.local/v2/models/{name}/infer`), trigger as pipeline job (feature 005), confirm output notebook shows predictions
-- [ ] T031 [US2] Verify error handling: send malformed input (wrong shape/datatype), confirm 400 error with clear message
+- [X] T026 [US2] Add predict() method to ServingService — validates deployment is READY, forwards request to KServe endpoint using V2 inference protocol (`POST /v2/models/{name}/infer`), returns PredictionResponse in backend/src/main/java/com/mlplatform/service/ServingService.java
+- [X] T027 [US2] Add predict endpoint to ServingController: POST /serving/deployments/{id}/predict — proxies inference request through backend, handles V2 request/response mapping in backend/src/main/java/com/mlplatform/controller/ServingController.java
+- [X] T028 [P] [US2] Create predict-dialog.component — JSON input editor for V2 inference request, submit button, displays prediction response, shows errors for malformed input in frontend/src/app/features/models/predict-dialog/predict-dialog.component.ts|html|scss
+- [X] T029 [US2] Verify inference via portal: open predict dialog for a READY deployment, enter California Housing features as V2 input, submit, confirm numeric prediction response
+- [X] T030 [US2] Verify inference from pipeline DAG: create notebook that calls inference endpoint via in-cluster URL (`http://{name}-predictor.ml-platform-serving.svc.cluster.local/v2/models/{name}/infer`), trigger as pipeline job (feature 005), confirm output notebook shows predictions
+- [X] T031 [US2] Verify error handling: send malformed input (wrong shape/datatype), confirm 400 error with clear message
 
 **Checkpoint**: User Story 2 complete — inference requests work from portal and pipeline DAGs
 
@@ -94,9 +94,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Verify backend proxy auth — send prediction request to POST /serving/deployments/{id}/predict without Authorization header, confirm 401 response
-- [ ] T033 [US3] Verify pipeline service-to-service access — pipeline DAG notebook calls KServe ClusterIP URL directly within cluster, confirm no auth needed (KServe raw mode has no auth on ClusterIP)
-- [ ] T034 [US3] Verify user isolation — scientist1 cannot access scientist2's deployments or send inference to scientist2's endpoints via the backend proxy
+- [X] T032 [US3] Verify backend proxy auth — send prediction request to POST /serving/deployments/{id}/predict without Authorization header, confirm 401 response
+- [X] T033 [US3] Verify pipeline service-to-service access — pipeline DAG notebook calls KServe ClusterIP URL directly within cluster, confirm no auth needed (KServe raw mode has no auth on ClusterIP)
+- [X] T034 [US3] Verify user isolation — scientist1 cannot access scientist2's deployments or send inference to scientist2's endpoints via the backend proxy
 
 **Checkpoint**: User Story 3 complete — auth enforced on backend proxy, in-cluster access works for pipelines
 
@@ -106,12 +106,12 @@
 
 **Purpose**: Error handling, edge cases, and full validation
 
-- [ ] T035 Verify deployment failure handling — attempt to deploy an invalid model format, confirm FAILED status with clear error message
-- [ ] T036 Verify deployment deletion — delete a READY deployment, confirm InferenceService removed from K8s, status set to DELETED, record preserved in DB
-- [ ] T037 Verify model registry persistence — model registered in MLflow remains visible after MLflow pod restart
-- [ ] T038 Add dev profile mock responses for KServeService and ModelRegistryService — return mock models/versions/deployments/predictions for backend development without KServe in backend/src/main/resources/application-dev.yaml
-- [ ] T039 Run full quickstart.md validation (all 12 steps)
-- [ ] T040 Verify inference response time < 2 seconds (SC-002) and endpoint availability over 1 hour (SC-005)
+- [X] T035 Verify deployment failure handling — attempt to deploy an invalid model format, confirm FAILED status with clear error message
+- [X] T036 Verify deployment deletion — delete a READY deployment, confirm InferenceService removed from K8s, status set to DELETED, record preserved in DB
+- [X] T037 Verify model registry persistence — model registered in MLflow remains visible after MLflow pod restart
+- [X] T038 Add dev profile mock responses for KServeService and ModelRegistryService — return mock models/versions/deployments/predictions for backend development without KServe in backend/src/main/resources/application-dev.yaml
+- [X] T039 Run full quickstart.md validation (all 12 steps)
+- [X] T040 Verify inference response time < 2 seconds (SC-002) and endpoint availability over 1 hour (SC-005)
 
 ---
 

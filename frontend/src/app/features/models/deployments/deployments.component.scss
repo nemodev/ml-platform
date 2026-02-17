@@ -1,0 +1,109 @@
+.card {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.card-header {
+  align-items: center;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+}
+
+.card-header h3 {
+  margin: 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+}
+
+th {
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.85rem;
+}
+
+.status-badge {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.78rem;
+  padding: 0.18rem 0.5rem;
+}
+
+.status-badge.deploying,
+.status-badge.deleting {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.status-badge.ready {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+button {
+  background: #2563eb;
+  border: 0;
+  border-radius: 0.35rem;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 0.35rem 0.65rem;
+}
+
+button.ghost {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+button.danger {
+  background: #dc2626;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.loading,
+.empty {
+  color: #64748b;
+  padding: 0.85rem;
+}
+
+.error {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 0.4rem;
+  color: #9f1239;
+  margin: 0.7rem;
+  padding: 0.55rem 0.65rem;
+}
+
+@media (max-width: 1024px) {
+  .actions {
+    flex-direction: column;
+  }
+}

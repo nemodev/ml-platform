@@ -32,6 +32,7 @@ export class AppComponent implements OnInit {
     { id: 'dashboard', name: 'Dashboard', path: '/dashboard', enabled: true },
     { id: 'notebooks', name: 'Notebooks', path: '/notebooks', enabled: true },
     { id: 'experiments', name: 'Experiments', path: '/experiments', enabled: true },
+    { id: 'models', name: 'Models', path: '/models', enabled: true },
     { id: 'pipelines', name: 'Pipelines', path: '/pipelines', enabled: true }
   ];
 

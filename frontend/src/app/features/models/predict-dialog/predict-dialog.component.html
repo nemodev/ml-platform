@@ -1,0 +1,27 @@
+<div class="dialog-backdrop" (click)="cancel()"></div>
+<section class="dialog-card" (click)="$event.stopPropagation()">
+  <header>
+    <h3>Test Prediction</h3>
+    <button type="button" class="ghost" (click)="cancel()">Close</button>
+  </header>
+
+  <p class="endpoint">Endpoint: {{ deployment.endpointName }}</p>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <label class="request-input">
+    <span>V2 Inference Request JSON</span>
+    <textarea [(ngModel)]="requestJson" rows="12"></textarea>
+  </label>
+
+  <footer>
+    <button type="button" class="ghost" (click)="cancel()">Cancel</button>
+    <button type="button" (click)="predict()" [disabled]="submitting">
+      {{ submitting ? 'Predicting...' : 'Predict' }}
+    </button>
+  </footer>
+
+  <section class="response" *ngIf="responseJson">
+    <h4>Response</h4>
+    <pre>{{ responseJson }}</pre>
+  </section>
+</section>

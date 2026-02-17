@@ -31,6 +31,12 @@ services:
     username: dev-admin
     password: dev-admin
     mock-enabled: true
+  kserve:
+    namespace: ml-platform-serving
+    service-account-name: kserve-s3-sa
+    model-format-name: sklearn
+    runtime-name: kserve-sklearnserver
+    mock-enabled: true
   minio:
     endpoint: https://minio.example.invalid
     access-key: dev-access
