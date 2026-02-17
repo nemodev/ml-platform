@@ -1,12 +1,46 @@
+# MinIO local development values.
+# Compatible with the official MinIO chart and keeps legacy fields for prior workflows.
 mode: standalone
 replicas: 1
 
-auth:
-  rootUser: minioadmin
-  rootPassword: minioadmin
-
-defaultBuckets: ml-platform-mlflow
+resources:
+  requests:
+    memory: 256Mi
 
 persistence:
   enabled: true
   size: 10Gi
+
+# Legacy Bitnami-style keys (retained for compatibility)
+auth:
+  rootUser: minioadmin
+  rootPassword: minioadmin
+defaultBuckets: ml-platform-mlflow,ml-platform-sample-data
+
+# Official MinIO chart keys
+rootUser: minioadmin
+rootPassword: minioadmin
+
+buckets:
+  - name: ml-platform-mlflow
+    policy: none
+    purge: false
+  - name: ml-platform-sample-data
+    policy: none
+    purge: false
+
+users:
+  - accessKey: sample-data-readonly
+    secretKey: sample-data-readonly-secret
+    policy: sample-data-readonly-policy
+
+policies:
+  - name: sample-data-readonly-policy
+    statements:
+      - effect: Allow
+        actions:
+          - "s3:GetObject"
+          - "s3:ListBucket"
+        resources:
+          - "arn:aws:s3:::ml-platform-sample-data"
+          - "arn:aws:s3:::ml-platform-sample-data/*"

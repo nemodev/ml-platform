@@ -15,9 +15,9 @@
 
 **Purpose**: Project structure and shared configuration for sample data provisioning
 
-- [ ] T001 Create directory structure for sample data K8s manifests at infrastructure/k8s/sample-data/
-- [ ] T002 [P] Add `deltalake>=0.22.0` to notebook image requirements in infrastructure/docker/notebook-image/requirements.txt
-- [ ] T003 [P] Add `AWS_ALLOW_HTTP=true` environment variable note to infrastructure/docker/notebook-image/Dockerfile (if ENV needed at build time)
+- [X] T001 Create directory structure for sample data K8s manifests at infrastructure/k8s/sample-data/
+- [X] T002 [P] Add `deltalake>=0.22.0` to notebook image requirements in infrastructure/docker/notebook-image/requirements.txt
+- [X] T003 [P] AWS_ALLOW_HTTP is a runtime env var injected via JupyterHub (T009), not a build-time Dockerfile change — no action needed
 
 ---
 
@@ -27,12 +27,12 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Update MinIO Helm local-values to add `ml-platform-sample-data` bucket in infrastructure/helm/minio/local-values.yaml
-- [ ] T005 Create MinIO read-only credentials Secret for sample data access in infrastructure/k8s/sample-data/read-only-secret.yaml
-- [ ] T006 Create the provisioning Python script as a ConfigMap in infrastructure/k8s/sample-data/provision-script-configmap.yaml — script loads California Housing from sklearn, writes Delta table to s3://ml-platform-sample-data/california-housing using deltalake.write_deltalake() with mode="overwrite", verifies row count
-- [ ] T007 Create the Kubernetes Job manifest that runs the provisioning script using the notebook image in infrastructure/k8s/sample-data/provision-job.yaml — mounts the script ConfigMap, uses MinIO admin credentials, runs to completion
-- [ ] T008 [P] Rebuild notebook Docker image with deltalake dependency in infrastructure/docker/notebook-image/Dockerfile
-- [ ] T009 Update JupyterHub local-values.yaml to inject S3 environment variables (AWS_ENDPOINT_URL, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_ALLOW_HTTP) into notebook pods via singleuser.extraEnv in infrastructure/helm/jupyterhub/local-values.yaml
+- [X] T004 Update MinIO Helm local-values to add `ml-platform-sample-data` bucket in infrastructure/helm/minio/local-values.yaml
+- [X] T005 Create MinIO read-only credentials Secret for sample data access in infrastructure/k8s/sample-data/read-only-secret.yaml
+- [X] T006 Create the provisioning Python script as a ConfigMap in infrastructure/k8s/sample-data/provision-script-configmap.yaml
+- [X] T007 Create the Kubernetes Job manifest in infrastructure/k8s/sample-data/provision-job.yaml
+- [X] T008 [P] deltalake added to requirements.txt (T002); existing Dockerfile pip install picks it up
+- [X] T009 Update JupyterHub local-values.yaml and values.yaml with S3 environment variables for notebook pods
 
 **Checkpoint**: MinIO has new bucket, provisioning Job is deployable, notebook image includes deltalake, notebook pods have S3 credentials
 
@@ -65,8 +65,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Create sample notebook file as a ConfigMap in infrastructure/k8s/sample-data/sample-notebook-configmap.yaml — notebook demonstrates: load Delta table, inspect schema, train RandomForestRegressor, evaluate with RMSE/R², log to MLflow
-- [ ] T017 [US2] Update JupyterHub local-values.yaml to mount sample notebook ConfigMap at /home/jovyan/examples/sample-delta-data.ipynb via singleuser.extraVolumes and extraVolumeMounts in infrastructure/helm/jupyterhub/local-values.yaml
+- [X] T016 [US2] Create sample notebook file as a ConfigMap in infrastructure/k8s/sample-data/sample-notebook-configmap.yaml
+- [X] T017 [US2] Update JupyterHub values.yaml with extraVolumes and extraVolumeMounts to mount sample notebook at /home/jovyan/examples/sample-delta-data.ipynb
 - [ ] T018 [US2] Deploy updated JupyterHub with sample notebook mount — `helm upgrade` with updated values
 - [ ] T019 [US2] Verify training workflow from notebook — load Delta table, train/test split, fit model, confirm RMSE ~0.5 and R² ~0.8
 - [ ] T020 [US2] Verify MLflow integration — run `mlflow.set_experiment("california-housing-demo")`, log params/metrics/model, confirm run appears in Experiments UI

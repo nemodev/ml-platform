@@ -18,9 +18,15 @@ jupyterhub:
             "Content-Security-Policy": "frame-ancestors 'self' http://localhost:4200 http://localhost:8080"
           }
         }
+
   singleuser:
     extraEnv:
       MLFLOW_TRACKING_URI: http://host.docker.internal:8080/api/v1/mlflow-proxy
+      AWS_ENDPOINT_URL: "http://minio.ml-platform.svc:9000"
+      AWS_ALLOW_HTTP: "true"
+    extraEnvFrom:
+      - secretRef:
+          name: sample-data-readonly-credentials
     networkPolicy:
       egressAllowRules:
         privateIPs: true
