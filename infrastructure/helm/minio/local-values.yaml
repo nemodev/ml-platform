@@ -1,6 +1,7 @@
 # MinIO local development values.
 # Compatible with the official MinIO chart and keeps legacy fields for prior workflows.
 mode: standalone
+
 replicas: 1
 
 resources:
