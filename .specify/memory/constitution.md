@@ -1,31 +1,29 @@
 <!--
 Sync Impact Report
 ===================
-Version change: 0.0.0 → 1.0.0
-Bump rationale: MAJOR — initial constitution creation with all
-core principles defined for the ML Platform MVP.
+Version change: 1.0.0 → 2.0.0
+Bump rationale: MAJOR — Principle VI redefined from "Simplicity &
+YAGNI" (always-minimal approach) to "Production-Quality Within Scope"
+(balanced engineering with best practices). This is an incompatible
+redefinition: prior guidance actively discouraged proper patterns in
+favor of the quickest path; new guidance requires best-practice
+implementations within bounded scope.
 
-Modified principles: N/A (first version)
-Added sections:
-  - Principle I: MVP-First Incremental Delivery
-  - Principle II: Infrastructure as Code
-  - Principle III: Unified Authentication
-  - Principle IV: Environment Parity
-  - Principle V: Testing at System Boundaries
-  - Principle VI: Simplicity & YAGNI
-  - Section: Technology Stack Constraints
-  - Section: Development Workflow
-  - Section: Governance
+Modified principles:
+  - Principle VI: "Simplicity & YAGNI" → "Production-Quality Within
+    Scope" (redefined from minimal-first to balanced engineering)
 
-Removed sections: N/A (first version)
+Added sections: None
+Removed sections: None
 
 Templates checked:
   - .specify/templates/plan-template.md ✅ — Constitution Check
-    section (line 30-34) aligns with principles; no updates needed
+    section (line 30-34) uses generic gate reference; no updates needed
   - .specify/templates/spec-template.md ✅ — User Scenarios and
-    Success Criteria sections support MVP-first story prioritization
-  - .specify/templates/tasks-template.md ✅ — Phase structure
-    supports incremental delivery and system-boundary testing
+    Success Criteria sections are principle-agnostic; no updates needed
+  - .specify/templates/tasks-template.md ✅ — Phase structure and
+    implementation strategy are compatible; no updates needed
+  - .specify/templates/commands/*.md — No command files exist
 
 Follow-up TODOs: None
 -->
@@ -121,22 +119,40 @@ to Airflow production pipelines.
 deployed services, the highest-risk failures occur at integration
 boundaries, not within individual components.
 
-### VI. Simplicity & YAGNI
+### VI. Production-Quality Within Scope
 
-- Only features defined in the MVP scope (PROJECT.md) may be
-  implemented. Speculative features MUST NOT be built.
-- No GPU profiles, advanced RBAC tiers, scale-to-zero, canary
-  deployments, or multi-cluster support until explicitly scoped.
-- Prefer direct, straightforward solutions over abstractions. A
-  Helm values override is preferable to a custom operator. A
-  direct API call is preferable to a message bus.
-- Configuration MUST use the simplest mechanism that works:
-  environment variables before ConfigMaps, ConfigMaps before
-  custom CRDs.
+- The MVP scope defined in PROJECT.md remains the boundary. Features
+  outside that scope MUST NOT be implemented unless formally amended.
+- Within the defined scope, every implementation MUST follow industry
+  best practices and established patterns for the technology in use.
+  Quick-and-dirty shortcuts that sacrifice code quality, proper error
+  handling, or maintainability are not acceptable.
+- Code MUST be written as if it will be directly transferred to the
+  production project on a remote server. This means:
+  - Proper separation of concerns and layered architecture.
+  - Meaningful error handling with appropriate exception hierarchies
+    and user-facing error messages.
+  - Configuration externalized correctly (not hardcoded values or
+    placeholder workarounds).
+  - Consistent naming conventions and code organization that follow
+    Spring Boot, Angular, and Kubernetes community standards.
+- Abstractions and patterns MUST be introduced when they serve the
+  current implementation. A service layer, DTOs, or a repository
+  pattern is warranted when the code has concrete, present-day
+  consumers — not only when anticipated by future requirements.
+- The decision between a simple and a structured approach MUST be
+  evaluated on transferability: choose the approach that a team
+  inheriting this codebase would recognize as standard practice and
+  could extend without refactoring the foundation.
+- Speculative features (GPU profiles, advanced RBAC tiers,
+  scale-to-zero, canary deployments, multi-cluster support) remain
+  out of scope until explicitly scoped.
 
-**Rationale**: Over-engineering was the primary failure mode of
-the prior project. Complexity must be earned by demonstrated need,
-not anticipated requirements.
+**Rationale**: This project is transitioning from proof-of-concept
+to a refined, transferable codebase. Cutting corners creates
+technical debt that costs more to fix during transfer than it saves
+during initial development. The goal is a limited but solid
+foundation — not a sprawling but fragile one.
 
 ## Technology Stack Constraints
 
@@ -192,4 +208,4 @@ changes require a constitution amendment.
   aligned. Any scope change requires a corresponding constitution
   review.
 
-**Version**: 1.0.0 | **Ratified**: 2026-02-16 | **Last Amended**: 2026-02-16
+**Version**: 2.0.0 | **Ratified**: 2026-02-16 | **Last Amended**: 2026-02-20
