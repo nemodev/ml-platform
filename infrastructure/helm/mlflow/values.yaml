@@ -17,8 +17,8 @@ database:
 minio:
   endpoint: http://minio.ml-platform.svc:9000
   secretName: minio
-  accessKeyKey: root-user
-  secretKeyKey: root-password
+  accessKeyKey: rootUser
+  secretKeyKey: rootPassword
   accessKey: ""
   secretKey: ""
 

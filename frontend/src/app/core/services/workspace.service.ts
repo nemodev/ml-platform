@@ -50,7 +50,12 @@ export class WorkspaceService {
     return this.http.delete<void>(`${environment.apiUrl}/workspaces`);
   }
 
-  getWorkspaceUrl(): Observable<WorkspaceUrl> {
+  getWorkspaceUrl(notebookPath?: string): Observable<WorkspaceUrl> {
+    if (notebookPath) {
+      return this.http.get<WorkspaceUrl>(
+        `${environment.apiUrl}/workspaces/url?notebookPath=${encodeURIComponent(notebookPath)}`
+      );
+    }
     return this.http.get<WorkspaceUrl>(`${environment.apiUrl}/workspaces/url`);
   }
 

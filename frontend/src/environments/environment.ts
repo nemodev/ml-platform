@@ -4,5 +4,5 @@ export const environment = {
   keycloakUrl: 'http://localhost:8180',
   keycloakRealm: 'ml-platform',
   keycloakClientId: 'ml-platform-portal',
-  enableOidc: true
+  enableOidc: false
 };

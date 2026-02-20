@@ -9,6 +9,7 @@ import {
   WorkspaceState,
   WorkspaceStatus
 } from '../../core/services/workspace.service';
+import { JupyterBridgeService } from '../../core/services/jupyter-bridge.service';
 
 @Component({
   selector: 'app-notebooks',
@@ -20,6 +21,7 @@ import {
 export class NotebooksComponent implements OnInit, OnDestroy {
   private readonly workspaceService = inject(WorkspaceService);
   private readonly sanitizer = inject(DomSanitizer);
+  readonly bridgeService = inject(JupyterBridgeService);
 
   status: WorkspaceState = 'STOPPED';
   statusMessage = 'Workspace is stopped.';
@@ -27,7 +29,16 @@ export class NotebooksComponent implements OnInit, OnDestroy {
   profile: ComputeProfile | null = null;
   iframeUrl: SafeResourceUrl | null = null;
 
+  // Bridge-driven toolbar state
+  sidebarVisible = false;
+  currentTheme: 'light' | 'dark' = 'light';
+  kernelStatus: 'idle' | 'busy' | 'disconnected' | 'unknown' = 'unknown';
+
   private pollSub?: Subscription;
+
+  get bridgeConnected(): boolean {
+    return this.bridgeService.connectionState() === 'ready';
+  }
 
   ngOnInit(): void {
     this.workspaceService.getProfiles().pipe(
@@ -41,6 +52,7 @@ export class NotebooksComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
+    this.bridgeService.destroy();
   }
 
   launchWorkspace(): void {
@@ -62,6 +74,7 @@ export class NotebooksComponent implements OnInit, OnDestroy {
         this.status = 'STOPPED';
         this.statusMessage = 'Workspace is stopped.';
         this.iframeUrl = null;
+        this.bridgeService.destroy();
       },
       error: () => {
         this.errorMessage = 'Failed to terminate workspace.';
@@ -71,6 +84,38 @@ export class NotebooksComponent implements OnInit, OnDestroy {
 
   retry(): void {
     this.launchWorkspace();
+  }
+
+  // Bridge toolbar actions
+  async onIframeLoad(): Promise<void> {
+    await this.bridgeService.initialize('jupyter-iframe');
+    if (this.bridgeConnected) {
+      // Collapse sidebar for clean default view
+      await this.bridgeService.execute('application:toggle-left-area');
+      this.sidebarVisible = false;
+      // Sync portal theme to notebook
+      const jupyterTheme = this.currentTheme === 'dark' ? 'JupyterLab Dark' : 'JupyterLab Light';
+      await this.bridgeService.execute('apputils:change-theme', { theme: jupyterTheme });
+    }
+  }
+
+  async toggleSidebar(): Promise<void> {
+    await this.bridgeService.execute('application:toggle-left-area');
+    this.sidebarVisible = !this.sidebarVisible;
+  }
+
+  async toggleTheme(): Promise<void> {
+    this.currentTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+    const jupyterTheme = this.currentTheme === 'dark' ? 'JupyterLab Dark' : 'JupyterLab Light';
+    await this.bridgeService.execute('apputils:change-theme', { theme: jupyterTheme });
+  }
+
+  async runAll(): Promise<void> {
+    await this.bridgeService.execute('notebook:run-all-cells');
+  }
+
+  async saveNotebook(): Promise<void> {
+    await this.bridgeService.execute('notebook:save');
   }
 
   private refreshStatus(): void {

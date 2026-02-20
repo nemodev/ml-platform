@@ -21,14 +21,21 @@ data:
           "protocol": "openid-connect",
           "redirectUris": [
             "http://localhost:4200/*",
-            "http://localhost:8080/*"
+            "http://localhost:8080/*",
+            "http://localhost:30080/*",
+            "http://192.168.64.2:30080/*",
+            "http://172.16.100.10:30080/*",
+            "https://portal.ml-platform.local/*"
           ],
           "webOrigins": [
             "http://localhost:4200",
-            "http://localhost:8080"
+            "http://localhost:8080",
+            "http://localhost:30080",
+            "http://192.168.64.2:30080",
+            "http://172.16.100.10:30080",
+            "https://portal.ml-platform.local"
           ],
           "attributes": {
-            "pkce.code.challenge.method": "S256",
             "post.logout.redirect.uris": "+"
           },
           "defaultClientScopes": [
@@ -37,6 +44,7 @@ data:
             "email"
           ],
           "standardFlowEnabled": true,
+          "implicitFlowEnabled": true,
           "directAccessGrantsEnabled": false,
           "serviceAccountsEnabled": false
         },
@@ -64,10 +72,16 @@ data:
           "protocol": "openid-connect",
           "redirectUris": [
             "http://localhost:8181/hub/oauth_callback",
+            "http://localhost:30081/hub/oauth_callback",
+            "http://192.168.64.2:30081/hub/oauth_callback",
+            "http://172.16.100.10:30081/hub/oauth_callback",
             "https://portal.ml-platform.local/hub/oauth_callback"
           ],
           "webOrigins": [
             "http://localhost:8181",
+            "http://localhost:30081",
+            "http://192.168.64.2:30081",
+            "http://172.16.100.10:30081",
             "https://portal.ml-platform.local"
           ],
           "standardFlowEnabled": true,

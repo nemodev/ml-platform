@@ -20,6 +20,8 @@ public class JupyterHubConfig {
     @ConfigurationProperties(prefix = "services.jupyterhub")
     public static class JupyterHubProperties {
         private String url;
+        private String proxyUrl;
+        private String publicUrl;
         private String apiToken;
 
         public String getUrl() {
@@ -28,6 +30,22 @@ public class JupyterHubConfig {
 
         public void setUrl(String url) {
             this.url = url;
+        }
+
+        public String getPublicUrl() {
+            return publicUrl;
+        }
+
+        public void setPublicUrl(String publicUrl) {
+            this.publicUrl = publicUrl;
+        }
+
+        public String getProxyUrl() {
+            return proxyUrl;
+        }
+
+        public void setProxyUrl(String proxyUrl) {
+            this.proxyUrl = proxyUrl;
         }
 
         public String getApiToken() {

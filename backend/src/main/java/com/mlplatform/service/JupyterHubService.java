@@ -138,7 +138,28 @@ public class JupyterHubService {
     }
 
     public String getLabUrl(String username) {
-        return properties.getUrl().replaceAll("/$", "") + "/user/" + username + "/lab";
+        return getLabUrl(username, null);
+    }
+
+    public String getLabUrl(String username, String defaultNotebook) {
+        String base = properties.getUrl().replaceAll("/$", "") + "/user/" + username + "/lab";
+        if (defaultNotebook != null && !defaultNotebook.isBlank()) {
+            if (defaultNotebook.contains("..") || defaultNotebook.startsWith("/")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "defaultNotebook must be a relative path without '..' segments");
+            }
+            return base + "/tree/" + defaultNotebook;
+        }
+        return base;
+    }
+
+    public String getDocUrl(String username, String notebookPath) {
+        if (notebookPath == null || notebookPath.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "notebookPath must not be blank");
+        }
+        if (notebookPath.contains("..") || notebookPath.startsWith("/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "notebookPath must be a relative path without '..' segments");
+        }
+        return properties.getUrl().replaceAll("/$", "") + "/user/" + username + "/doc/tree/" + notebookPath;
     }
 
     public List<NotebookFileInfo> listNotebookFiles(String username) {

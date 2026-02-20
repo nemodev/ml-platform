@@ -19,6 +19,9 @@ app:
   cors:
     allowed-origins: http://localhost:4200,http://localhost:8080
 
+workspace:
+  default-notebook: examples/sample-delta-data.ipynb
+
 services:
   jupyterhub:
     url: https://jupyter.example.invalid

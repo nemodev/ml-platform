@@ -15,7 +15,7 @@ export interface UserInfo {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
-  private readonly oidc = inject(OidcSecurityService, { optional: true });
+  private readonly oidc = environment.enableOidc ? inject(OidcSecurityService, { optional: true }) : null;
   private readonly initErrorSubject = new BehaviorSubject<string | null>(null);
 
   readonly initError$ = this.initErrorSubject.asObservable();

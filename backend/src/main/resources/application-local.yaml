@@ -17,6 +17,8 @@ app:
 services:
   jupyterhub:
     url: http://localhost:8181
+    proxy-url: http://localhost:8181
+    public-url: http://localhost:8181
     api-token: ml-platform-jupyterhub-token
   mlflow:
     url: http://localhost:15000

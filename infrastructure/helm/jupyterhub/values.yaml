@@ -45,6 +45,9 @@ jupyterhub:
         api_token: platform-api-service-token
     extraConfig:
       00-security.py: |
+        # NOTE: jupyter-iframe-commands bridge uses postMessage/Comlink for host-iframe
+        # communication. This is not restricted by CSP — no connect-src or other CSP
+        # changes needed for the bridge to function.
         c.JupyterHub.tornado_settings = {
           "headers": {
             "Content-Security-Policy": "frame-ancestors 'self' https://portal.ml-platform.local"

@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -24,6 +25,9 @@ public class WorkspaceService {
     private final UserService userService;
     private final JupyterHubService jupyterHubService;
     private final Environment environment;
+
+    @Value("${workspace.default-notebook:}")
+    private String defaultNotebook;
 
     public WorkspaceService(
             WorkspaceRepository workspaceRepository,
@@ -117,9 +121,17 @@ public class WorkspaceService {
     }
 
     @Transactional
-    public WorkspaceUrlDto getWorkspaceUrl(Jwt jwt) {
+    public WorkspaceUrlDto getWorkspaceUrl(Jwt jwt, String notebookPath) {
         if (isDevProfile()) {
-            return new WorkspaceUrlDto("https://jupyter.org/try-jupyter/lab/");
+            if (notebookPath != null && !notebookPath.isBlank()) {
+                return new WorkspaceUrlDto("http://localhost:8888/doc/tree/" + notebookPath);
+            }
+            String devDefault = (defaultNotebook != null && !defaultNotebook.isBlank())
+                    ? defaultNotebook : null;
+            if (devDefault != null) {
+                return new WorkspaceUrlDto("http://localhost:8888/lab/tree/" + devDefault);
+            }
+            return new WorkspaceUrlDto("http://localhost:8888/lab");
         }
 
         WorkspaceStatusDto statusDto = getWorkspaceStatus(jwt);
@@ -129,7 +141,10 @@ public class WorkspaceService {
         }
 
         String username = claimOrFallback(jwt, "preferred_username", jwt.getClaimAsString("email"));
-        return new WorkspaceUrlDto(jupyterHubService.getLabUrl(username));
+        if (notebookPath != null && !notebookPath.isBlank()) {
+            return new WorkspaceUrlDto(jupyterHubService.getDocUrl(username, notebookPath));
+        }
+        return new WorkspaceUrlDto(jupyterHubService.getLabUrl(username, defaultNotebook));
     }
 
     public List<ComputeProfileDto> getProfiles() {

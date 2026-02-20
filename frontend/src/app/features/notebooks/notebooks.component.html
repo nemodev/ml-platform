@@ -14,10 +14,37 @@
 
   <div class="running-card" *ngIf="(status === 'RUNNING' || status === 'IDLE') && iframeUrl">
     <div class="toolbar">
-      <span>{{ statusMessage }}</span>
-      <button type="button" (click)="terminateWorkspace()">Terminate Workspace</button>
+      <div class="toolbar-left">
+        <button *ngIf="bridgeConnected" type="button" class="toolbar-btn"
+                [class.active]="sidebarVisible" (click)="toggleSidebar()"
+                title="Toggle File Browser">
+          &#9776; Files
+        </button>
+        <button *ngIf="bridgeConnected" type="button" class="toolbar-btn"
+                (click)="toggleTheme()" title="Switch Theme">
+          {{ currentTheme === 'light' ? '&#9789; Dark' : '&#9788; Light' }}
+        </button>
+      </div>
+      <div class="toolbar-center" *ngIf="bridgeConnected">
+        <button type="button" class="toolbar-btn primary" (click)="runAll()" title="Run All Cells">
+          &#9654; Run All
+        </button>
+        <button type="button" class="toolbar-btn" (click)="saveNotebook()" title="Save Notebook">
+          &#128190; Save
+        </button>
+      </div>
+      <div class="toolbar-right">
+        <span *ngIf="bridgeConnected" class="kernel-status" [class]="'kernel-' + kernelStatus">
+          <span class="kernel-dot"></span> {{ kernelStatus === 'unknown' ? 'Kernel' : kernelStatus }}
+        </span>
+        <span *ngIf="!bridgeConnected && (status === 'RUNNING' || status === 'IDLE')" class="bridge-note">
+          Bridge unavailable
+        </span>
+        <button type="button" class="toolbar-btn terminate" (click)="terminateWorkspace()">Terminate</button>
+      </div>
     </div>
-    <iframe [src]="iframeUrl" title="JupyterLab" allow="clipboard-read; clipboard-write"></iframe>
+    <iframe id="jupyter-iframe" [src]="iframeUrl" title="JupyterLab"
+            allow="clipboard-read; clipboard-write" (load)="onIframeLoad()"></iframe>
   </div>
 
   <div class="error-card" *ngIf="status === 'FAILED'">

@@ -1,0 +1,70 @@
+# OpenAPI contract for workspace URL endpoint changes
+# Feature: 007-notebook-ui-customization
+# Only documents the CHANGED endpoint (existing endpoint with new query parameter)
+
+openapi: 3.0.3
+info:
+  title: ML Platform - Workspace URL API (Extended)
+  version: 1.1.0
+  description: Extended workspace URL endpoint to support single-document mode via optional notebook path parameter.
+
+paths:
+  /api/v1/workspaces/url:
+    get:
+      summary: Get workspace URL
+      description: |
+        Returns the URL for the user's running JupyterLab workspace.
+        When notebookPath is provided, returns a single-document mode URL.
+        When omitted, returns the default lab workspace URL.
+      operationId: getWorkspaceUrl
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: notebookPath
+          in: query
+          required: false
+          description: |
+            Relative path to a specific notebook file (e.g., "examples/sample-delta-data.ipynb").
+            When provided, the returned URL opens JupyterLab in single-document mode for that notebook.
+            When omitted, returns the default workspace URL (/lab).
+          schema:
+            type: string
+            example: "examples/sample-delta-data.ipynb"
+      responses:
+        '200':
+          description: Workspace URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceUrlDto'
+              examples:
+                defaultWorkspace:
+                  summary: Default workspace view
+                  value:
+                    url: "http://localhost:8181/user/scientist1/lab"
+                singleDocument:
+                  summary: Single-document mode
+                  value:
+                    url: "http://localhost:8181/user/scientist1/doc/tree/examples/sample-delta-data.ipynb"
+        '401':
+          description: Unauthorized - missing or invalid JWT
+        '404':
+          description: No running workspace found
+
+components:
+  schemas:
+    WorkspaceUrlDto:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: Full URL to the JupyterLab workspace (default or single-document mode)
+          example: "http://localhost:8181/user/scientist1/lab"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

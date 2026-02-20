@@ -39,8 +39,10 @@ spec:
               value: admin
             - name: KEYCLOAK_ADMIN_PASSWORD
               value: admin
-            - name: KC_HOSTNAME
-              value: http://localhost:8180
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
           ports:
             - name: http
               containerPort: 8080

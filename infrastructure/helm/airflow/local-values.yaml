@@ -31,7 +31,7 @@ workers:
         optional: true
   extraVolumeMounts:
     - name: dags-config
-      mountPath: /opt/airflow/dags/notebook_runner.py
+      mountPath: /opt/airflow/dags/ml_platform_notebook_runner.py
       subPath: notebook_runner.py
       readOnly: true
 
@@ -43,14 +43,17 @@ scheduler:
         optional: true
   extraVolumeMounts:
     - name: dags-config
-      mountPath: /opt/airflow/dags/notebook_runner.py
+      mountPath: /opt/airflow/dags/ml_platform_notebook_runner.py
       subPath: notebook_runner.py
       readOnly: true
 
 webserver:
   defaultUser:
-    enabled: true
+    role: Admin
     username: admin
+    email: admin@example.com
+    firstName: admin
+    lastName: user
     password: admin
   extraVolumes:
     - name: dags-config
@@ -59,7 +62,7 @@ webserver:
         optional: true
   extraVolumeMounts:
     - name: dags-config
-      mountPath: /opt/airflow/dags/notebook_runner.py
+      mountPath: /opt/airflow/dags/ml_platform_notebook_runner.py
       subPath: notebook_runner.py
       readOnly: true
 

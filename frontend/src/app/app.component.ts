@@ -2,7 +2,7 @@ import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { filter, map } from 'rxjs';
+import { filter, map, switchMap, take } from 'rxjs';
 import { AuthService } from './core/services/auth.service';
 import { environment } from '../environments/environment';
 
@@ -37,9 +37,10 @@ export class AppComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.authService.initializeAuth().subscribe();
-
-    this.http.get<PortalSection[]>(`${environment.apiUrl}/portal/sections`).pipe(
+    this.authService.isAuthenticated$.pipe(
+      filter((isAuthenticated) => isAuthenticated),
+      take(1),
+      switchMap(() => this.http.get<PortalSection[]>(`${environment.apiUrl}/portal/sections`)),
       map((sections) => sections.filter((s) => s.enabled)),
       filter((sections) => sections.length > 0)
     ).subscribe({
@@ -50,7 +51,6 @@ export class AppComponent implements OnInit {
         // Keep default static sections when backend is unavailable.
       }
     });
-
   }
 
   logout(): void {

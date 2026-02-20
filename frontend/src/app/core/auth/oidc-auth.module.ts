@@ -4,6 +4,7 @@ import { environment } from '../../../environments/environment';
 
 export function provideOidcAuth(): EnvironmentProviders {
   const appBaseUrl = `${window.location.origin}/`;
+  const supportsWebCrypto = typeof window !== 'undefined' && window.isSecureContext && !!window.crypto?.subtle;
 
   return provideAuth({
     config: {
@@ -11,10 +12,15 @@ export function provideOidcAuth(): EnvironmentProviders {
       clientId: environment.keycloakClientId,
       redirectUrl: appBaseUrl,
       postLogoutRedirectUri: appBaseUrl,
-      responseType: 'code',
+      responseType: supportsWebCrypto ? 'code' : 'id_token token',
       scope: 'openid profile email',
-      useRefreshToken: true,
-      silentRenew: true,
+      useRefreshToken: supportsWebCrypto,
+      silentRenew: false,
+      ignoreNonceAfterRefresh: true,
+      autoUserInfo: false,
+      disablePkce: !supportsWebCrypto,
+      disableIdTokenValidation: !supportsWebCrypto,
+      triggerRefreshWhenIdTokenExpired: supportsWebCrypto,
       renewTimeBeforeTokenExpiresInSeconds: 30,
       secureRoutes: [environment.apiUrl],
       logLevel: LogLevel.Warn

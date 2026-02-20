@@ -32,6 +32,9 @@ app:
   cors:
     allowed-origins: https://portal.ml-platform.local
 
+workspace:
+  default-notebook: ${WORKSPACE_DEFAULT_NOTEBOOK:getting-started.ipynb}
+
 services:
   jupyterhub:
     url: http://jupyterhub-hub.ml-platform.svc:8081

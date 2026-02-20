@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -54,7 +55,9 @@ public class WorkspaceController {
     }
 
     @GetMapping("/url")
-    public WorkspaceUrlDto url(@AuthenticationPrincipal Jwt jwt) {
-        return workspaceService.getWorkspaceUrl(jwt);
+    public WorkspaceUrlDto url(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) String notebookPath) {
+        return workspaceService.getWorkspaceUrl(jwt, notebookPath);
     }
 }
