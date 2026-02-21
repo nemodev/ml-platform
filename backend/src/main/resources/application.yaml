@@ -33,15 +33,17 @@ app:
     allowed-origins: https://portal.ml-platform.local
 
 workspace:
-  default-notebook: ${WORKSPACE_DEFAULT_NOTEBOOK:getting-started.ipynb}
+  default-notebook: ${WORKSPACE_DEFAULT_NOTEBOOK:}
 
 services:
   jupyterhub:
-    url: http://jupyterhub-hub.ml-platform.svc:8081
+    url: http://hub.ml-platform.svc:8081
+    proxy-url: http://proxy-public.ml-platform.svc:80
     api-token: ${JUPYTERHUB_API_TOKEN:ml-platform-jupyterhub-token}
   mlflow:
     url: http://mlflow.ml-platform.svc:5000
     tracking-url: http://mlflow.ml-platform.svc:5000
+    artifact-destination: s3://ml-platform-mlflow/artifacts
   airflow:
     url: http://airflow-webserver.ml-platform.svc:8080
     username: admin

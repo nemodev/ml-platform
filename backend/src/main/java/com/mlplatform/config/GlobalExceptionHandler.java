@@ -7,6 +7,8 @@ import com.mlplatform.service.KServeUnavailableException;
 import com.mlplatform.service.MlflowUnavailableException;
 import com.mlplatform.service.NotebookStorageUnavailableException;
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -17,6 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex) {
@@ -32,6 +36,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(JupyterHubUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleJupyterHubUnavailable(JupyterHubUnavailableException ex) {
+        log.error("JupyterHub unavailable: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new ErrorResponse("ServiceUnavailable", ex.getMessage(), Instant.now()));
     }

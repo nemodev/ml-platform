@@ -34,25 +34,28 @@ export interface TrackingUrl {
 @Injectable({ providedIn: 'root' })
 export class ExperimentService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/experiments`;
 
-  listExperiments(): Observable<ExperimentInfo[]> {
-    return this.http.get<ExperimentInfo[]>(this.baseUrl);
+  private analysisExperimentsUrl(analysisId: string): string {
+    return `${environment.apiUrl}/analyses/${analysisId}/experiments`;
   }
 
-  getExperiment(id: string): Observable<ExperimentDetail> {
-    return this.http.get<ExperimentDetail>(`${this.baseUrl}/${id}`);
+  listExperiments(analysisId: string): Observable<ExperimentInfo[]> {
+    return this.http.get<ExperimentInfo[]>(this.analysisExperimentsUrl(analysisId));
   }
 
-  getRuns(experimentId: string): Observable<RunInfo[]> {
-    return this.http.get<RunInfo[]>(`${this.baseUrl}/${experimentId}/runs`);
+  getExperiment(analysisId: string, id: string): Observable<ExperimentDetail> {
+    return this.http.get<ExperimentDetail>(`${this.analysisExperimentsUrl(analysisId)}/${id}`);
   }
 
-  getTrackingUrl(): Observable<TrackingUrl> {
-    return this.http.get<TrackingUrl>(`${this.baseUrl}/tracking-url`);
+  getRuns(analysisId: string, experimentId: string): Observable<RunInfo[]> {
+    return this.http.get<RunInfo[]>(`${this.analysisExperimentsUrl(analysisId)}/${experimentId}/runs`);
   }
 
-  createExperiment(name: string): Observable<ExperimentInfo> {
-    return this.http.post<ExperimentInfo>(this.baseUrl, { name });
+  getTrackingUrl(analysisId: string): Observable<TrackingUrl> {
+    return this.http.get<TrackingUrl>(`${this.analysisExperimentsUrl(analysisId)}/tracking-url`);
+  }
+
+  createExperiment(analysisId: string, name: string): Observable<ExperimentInfo> {
+    return this.http.post<ExperimentInfo>(this.analysisExperimentsUrl(analysisId), { name });
   }
 }

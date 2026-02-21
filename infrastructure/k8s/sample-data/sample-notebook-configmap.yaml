@@ -21,7 +21,7 @@ data:
             "2. Inspect the schema and data\n",
             "3. Train a scikit-learn model\n",
             "4. Evaluate model performance\n",
-            "5. Log the run to MLflow"
+            "5. Log the run to MLflow and register the model"
           ]
         },
         {
@@ -113,9 +113,9 @@ data:
           "cell_type": "markdown",
           "metadata": {},
           "source": [
-            "## 4. Log to MLflow\n",
+            "## 4. Log to MLflow & Register Model\n",
             "\n",
-            "Log the training run to MLflow for experiment tracking."
+            "Log the training run to MLflow and register the model in the Model Registry."
           ]
         },
         {
@@ -124,9 +124,11 @@ data:
           "metadata": {},
           "outputs": [],
           "source": [
+            "import os\n",
             "import mlflow\n",
             "\n",
-            "mlflow.set_experiment(\"california-housing-demo\")\n",
+            "prefix = os.environ.get('MLFLOW_EXPERIMENT_PREFIX', '')\n",
+            "mlflow.set_experiment(prefix + \"california-housing-demo\")\n",
             "\n",
             "with mlflow.start_run():\n",
             "    mlflow.log_param(\"n_estimators\", 100)\n",
@@ -135,8 +137,12 @@ data:
             "    mlflow.log_param(\"dataset_rows\", len(df))\n",
             "    mlflow.log_metric(\"rmse\", rmse)\n",
             "    mlflow.log_metric(\"r2_score\", r2)\n",
-            "    mlflow.sklearn.log_model(model, \"random-forest-regressor\")\n",
-            "    print(\"Run logged to MLflow!\")"
+            "    mlflow.sklearn.log_model(\n",
+            "        model,\n",
+            "        \"random-forest-regressor\",\n",
+            "        registered_model_name=\"california-housing-rf\"\n",
+            "    )\n",
+            "    print(\"Run logged and model registered in MLflow!\")"
           ]
         }
       ],

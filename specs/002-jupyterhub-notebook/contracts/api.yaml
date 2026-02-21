@@ -1,11 +1,12 @@
 openapi: 3.0.3
 info:
-  title: ML Platform API - Workspace & Notebooks
+  title: ML Platform API - Analysis, Workspace & Notebooks
   description: >
     REST API for feature 002-jupyterhub-notebook.
-    Covers workspace lifecycle management (launch, status, terminate)
-    and JupyterLab URL retrieval for iframe embedding.
-  version: 0.1.0
+    Covers analysis management, workspace lifecycle management
+    (launch, status, terminate) scoped per analysis, and JupyterLab
+    URL retrieval for iframe embedding.
+  version: 0.2.0
 
 servers:
   - url: http://localhost:8080/api/v1
@@ -15,13 +16,104 @@ security:
   - bearerAuth: []
 
 paths:
+  /analyses:
+    post:
+      summary: Create a new analysis
+      description: >
+        Creates a new analysis for the authenticated user. Each analysis
+        is a named project context that scopes its own workspace and
+        MLflow experiments.
+      operationId: createAnalysis
+      tags: [Analysis]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnalysisRequest'
+      responses:
+        '201':
+          description: Analysis created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisInfo'
+        '401':
+          description: Invalid or missing token
+        '409':
+          description: Analysis with this name already exists for the user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List user's analyses
+      description: >
+        Returns all analyses belonging to the authenticated user,
+        ordered by creation time (newest first).
+      operationId: listAnalyses
+      tags: [Analysis]
+      responses:
+        '200':
+          description: List of analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AnalysisInfo'
+        '401':
+          description: Invalid or missing token
+
+  /analyses/{analysisId}:
+    get:
+      summary: Get analysis details
+      description: >
+        Returns details of a specific analysis. Verifies the analysis
+        belongs to the authenticated user.
+      operationId: getAnalysis
+      tags: [Analysis]
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
+      responses:
+        '200':
+          description: Analysis details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisInfo'
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Analysis not found or not owned by user
+
+    delete:
+      summary: Delete an analysis
+      description: >
+        Deletes an analysis and its associated resources. The analysis
+        workspace must be stopped before deletion.
+      operationId: deleteAnalysis
+      tags: [Analysis]
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
+      responses:
+        '204':
+          description: Analysis deleted
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: Analysis not found or not owned by user
+        '409':
+          description: Analysis has an active workspace that must be stopped first
+
   /workspaces/profiles:
     get:
       summary: List available compute profiles
       description: >
         Returns the list of compute profiles available for launching
         notebook servers. For MVP, only the "Exploratory" profile
-        is returned.
+        is returned. Profiles are not analysis-specific.
       operationId: getProfiles
       tags: [Workspace]
       responses:
@@ -40,16 +132,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /workspaces:
+  /analyses/{analysisId}/workspaces:
     post:
       summary: Launch a notebook workspace
       description: >
-        Creates and starts a new notebook server for the authenticated
-        user. If the user already has an active workspace, returns
-        409 Conflict. The server is launched with the specified compute
-        profile (defaults to "Exploratory").
+        Creates and starts a new notebook server (JupyterHub named
+        server) for the specified analysis. If the analysis already has
+        an active workspace, returns 409 Conflict. The server is
+        launched with the specified compute profile (defaults to
+        "Exploratory").
       operationId: launchWorkspace
       tags: [Workspace]
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
       requestBody:
         required: false
         content:
@@ -65,8 +160,10 @@ paths:
                 $ref: '#/components/schemas/WorkspaceStatus'
         '401':
           description: Invalid or missing token
+        '404':
+          description: Analysis not found
         '409':
-          description: User already has an active workspace
+          description: Analysis already has an active workspace
           content:
             application/json:
               schema:
@@ -75,11 +172,13 @@ paths:
     get:
       summary: Get current workspace status
       description: >
-        Returns the status of the authenticated user's current
-        workspace. If no workspace exists, returns the status as
-        "STOPPED" with no additional details.
+        Returns the status of the workspace for the specified analysis.
+        If no workspace exists, returns the status as "STOPPED" with
+        no additional details.
       operationId: getWorkspaceStatus
       tags: [Workspace]
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
       responses:
         '200':
           description: Current workspace status
@@ -91,30 +190,34 @@ paths:
           description: Invalid or missing token
 
     delete:
-      summary: Terminate the current workspace
+      summary: Terminate the workspace
       description: >
-        Stops and terminates the authenticated user's active notebook
-        server. User data in the persistent volume is preserved.
+        Stops and terminates the analysis's active notebook server.
+        User data in the persistent volume is preserved.
       operationId: terminateWorkspace
       tags: [Workspace]
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
       responses:
         '204':
           description: Workspace termination initiated
         '401':
           description: Invalid or missing token
         '404':
-          description: No active workspace found
+          description: No active workspace found for this analysis
 
-  /workspaces/url:
+  /analyses/{analysisId}/workspaces/url:
     get:
       summary: Get JupyterLab URL for iframe embedding
       description: >
-        Returns the JupyterLab URL for the authenticated user's
-        running workspace. The URL is used by the frontend to
-        populate the iframe src attribute. Returns 404 if no
-        workspace is running.
+        Returns the JupyterLab URL for the analysis's running workspace.
+        The URL includes the named server path segment. Used by the
+        frontend to populate the iframe src attribute. Returns 404 if
+        no workspace is running.
       operationId: getWorkspaceUrl
       tags: [Workspace]
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
       responses:
         '200':
           description: JupyterLab URL
@@ -125,7 +228,7 @@ paths:
         '401':
           description: Invalid or missing token
         '404':
-          description: No running workspace
+          description: No running workspace for this analysis
           content:
             application/json:
               schema:
@@ -140,7 +243,47 @@ components:
       description: >
         Keycloak-issued JWT from feature 001 authentication.
 
+  parameters:
+    analysisId:
+      name: analysisId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The UUID of the analysis
+
   schemas:
+    CreateAnalysisRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Human-readable analysis name (unique per user)
+          example: housing-price-prediction
+        description:
+          type: string
+          description: Optional description of the analysis
+          example: Predicting California housing prices using regression models
+
+    AnalysisInfo:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: housing-price-prediction
+        description:
+          type: string
+          example: Predicting California housing prices using regression models
+        createdAt:
+          type: string
+          format: date-time
+
     ComputeProfile:
       type: object
       required: [id, name, cpuRequest, cpuLimit, memoryRequest,
@@ -216,8 +359,8 @@ components:
           format: uri
           description: >
             Full JupyterLab URL for iframe embedding. Includes
-            the user-specific path segment.
-          example: http://localhost:8180/user/scientist1/lab
+            the user-specific path and named server segment.
+          example: http://localhost:8180/user/scientist1/a1b2c3d4/lab
 
     ErrorResponse:
       type: object
@@ -228,7 +371,7 @@ components:
           example: Conflict
         message:
           type: string
-          example: User already has an active workspace
+          example: Analysis already has an active workspace
         timestamp:
           type: string
           format: date-time

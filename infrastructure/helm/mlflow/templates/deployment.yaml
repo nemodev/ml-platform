@@ -44,6 +44,8 @@ spec:
               --backend-store-uri "${BACKEND_STORE_URI}"
               --default-artifact-root "${MLFLOW_DEFAULT_ARTIFACT_ROOT}"
               --serve-artifacts
+              --artifacts-destination "${MLFLOW_ARTIFACTS_DESTINATION}"
+              --allowed-hosts "{{ .Values.mlflow.allowedHosts }}"
               --workers {{ .Values.mlflow.gunicornWorkers }}
           ports:
             - name: http

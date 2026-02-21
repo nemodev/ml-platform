@@ -27,8 +27,8 @@ Key technical decisions from research:
 
 **Language/Version**: Java 21 (backend), TypeScript 5.4+ (frontend),
   Python 3.11 (notebooks for model registration)
-**Primary Dependencies**: Spring Boot 3.5.x, Angular 17, KServe 0.13.x,
-  MLflow 2.15.0 (Model Registry), Kubernetes Java Client
+**Primary Dependencies**: Spring Boot 3.5.x, Angular 17, KServe 0.16.x,
+  MLflow 3.10.0 (Model Registry), Kubernetes Java Client
 **Storage**: PostgreSQL (`model_deployments` table),
   MinIO (model artifacts via MLflow)
 **Testing**: JUnit 5 (backend), Jasmine + Karma (frontend),

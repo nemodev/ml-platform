@@ -19,10 +19,10 @@ Install KServe CRDs and controller in raw deployment mode:
 
 ```bash
 # Install KServe CRDs
-kubectl apply -f https://github.com/kserve/kserve/releases/download/v0.13.1/kserve.yaml
+kubectl apply -f https://github.com/kserve/kserve/releases/download/v0.16.0/kserve.yaml
 
 # Install ClusterServingRuntimes (includes mlserver for MLflow format)
-kubectl apply -f https://github.com/kserve/kserve/releases/download/v0.13.1/kserve-cluster-resources.yaml
+kubectl apply -f https://github.com/kserve/kserve/releases/download/v0.16.0/kserve-cluster-resources.yaml
 
 # Configure KServe for raw deployment mode
 kubectl patch configmap/inferenceservice-config \

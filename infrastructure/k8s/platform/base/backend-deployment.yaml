@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: backend
+        hub.jupyter.org/network-access-hub: "true"
     spec:
       serviceAccountName: backend
       containers:
@@ -26,6 +27,10 @@ spec:
               value: default
             - name: SERVICES_MLFLOW_TRACKING_URL
               value: /mlflow
+            - name: JUPYTERHUB_API_TOKEN
+              value: platform-api-service-token
+            - name: WORKSPACE_DEFAULT_NOTEBOOK
+              value: examples/sample-delta-data.ipynb
             - name: APP_CORS_ALLOWED_ORIGINS
               value: http://localhost:4200,http://localhost:8080,http://localhost:30080,http://192.168.64.2:30080,http://172.16.100.10:30080,https://portal.ml-platform.local
           readinessProbe:

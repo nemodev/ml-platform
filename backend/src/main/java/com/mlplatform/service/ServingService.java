@@ -64,6 +64,8 @@ public class ServingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Model artifact URI is missing");
         }
 
+        String storageUri = modelRegistryService.resolveModelStorageUri(username, modelName, modelVersion);
+
         String endpointName = buildEndpointName(username, modelName, modelVersion);
         if (modelDeploymentRepository.findByEndpointNameAndDeletedAtIsNull(endpointName).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A deployment for this model version already exists");
@@ -75,11 +77,11 @@ public class ServingService {
         deployment.setModelVersion(modelVersion);
         deployment.setEndpointName(endpointName);
         deployment.setStatus(DeploymentStatus.DEPLOYING);
-        deployment.setStorageUri(versionDetail.artifactUri());
+        deployment.setStorageUri(storageUri);
         deployment = modelDeploymentRepository.save(deployment);
 
         try {
-            kServeService.createInferenceService(endpointName, versionDetail.artifactUri());
+            kServeService.createInferenceService(endpointName, storageUri);
         } catch (RuntimeException ex) {
             deployment.setStatus(DeploymentStatus.FAILED);
             deployment.setErrorMessage(trimError(ex.getMessage()));
@@ -158,7 +160,11 @@ public class ServingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Deployment is not ready for inference");
         }
 
-        Map<String, Object> payload = Map.of("inputs", request.inputs());
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("inputs", request.inputs());
+        if (request.parameters() != null && !request.parameters().isEmpty()) {
+            payload.put("parameters", request.parameters());
+        }
         ProxyInferenceResponse proxyResponse = kServeService.proxyPredict(deployment.getEndpointName(), payload);
 
         String modelName = proxyResponse.modelName();
@@ -311,6 +317,7 @@ public class ServingService {
                 deployment.getModelName(),
                 deployment.getModelVersion(),
                 deployment.getEndpointName(),
+                deployment.getInferenceUrl(),
                 deployment.getStatus().name(),
                 deployment.getCreatedAt(),
                 deployment.getReadyAt()

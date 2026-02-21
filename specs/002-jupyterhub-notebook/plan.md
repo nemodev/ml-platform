@@ -12,10 +12,10 @@ SSO passthrough via Keycloak. Each user gets their own isolated
 notebook server with persistent storage and pre-installed ML libraries.
 
 Key technical decisions from research:
-- Z2JH Helm Chart v3.3.x for JupyterHub deployment on Kubernetes
+- Z2JH Helm Chart v4.3.2 for JupyterHub deployment on Kubernetes
 - `GenericOAuthenticator` for Keycloak SSO integration
 - Custom Docker image (based on `jupyter/scipy-notebook`) with full
-  ML stack (pytorch, tensorflow, scikit-learn, etc.)
+  ML stack (scikit-learn, scipy, seaborn, plotly, etc.)
 - Spring Boot backend proxies JupyterHub REST API for workspace
   lifecycle management
 - Iframe embedding with CSP `frame-ancestors` for security
@@ -27,7 +27,7 @@ Key technical decisions from research:
 **Language/Version**: Java 21 (backend), TypeScript 5.4+ (frontend),
   Python 3.11 (notebook image)
 **Primary Dependencies**: Spring Boot 3.5.x, Angular 17,
-  JupyterHub (Z2JH Helm v3.3.x), Keycloak 26.x,
+  JupyterHub (Z2JH Helm v4.3.x), Keycloak 26.x,
   angular-auth-oidc-client
 **Storage**: PostgreSQL (workspace table + JupyterHub DB),
   Kubernetes PVC (10Gi per user for notebook files)

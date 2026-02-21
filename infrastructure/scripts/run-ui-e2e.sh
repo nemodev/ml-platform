@@ -26,7 +26,7 @@ Usage:
 Examples:
   run-ui-e2e.sh
   run-ui-e2e.sh --mode smoke
-  run-ui-e2e.sh http://172.16.100.10:30080 scientist1 password1 --mode full
+  run-ui-e2e.sh http://172.16.100.10:30080 user1 password1 --mode full
   run-ui-e2e.sh --mode smoke --list
 EOF
       exit 0
@@ -50,7 +50,7 @@ EOF
 done
 
 BASE_URL="${POSITIONAL_ARGS[0]:-${BASE_URL:-http://172.16.100.10:30080}}"
-UI_TEST_USERNAME="${POSITIONAL_ARGS[1]:-${UI_TEST_USERNAME:-scientist1}}"
+UI_TEST_USERNAME="${POSITIONAL_ARGS[1]:-${UI_TEST_USERNAME:-user1}}"
 UI_TEST_PASSWORD="${POSITIONAL_ARGS[2]:-${UI_TEST_PASSWORD:-password1}}"
 
 if [[ ${#POSITIONAL_ARGS[@]} -gt 3 ]]; then

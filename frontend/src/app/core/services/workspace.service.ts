@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Observable, timer } from 'rxjs';
-import { switchMap, takeWhile } from 'rxjs/operators';
+import { Observable, of, timer } from 'rxjs';
+import { catchError, map, switchMap, takeWhile } from 'rxjs/operators';
 
 export type WorkspaceState = 'PENDING' | 'RUNNING' | 'IDLE' | 'STOPPED' | 'FAILED';
 
@@ -34,34 +34,44 @@ export interface WorkspaceUrl {
 export class WorkspaceService {
   private readonly http = inject(HttpClient);
 
-  getProfiles(): Observable<ComputeProfile[]> {
-    return this.http.get<ComputeProfile[]>(`${environment.apiUrl}/workspaces/profiles`);
+  private analysisWorkspacesUrl(analysisId: string): string {
+    return `${environment.apiUrl}/analyses/${analysisId}/workspaces`;
   }
 
-  launchWorkspace(profile = 'exploratory'): Observable<WorkspaceStatus> {
-    return this.http.post<WorkspaceStatus>(`${environment.apiUrl}/workspaces`, { profile });
+  getProfiles(analysisId: string): Observable<ComputeProfile[]> {
+    return this.http.get<ComputeProfile[]>(`${this.analysisWorkspacesUrl(analysisId)}/profiles`);
   }
 
-  getStatus(): Observable<WorkspaceStatus> {
-    return this.http.get<WorkspaceStatus>(`${environment.apiUrl}/workspaces`);
+  launchWorkspace(analysisId: string, profile = 'exploratory'): Observable<WorkspaceStatus> {
+    return this.http.post<WorkspaceStatus>(this.analysisWorkspacesUrl(analysisId), { profile });
   }
 
-  terminateWorkspace(): Observable<void> {
-    return this.http.delete<void>(`${environment.apiUrl}/workspaces`);
+  getStatus(analysisId: string): Observable<WorkspaceStatus> {
+    return this.http.get<WorkspaceStatus>(this.analysisWorkspacesUrl(analysisId));
   }
 
-  getWorkspaceUrl(notebookPath?: string): Observable<WorkspaceUrl> {
+  terminateWorkspace(analysisId: string): Observable<void> {
+    return this.http.delete<void>(this.analysisWorkspacesUrl(analysisId));
+  }
+
+  getWorkspaceUrl(analysisId: string, notebookPath?: string): Observable<WorkspaceUrl> {
+    const base = `${this.analysisWorkspacesUrl(analysisId)}/url`;
     if (notebookPath) {
-      return this.http.get<WorkspaceUrl>(
-        `${environment.apiUrl}/workspaces/url?notebookPath=${encodeURIComponent(notebookPath)}`
-      );
+      return this.http.get<WorkspaceUrl>(`${base}?notebookPath=${encodeURIComponent(notebookPath)}`);
     }
-    return this.http.get<WorkspaceUrl>(`${environment.apiUrl}/workspaces/url`);
+    return this.http.get<WorkspaceUrl>(base);
   }
 
-  watchStatusUntilStable(intervalMs = 3000): Observable<WorkspaceStatus> {
+  getKernelStatus(analysisId: string): Observable<string> {
+    return this.http.get<{ status: string }>(`${this.analysisWorkspacesUrl(analysisId)}/kernel-status`).pipe(
+      map(res => res.status),
+      catchError(() => of('disconnected'))
+    );
+  }
+
+  watchStatusUntilStable(analysisId: string, intervalMs = 3000): Observable<WorkspaceStatus> {
     return timer(0, intervalMs).pipe(
-      switchMap(() => this.getStatus()),
+      switchMap(() => this.getStatus(analysisId)),
       takeWhile((status) => status.status === 'PENDING', true)
     );
   }

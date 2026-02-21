@@ -63,6 +63,7 @@ done
 
 echo "[${CONTEXT}] deploying keycloak"
 k apply -f "$ROOT_DIR/infrastructure/k8s/keycloak/"
+k -n "$NS" set env deployment/keycloak KC_HOSTNAME="http://${NODE_IP}:30080"
 k -n "$NS" rollout status deploy/keycloak --timeout=15m
 
 echo "[${CONTEXT}] configuring keycloak portal client"
@@ -110,16 +111,22 @@ jupyterhub:
       enabled: false
     config:
       GenericOAuthenticator:
-        oauth_callback_url: http://${NODE_IP}:30081/hub/oauth_callback
-        authorize_url: http://${NODE_IP}:30080/keycloak/realms/ml-platform/protocol/openid-connect/auth
+        oauth_callback_url: http://${NODE_IP}:30080/hub/oauth_callback
+        authorize_url: http://${NODE_IP}:30080/realms/ml-platform/protocol/openid-connect/auth
+      KubeSpawner:
+        args:
+          - "--ServerApp.tornado_settings={\"headers\":{\"Content-Security-Policy\":\"frame-ancestors 'self' http://${NODE_IP}:30080\"}}"
+    extraConfig:
+      00-security.py: |
+        c.JupyterHub.tornado_settings = {
+          "headers": {
+            "Content-Security-Policy": "frame-ancestors 'self' http://${NODE_IP}:30080"
+          }
+        }
   proxy:
     chp:
       networkPolicy:
         enabled: false
-    service:
-      type: NodePort
-      nodePorts:
-        http: 30081
   singleuser:
     networkPolicy:
       enabled: false
@@ -152,6 +159,7 @@ rm -f "$DAG_MANIFEST"
 echo "[${CONTEXT}] provisioning sample data manifests"
 k apply -f "$ROOT_DIR/infrastructure/k8s/sample-data/read-only-secret.yaml"
 k apply -f "$ROOT_DIR/infrastructure/k8s/sample-data/sample-notebook-configmap.yaml"
+k apply -f "$ROOT_DIR/infrastructure/k8s/sample-data/batch-inference-notebook-configmap.yaml"
 k apply -f "$ROOT_DIR/infrastructure/k8s/sample-data/provision-script-configmap.yaml"
 
 PROVISION_JOB="$(mktemp)"
@@ -164,8 +172,8 @@ k -n "$NS" wait --for=condition=complete job/provision-sample-data --timeout=20m
 
 echo "[${CONTEXT}] ensuring kserve"
 if ! k get crd inferenceservices.serving.kserve.io >/dev/null 2>&1; then
-  k apply -f https://github.com/kserve/kserve/releases/download/v0.13.1/kserve.yaml
-  k apply -f https://github.com/kserve/kserve/releases/download/v0.13.1/kserve-cluster-resources.yaml
+  k apply -f https://github.com/kserve/kserve/releases/download/v0.16.0/kserve.yaml
+  k apply -f https://github.com/kserve/kserve/releases/download/v0.16.0/kserve-cluster-resources.yaml
 fi
 if k -n kserve get configmap inferenceservice-config >/dev/null 2>&1; then
   k patch configmap/inferenceservice-config \
@@ -182,7 +190,7 @@ k apply -k "$ROOT_DIR/infrastructure/k8s/platform/overlays/${OVERLAY}"
 k -n "$NS" set image deployment/backend backend="$BACKEND_IMAGE"
 k -n "$NS" set image deployment/frontend frontend="$FRONTEND_IMAGE"
 k -n "$NS" set env deployment/backend \
-  SERVICES_JUPYTERHUB_PUBLIC_URL="http://${NODE_IP}:30081" \
+  SERVICES_JUPYTERHUB_PUBLIC_URL="http://${NODE_IP}:30080" \
   SERVICES_MLFLOW_TRACKING_URL="/mlflow"
 k -n "$NS" rollout status deployment/backend --timeout=20m
 k -n "$NS" rollout status deployment/frontend --timeout=20m

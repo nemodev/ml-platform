@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/mlflow/mlflow
-  tag: v2.15.0
+  tag: v3.10.0
   pullPolicy: IfNotPresent
 
 service:
@@ -24,7 +24,9 @@ minio:
 
 mlflow:
   gunicornWorkers: 2
-  artifactRoot: s3://ml-platform-mlflow/artifacts
+  allowedHosts: "mlflow.ml-platform.svc*,localhost,10.*,172.*,192.168.*"
+  artifactRoot: "mlflow-artifacts:/"
+  artifactDestination: s3://ml-platform-mlflow/artifacts
   s3EndpointUrl: http://minio.ml-platform.svc:9000
   s3IgnoreTls: "true"
   backendStoreUri: postgresql://postgres:localdevpassword@postgresql.ml-platform.svc:5432/mlflow

@@ -152,6 +152,13 @@
   .kernel-dot { background: #9ca3af; }
 }
 
+.kernel-no_kernel {
+  background: #f8fafc;
+  color: #94a3b8;
+
+  .kernel-dot { background: #cbd5e1; }
+}
+
 .bridge-note {
   font-size: 0.75rem;
   color: #9ca3af;
@@ -162,7 +169,7 @@
 .running-card iframe {
   border: 1px solid #cbd5e1;
   border-radius: 0.35rem;
-  height: calc(100vh - 210px);
+  height: calc(100vh - 250px);
   margin-top: 0.5rem;
   width: 100%;
 }

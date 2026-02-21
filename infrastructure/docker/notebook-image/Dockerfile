@@ -31,11 +31,14 @@ USER jovyan
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+# Remove incompatible extensions from base image (not needed for embedded view)
+RUN pip uninstall -y jupyterlab-git nbdime jupyterlab-pygments 2>/dev/null || true
+
 # JupyterLab UI customization for embedded portal view
-# Disable: menu bar, header, status bar, terminal, extension manager, running sessions sidebar
-# Keep: File Browser, Table of Contents, cell toolbar, notebook content
+# Disable: terminal, extension manager, running sessions sidebar, announcements
+# Keep: Menu bar (Run/Kernel menus), Status bar (kernel status), File Browser, Table of Contents
 RUN mkdir -p /opt/conda/etc/jupyter/labconfig /opt/conda/share/jupyter/lab/settings \
-    && echo '{"disabledExtensions":{"@jupyterlab/mainmenu-extension":true,"@jupyterlab/statusbar-extension":true,"@jupyterlab/apputils-extension:announcements":true,"@jupyterlab/terminal-extension":true,"@jupyterlab/extensionmanager-extension":true,"@jupyterlab/running-extension":true}}' \
+    && echo '{"disabledExtensions":{"@jupyterlab/apputils-extension:announcements":true,"@jupyterlab/terminal-extension":true,"@jupyterlab/extensionmanager-extension":true,"@jupyterlab/running-extension":true}}' \
        > /opt/conda/etc/jupyter/labconfig/page_config.json \
     && echo '{"@jupyterlab/apputils-extension:announcements":{"checkForUpdates":false,"fetchNews":"false"}}' \
        > /opt/conda/share/jupyter/lab/settings/overrides.json

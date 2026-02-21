@@ -12,38 +12,40 @@
 ### Session 2026-02-16
 
 - Q: What is the default idle timeout before a notebook server is shut down? → A: 30 minutes
-- Q: What is the scope of pre-installed libraries? → A: Listed 5 + scipy, seaborn, plotly, pytorch, tensorflow
+- Q: What is the scope of pre-installed libraries? → A: Listed 5 + scipy, seaborn, plotly (scikit-learn is sufficient; pytorch/tensorflow not needed for MVP)
 - Q: Does the 60-second startup target apply to cold starts? → A: 60s for warm start; cold start up to 120s
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Access Embedded Notebook (Priority: P1)
 
-An authenticated user navigates to the "Notebooks" section in the
-portal. An interactive notebook environment is embedded directly within
-the portal page. The user sees a familiar notebook interface where they
-can create, open, and edit notebooks. The notebook server is personal
-to the user — each user gets their own isolated workspace.
+An authenticated user creates an **Analysis** (a named project context)
+and navigates to its "Notebooks" tab. An interactive notebook
+environment is embedded directly within the portal page. The user sees
+a familiar notebook interface where they can create, open, and edit
+notebooks. Each analysis has its own isolated workspace — a single user
+can run multiple analyses concurrently, each with an independent
+notebook server (JupyterHub named server) and persistent storage.
 
 **Why this priority**: The embedded notebook is the primary workspace
 for data scientists. Without it, the platform has no interactive
 development capability.
 
 **Independent Test**: Can be verified by logging into the portal,
-clicking "Notebooks", and confirming the notebook interface loads in
-the portal with the user's personal workspace.
+creating an analysis, navigating to its Notebooks tab, and confirming
+the notebook interface loads in the portal with the analysis workspace.
 
 **Acceptance Scenarios**:
 
-1. **Given** an authenticated user in the portal, **When** they click
-   "Notebooks" in the navigation, **Then** an interactive notebook
-   environment is displayed embedded within the portal page.
+1. **Given** an authenticated user in the portal, **When** they create
+   an analysis and open its Notebooks tab, **Then** an interactive
+   notebook environment is displayed embedded within the portal page.
 2. **Given** the notebook environment is loaded, **When** the user
    creates a new notebook, **Then** a new untitled notebook opens in
    the embedded interface.
-3. **Given** two different authenticated users, **When** each navigates
-   to the Notebooks section, **Then** each sees their own isolated
-   workspace with their own files.
+3. **Given** a user with two analyses, **When** they open notebooks in
+   each, **Then** each analysis has its own isolated workspace with
+   separate files and independent notebook servers.
 
 ---
 
@@ -51,9 +53,8 @@ the portal with the user's personal workspace.
 
 A user opens a notebook and writes Python code in a cell. They execute
 the cell and see the output rendered below it. Standard ML libraries
-(numpy, pandas, scikit-learn, scipy, seaborn, plotly, pytorch,
-tensorflow) are pre-installed and importable without any setup by the
-user.
+(numpy, pandas, scikit-learn, scipy, seaborn, plotly) are pre-installed
+and importable without any setup by the user.
 
 **Why this priority**: Code execution is the core function of the
 notebook. Pre-installed libraries eliminate setup friction and let users
@@ -68,8 +69,8 @@ dataframe output rendered.
 1. **Given** an open notebook, **When** the user types Python code in a
    cell and executes it, **Then** the output appears below the cell.
 2. **Given** an open notebook, **When** the user imports numpy, pandas,
-   scikit-learn, scipy, seaborn, plotly, torch, and tensorflow,
-   **Then** all imports succeed without errors.
+   scikit-learn, scipy, seaborn, and plotly, **Then** all imports
+   succeed without errors.
 3. **Given** an open notebook, **When** the user runs code that produces
    a plot (e.g., matplotlib), **Then** the plot is rendered inline.
 4. **Given** an open notebook, **When** the user runs code that raises
@@ -127,11 +128,12 @@ additional login prompt.
   Notebooks section using an iframe or equivalent embedding mechanism.
 - **FR-002**: The notebook server MUST authenticate users via the same
   identity provider as the portal, with no secondary login required.
-- **FR-003**: Each authenticated user MUST receive their own isolated
-  notebook server with a personal file workspace.
+- **FR-003**: Each analysis MUST receive its own isolated notebook
+  server (JupyterHub named server) with a personal file workspace.
+  A single user MAY have multiple concurrent analyses.
 - **FR-004**: The notebook environment MUST have pre-installed Python
   ML libraries: numpy, pandas, scikit-learn, matplotlib, mlflow,
-  scipy, seaborn, plotly, pytorch, and tensorflow.
+  scipy, seaborn, and plotly.
 - **FR-005**: The notebook environment MUST allow users to create, edit,
   execute, and save Jupyter notebooks.
 - **FR-006**: The embedded notebook MUST be configured to allow framing
@@ -144,13 +146,15 @@ additional login prompt.
 
 ### Key Entities
 
-- **Notebook Server**: A per-user compute instance running the
-  notebook environment. Has a lifecycle (starting, running, idle,
-  stopped).
-- **Notebook File**: A .ipynb document stored in the user's persistent
+- **Analysis**: A named project context owned by a user. Scopes
+  workspaces and MLflow experiments. One user can have many analyses.
+- **Notebook Server**: A per-analysis compute instance (JupyterHub
+  named server) running the notebook environment. Has a lifecycle
+  (starting, running, idle, stopped).
+- **Notebook File**: A .ipynb document stored in the analysis
   workspace. Contains code cells, markdown, and outputs.
 - **User Workspace**: A persistent storage volume personal to each
-  user. Survives server restarts.
+  analysis. Survives server restarts.
 
 ### Assumptions
 
@@ -173,11 +177,11 @@ additional login prompt.
   running, must be spawned) MUST complete within 120 seconds.
 - **SC-002**: The notebook environment loads within the portal without
   any additional login prompt — zero extra authentication steps.
-- **SC-003**: Two concurrent users each have isolated notebook servers
-  with separate file workspaces; files created by one user are not
-  visible to the other.
+- **SC-003**: Two analyses for the same user each have isolated
+  notebook servers with separate file workspaces; files created in one
+  analysis are not visible in the other.
 - **SC-004**: Pre-installed libraries (numpy, pandas, scikit-learn,
-  matplotlib, mlflow, scipy, seaborn, plotly, pytorch, tensorflow) are
-  importable without errors in a fresh notebook.
+  matplotlib, mlflow, scipy, seaborn, plotly) are importable without
+  errors in a fresh notebook.
 - **SC-005**: User notebook files persist after the notebook server is
   stopped and restarted.

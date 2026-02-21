@@ -11,4 +11,8 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
     List<Workspace> findByUserIdAndStatusIn(UUID userId, List<WorkspaceStatus> statuses);
 
     Optional<Workspace> findTopByUserIdOrderByCreatedAtDesc(UUID userId);
+
+    List<Workspace> findByAnalysisIdAndStatusIn(UUID analysisId, List<WorkspaceStatus> statuses);
+
+    Optional<Workspace> findTopByAnalysisIdOrderByCreatedAtDesc(UUID analysisId);
 }

@@ -17,6 +17,17 @@ public class JupyterHubConfig {
                 .build();
     }
 
+    @Bean
+    public WebClient jupyterHubProxyWebClient(JupyterHubProperties properties) {
+        String proxyUrl = properties.getProxyUrl();
+        if (proxyUrl == null || proxyUrl.isBlank()) {
+            proxyUrl = properties.getUrl();
+        }
+        return WebClient.builder()
+                .baseUrl(proxyUrl)
+                .build();
+    }
+
     @ConfigurationProperties(prefix = "services.jupyterhub")
     public static class JupyterHubProperties {
         private String url;

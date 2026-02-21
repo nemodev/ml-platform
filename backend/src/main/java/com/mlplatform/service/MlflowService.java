@@ -245,6 +245,17 @@ public class MlflowService {
         return username + "/" + name;
     }
 
+    public String prefixExperimentName(String username, String analysisId, String name) {
+        if (name == null || name.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Experiment name is required");
+        }
+        String fullPrefix = username + "/" + analysisId;
+        if (name.startsWith(fullPrefix + "/")) {
+            return name;
+        }
+        return fullPrefix + "/" + name;
+    }
+
     public String stripPrefix(String prefixedName, String username) {
         String prefix = username + "/";
         if (prefixedName == null) {
@@ -256,8 +267,26 @@ public class MlflowService {
         return prefixedName;
     }
 
+    public String stripPrefix(String prefixedName, String username, String analysisId) {
+        String fullPrefix = username + "/" + analysisId + "/";
+        if (prefixedName == null) {
+            return null;
+        }
+        if (prefixedName.startsWith(fullPrefix)) {
+            return prefixedName.substring(fullPrefix.length());
+        }
+        return prefixedName;
+    }
+
     public List<MlflowExperiment> filterByUserPrefix(List<MlflowExperiment> experiments, String username) {
         String prefix = username + "/";
+        return experiments.stream()
+                .filter(exp -> exp.name() != null && exp.name().startsWith(prefix))
+                .toList();
+    }
+
+    public List<MlflowExperiment> filterByUserAndAnalysis(List<MlflowExperiment> experiments, String username, String analysisId) {
+        String prefix = username + "/" + analysisId + "/";
         return experiments.stream()
                 .filter(exp -> exp.name() != null && exp.name().startsWith(prefix))
                 .toList();

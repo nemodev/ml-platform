@@ -34,11 +34,8 @@
         </button>
       </div>
       <div class="toolbar-right">
-        <span *ngIf="bridgeConnected" class="kernel-status" [class]="'kernel-' + kernelStatus">
-          <span class="kernel-dot"></span> {{ kernelStatus === 'unknown' ? 'Kernel' : kernelStatus }}
-        </span>
-        <span *ngIf="!bridgeConnected && (status === 'RUNNING' || status === 'IDLE')" class="bridge-note">
-          Bridge unavailable
+        <span class="kernel-status" [class]="'kernel-' + kernelStatus">
+          <span class="kernel-dot"></span> {{ kernelStatusLabel }}
         </span>
         <button type="button" class="toolbar-btn terminate" (click)="terminateWorkspace()">Terminate</button>
       </div>

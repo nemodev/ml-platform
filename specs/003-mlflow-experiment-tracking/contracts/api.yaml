@@ -3,9 +3,9 @@ info:
   title: ML Platform API - Experiment Tracking
   description: >
     REST API for feature 003-mlflow-experiment-tracking.
-    Backend proxy endpoints for MLflow experiment management,
-    plus MLflow UI URL for iframe embedding.
-  version: 0.1.0
+    Backend proxy endpoints for MLflow experiment management scoped
+    per analysis, plus MLflow UI URL for iframe embedding.
+  version: 0.2.0
 
 servers:
   - url: http://localhost:8080/api/v1
@@ -15,15 +15,19 @@ security:
   - bearerAuth: []
 
 paths:
-  /experiments:
+  /analyses/{analysisId}/experiments:
     post:
       summary: Create a new experiment
       description: >
-        Creates a new experiment in MLflow for the authenticated user.
-        The backend automatically prefixes the experiment name with
-        the user's username for isolation (e.g., scientist1/my-experiment).
+        Creates a new experiment in MLflow for the authenticated user
+        within the specified analysis. The backend automatically
+        prefixes the experiment name with the user's username and
+        analysis UUID for isolation (e.g.,
+        scientist1/a1b2c3d4/my-experiment).
       operationId: createExperiment
       tags: [Experiments]
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
       requestBody:
         required: true
         content:
@@ -39,21 +43,26 @@ paths:
                 $ref: '#/components/schemas/ExperimentInfo'
         '401':
           description: Invalid or missing token
+        '404':
+          description: Analysis not found or not owned by user
         '409':
-          description: Experiment with this name already exists
+          description: Experiment with this name already exists in this analysis
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
     get:
-      summary: List user's experiments
+      summary: List experiments in an analysis
       description: >
-        Returns all experiments belonging to the authenticated user.
-        Filters by user-prefixed names and strips the prefix before
-        returning results.
+        Returns all experiments belonging to the authenticated user
+        within the specified analysis. Filters by
+        username/analysisId prefix and strips it before returning
+        results.
       operationId: listExperiments
       tags: [Experiments]
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
       responses:
         '200':
           description: List of experiments
@@ -65,16 +74,20 @@ paths:
                   $ref: '#/components/schemas/ExperimentInfo'
         '401':
           description: Invalid or missing token
+        '404':
+          description: Analysis not found or not owned by user
 
-  /experiments/{experimentId}:
+  /analyses/{analysisId}/experiments/{experimentId}:
     get:
       summary: Get experiment details
       description: >
         Returns details of a specific experiment including its runs.
-        Verifies the experiment belongs to the authenticated user.
+        Verifies the experiment belongs to the authenticated user's
+        analysis.
       operationId: getExperiment
       tags: [Experiments]
       parameters:
+        - $ref: '#/components/parameters/analysisId'
         - name: experimentId
           in: path
           required: true
@@ -92,15 +105,16 @@ paths:
         '404':
           description: Experiment not found or not owned by user
 
-  /experiments/{experimentId}/runs:
+  /analyses/{analysisId}/experiments/{experimentId}/runs:
     get:
       summary: List runs for an experiment
       description: >
         Returns all runs within the specified experiment. Verifies the
-        experiment belongs to the authenticated user.
+        experiment belongs to the authenticated user's analysis.
       operationId: listRuns
       tags: [Experiments]
       parameters:
+        - $ref: '#/components/parameters/analysisId'
         - name: experimentId
           in: path
           required: true
@@ -120,7 +134,7 @@ paths:
         '404':
           description: Experiment not found or not owned by user
 
-  /experiments/tracking-url:
+  /analyses/{analysisId}/experiments/tracking-url:
     get:
       summary: Get MLflow UI URL for iframe embedding
       description: >
@@ -130,6 +144,8 @@ paths:
         via Ingress or proxy.
       operationId: getTrackingUrl
       tags: [Experiments]
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
       responses:
         '200':
           description: MLflow UI URL
@@ -147,6 +163,16 @@ components:
       scheme: bearer
       bearerFormat: JWT
 
+  parameters:
+    analysisId:
+      name: analysisId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The UUID of the analysis
+
   schemas:
     CreateExperimentRequest:
       type: object
@@ -155,8 +181,8 @@ components:
         name:
           type: string
           description: >
-            Experiment name (without user prefix — prefix is added
-            automatically by the backend).
+            Experiment name (without user/analysis prefix — prefix is
+            added automatically by the backend).
           example: sklearn-classification
 
     ExperimentInfo:

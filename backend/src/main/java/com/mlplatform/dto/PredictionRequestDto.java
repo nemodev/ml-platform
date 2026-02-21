@@ -4,5 +4,6 @@ import java.util.List;
 import java.util.Map;
 
 public record PredictionRequestDto(
-        List<Map<String, Object>> inputs
+        List<Map<String, Object>> inputs,
+        Map<String, Object> parameters
 ) {}

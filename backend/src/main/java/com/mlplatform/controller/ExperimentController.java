@@ -7,6 +7,8 @@ import com.mlplatform.dto.ExperimentDetailDto;
 import com.mlplatform.dto.ExperimentInfoDto;
 import com.mlplatform.dto.RunInfoDto;
 import com.mlplatform.dto.TrackingUrlDto;
+import com.mlplatform.model.Analysis;
+import com.mlplatform.service.AnalysisService;
 import com.mlplatform.service.MlflowService;
 import com.mlplatform.service.MlflowService.MlflowExperiment;
 import com.mlplatform.service.MlflowService.MlflowRun;
@@ -17,6 +19,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -47,22 +50,26 @@ public class ExperimentController {
     private static final String PROXY_PREFIX = "/api/v1/mlflow-proxy";
 
     private final MlflowService mlflowService;
+    private final AnalysisService analysisService;
     private final RestTemplate mlflowRestTemplate;
     private final ObjectMapper objectMapper;
 
     public ExperimentController(
             MlflowService mlflowService,
+            AnalysisService analysisService,
             @Qualifier("mlflowRestTemplate") RestTemplate mlflowRestTemplate,
             ObjectMapper objectMapper
     ) {
         this.mlflowService = mlflowService;
+        this.analysisService = analysisService;
         this.mlflowRestTemplate = mlflowRestTemplate;
         this.objectMapper = objectMapper;
     }
 
-    @PostMapping("/experiments")
+    @PostMapping("/analyses/{analysisId}/experiments")
     public ResponseEntity<ExperimentInfoDto> createExperiment(
             @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID analysisId,
             @RequestBody CreateExperimentRequest request
     ) {
         if (request == null || request.name() == null || request.name().isBlank()) {
@@ -70,38 +77,48 @@ public class ExperimentController {
         }
 
         String username = mlflowService.getUserPrefix(jwt);
-        String prefixedName = mlflowService.prefixExperimentName(username, request.name().trim());
+        Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
+        String analysisIdStr = analysis.getId().toString();
+        String prefixedName = mlflowService.prefixExperimentName(username, analysisIdStr, request.name().trim());
         MlflowExperiment experiment = mlflowService.createExperiment(prefixedName);
-        return ResponseEntity.status(HttpStatus.CREATED).body(toExperimentInfo(experiment, username));
+        return ResponseEntity.status(HttpStatus.CREATED).body(toExperimentInfo(experiment, username, analysisIdStr));
     }
 
-    @GetMapping("/experiments")
-    public List<ExperimentInfoDto> listExperiments(@AuthenticationPrincipal Jwt jwt) {
+    @GetMapping("/analyses/{analysisId}/experiments")
+    public List<ExperimentInfoDto> listExperiments(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID analysisId
+    ) {
         String username = mlflowService.getUserPrefix(jwt);
-        return mlflowService.filterByUserPrefix(mlflowService.searchExperiments(null), username).stream()
-                .map(experiment -> toExperimentInfo(experiment, username))
+        Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
+        String analysisIdStr = analysis.getId().toString();
+        return mlflowService.filterByUserAndAnalysis(mlflowService.searchExperiments(null), username, analysisIdStr).stream()
+                .map(experiment -> toExperimentInfo(experiment, username, analysisIdStr))
                 .toList();
     }
 
-    @GetMapping("/experiments/tracking-url")
+    @GetMapping("/analyses/{analysisId}/experiments/tracking-url")
     public TrackingUrlDto getTrackingUrl() {
         return new TrackingUrlDto(mlflowService.getTrackingUrl());
     }
 
-    @GetMapping("/experiments/{experimentId}")
+    @GetMapping("/analyses/{analysisId}/experiments/{experimentId}")
     public ExperimentDetailDto getExperiment(
             @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID analysisId,
             @PathVariable String experimentId
     ) {
         String username = mlflowService.getUserPrefix(jwt);
-        MlflowExperiment experiment = requireOwnedExperiment(experimentId, username);
+        Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
+        String analysisIdStr = analysis.getId().toString();
+        MlflowExperiment experiment = requireOwnedExperiment(experimentId, username, analysisIdStr);
         List<RunInfoDto> runs = mlflowService.searchRuns(experimentId).stream()
                 .map(this::toRunInfo)
                 .toList();
 
         return new ExperimentDetailDto(
                 experiment.experimentId(),
-                mlflowService.stripPrefix(experiment.name(), username),
+                mlflowService.stripPrefix(experiment.name(), username, analysisIdStr),
                 experiment.artifactLocation(),
                 experiment.lifecycleStage(),
                 toInstant(experiment.creationTime()),
@@ -110,13 +127,16 @@ public class ExperimentController {
         );
     }
 
-    @GetMapping("/experiments/{experimentId}/runs")
+    @GetMapping("/analyses/{analysisId}/experiments/{experimentId}/runs")
     public List<RunInfoDto> listRuns(
             @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID analysisId,
             @PathVariable String experimentId
     ) {
         String username = mlflowService.getUserPrefix(jwt);
-        requireOwnedExperiment(experimentId, username);
+        Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
+        String analysisIdStr = analysis.getId().toString();
+        requireOwnedExperiment(experimentId, username, analysisIdStr);
         return mlflowService.searchRuns(experimentId).stream()
                 .map(this::toRunInfo)
                 .toList();
@@ -129,10 +149,11 @@ public class ExperimentController {
             @RequestBody(required = false) byte[] body
     ) {
         String username = mlflowService.getUserPrefix(jwt);
+        String analysisIdHeader = request.getHeader("X-Analysis-Id");
         String path = extractProxyPath(request);
         String query = request.getQueryString();
-        String targetUri = buildTargetUri(path, query, username);
-        byte[] requestBody = maybeRewriteCreateExperimentBody(path, body, username);
+        String targetUri = buildTargetUri(path, query, username, analysisIdHeader);
+        byte[] requestBody = maybeRewriteCreateExperimentBody(path, body, username, analysisIdHeader);
 
         HttpHeaders headers = copyRequestHeaders(request);
         headers.set("X-ML-Platform-User", username);
@@ -157,19 +178,19 @@ public class ExperimentController {
         }
     }
 
-    private MlflowExperiment requireOwnedExperiment(String experimentId, String username) {
+    private MlflowExperiment requireOwnedExperiment(String experimentId, String username, String analysisId) {
         MlflowExperiment experiment = mlflowService.getExperiment(experimentId);
-        String expectedPrefix = username + "/";
+        String expectedPrefix = username + "/" + analysisId + "/";
         if (experiment.name() == null || !experiment.name().startsWith(expectedPrefix)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Experiment not found");
         }
         return experiment;
     }
 
-    private ExperimentInfoDto toExperimentInfo(MlflowExperiment experiment, String username) {
+    private ExperimentInfoDto toExperimentInfo(MlflowExperiment experiment, String username, String analysisId) {
         return new ExperimentInfoDto(
                 experiment.experimentId(),
-                mlflowService.stripPrefix(experiment.name(), username),
+                mlflowService.stripPrefix(experiment.name(), username, analysisId),
                 experiment.artifactLocation(),
                 experiment.lifecycleStage(),
                 toInstant(experiment.creationTime()),
@@ -210,14 +231,18 @@ public class ExperimentController {
         return path.startsWith("/") ? path : "/" + path;
     }
 
-    private String buildTargetUri(String path, String query, String username) {
+    private String buildTargetUri(String path, String query, String username, String analysisId) {
         if (isGetByNamePath(path)) {
             MultiValueMap<String, String> params = parseQueryParams(query);
             List<String> names = params.get("experiment_name");
             if (names != null && !names.isEmpty()) {
                 List<String> prefixed = new ArrayList<>();
                 for (String name : names) {
-                    prefixed.add(mlflowService.prefixExperimentName(username, name));
+                    if (analysisId != null && !analysisId.isBlank()) {
+                        prefixed.add(mlflowService.prefixExperimentName(username, analysisId, name));
+                    } else {
+                        prefixed.add(mlflowService.prefixExperimentName(username, name));
+                    }
                 }
                 params.put("experiment_name", prefixed);
             }
@@ -245,7 +270,7 @@ public class ExperimentController {
         return "/api/2.0/mlflow/experiments/get-by-name".equals(path);
     }
 
-    private byte[] maybeRewriteCreateExperimentBody(String path, byte[] body, String username) {
+    private byte[] maybeRewriteCreateExperimentBody(String path, byte[] body, String username, String analysisId) {
         if (!"/api/2.0/mlflow/experiments/create".equals(path) || body == null || body.length == 0) {
             return body;
         }
@@ -253,7 +278,11 @@ public class ExperimentController {
             ObjectNode node = (ObjectNode) objectMapper.readTree(body);
             if (node.hasNonNull("name")) {
                 String name = node.path("name").asText();
-                node.put("name", mlflowService.prefixExperimentName(username, name));
+                if (analysisId != null && !analysisId.isBlank()) {
+                    node.put("name", mlflowService.prefixExperimentName(username, analysisId, name));
+                } else {
+                    node.put("name", mlflowService.prefixExperimentName(username, name));
+                }
             }
             return objectMapper.writeValueAsBytes(node);
         } catch (IOException | ClassCastException ex) {

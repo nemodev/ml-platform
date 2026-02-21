@@ -27,6 +27,8 @@ spec:
               value: http://mlflow.ml-platform.svc.cluster.local:5000
             - name: KEYCLOAK_UPSTREAM
               value: http://keycloak.ml-platform.svc.cluster.local:8080
+            - name: JUPYTERHUB_UPSTREAM
+              value: http://proxy-public.ml-platform-jupyterhub.svc.cluster.local:80
             - name: RUNTIME_API_URL
               value: /api/v1
             - name: RUNTIME_KEYCLOAK_URL

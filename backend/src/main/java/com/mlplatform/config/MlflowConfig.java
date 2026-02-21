@@ -39,6 +39,7 @@ public class MlflowConfig {
     public static class MlflowProperties {
         private String url;
         private String trackingUrl;
+        private String artifactDestination;
 
         public String getUrl() {
             return url;
@@ -54,6 +55,14 @@ public class MlflowConfig {
 
         public void setTrackingUrl(String trackingUrl) {
             this.trackingUrl = trackingUrl;
+        }
+
+        public String getArtifactDestination() {
+            return artifactDestination;
+        }
+
+        public void setArtifactDestination(String artifactDestination) {
+            this.artifactDestination = artifactDestination;
         }
     }
 }

@@ -3,6 +3,7 @@ package com.mlplatform.service;
 import com.mlplatform.dto.ComputeProfileDto;
 import com.mlplatform.dto.WorkspaceStatusDto;
 import com.mlplatform.dto.WorkspaceUrlDto;
+import com.mlplatform.model.Analysis;
 import com.mlplatform.model.User;
 import com.mlplatform.model.Workspace;
 import com.mlplatform.model.Workspace.WorkspaceStatus;
@@ -23,6 +24,7 @@ public class WorkspaceService {
 
     private final WorkspaceRepository workspaceRepository;
     private final UserService userService;
+    private final AnalysisService analysisService;
     private final JupyterHubService jupyterHubService;
     private final Environment environment;
 
@@ -32,34 +34,56 @@ public class WorkspaceService {
     public WorkspaceService(
             WorkspaceRepository workspaceRepository,
             UserService userService,
+            AnalysisService analysisService,
             JupyterHubService jupyterHubService,
             Environment environment
     ) {
         this.workspaceRepository = workspaceRepository;
         this.userService = userService;
+        this.analysisService = analysisService;
         this.jupyterHubService = jupyterHubService;
         this.environment = environment;
     }
 
     @Transactional
-    public WorkspaceStatusDto launchWorkspace(Jwt jwt, String profile) {
+    public WorkspaceStatusDto launchWorkspace(Jwt jwt, UUID analysisId, String profile) {
         if (isDevProfile()) {
             return mockRunningStatus("exploratory", "Dev profile mock workspace");
         }
 
         User user = userService.syncFromJwt(jwt);
+        Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
         String username = resolveUsername(jwt, user);
+        String serverName = toServerName(analysis);
 
-        List<Workspace> active = workspaceRepository.findByUserIdAndStatusIn(
-                user.getId(),
+        List<Workspace> active = workspaceRepository.findByAnalysisIdAndStatusIn(
+                analysis.getId(),
                 List.of(WorkspaceStatus.PENDING, WorkspaceStatus.RUNNING, WorkspaceStatus.IDLE)
         );
         if (!active.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "User already has an active workspace");
+            // Reconcile DB state with JupyterHub — servers may have been removed
+            // (e.g. helm upgrade, cluster restart) leaving stale DB records.
+            boolean stillActive = false;
+            for (Workspace candidate : active) {
+                JupyterHubService.ServerStatus serverStatus =
+                        jupyterHubService.getNamedServerStatus(candidate.getJupyterhubUsername(), serverName);
+                if (serverStatus.status() == WorkspaceStatus.STOPPED
+                        || serverStatus.status() == WorkspaceStatus.FAILED) {
+                    candidate.setStatus(WorkspaceStatus.STOPPED);
+                    candidate.setLastActivity(Instant.now());
+                    workspaceRepository.save(candidate);
+                } else {
+                    stillActive = true;
+                }
+            }
+            if (stillActive) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Analysis already has an active workspace");
+            }
         }
 
         Workspace workspace = new Workspace();
         workspace.setUser(user);
+        workspace.setAnalysis(analysis);
         workspace.setProfile(normalizeProfile(profile));
         workspace.setStatus(WorkspaceStatus.PENDING);
         workspace.setJupyterhubUsername(username);
@@ -67,7 +91,7 @@ public class WorkspaceService {
 
         try {
             jupyterHubService.createUser(username);
-            jupyterHubService.spawnServer(username);
+            jupyterHubService.spawnNamedServer(username, serverName);
             return toDto(workspace, "Workspace launch initiated");
         } catch (JupyterHubUnavailableException ex) {
             workspace.setStatus(WorkspaceStatus.FAILED);
@@ -77,20 +101,23 @@ public class WorkspaceService {
     }
 
     @Transactional
-    public WorkspaceStatusDto getWorkspaceStatus(Jwt jwt) {
+    public WorkspaceStatusDto getWorkspaceStatus(Jwt jwt, UUID analysisId) {
         if (isDevProfile()) {
             return mockRunningStatus("exploratory", "Dev profile mock workspace");
         }
 
-        User user = userService.syncFromJwt(jwt);
-        Workspace workspace = workspaceRepository.findTopByUserIdOrderByCreatedAtDesc(user.getId())
+        userService.syncFromJwt(jwt);
+        Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
+        Workspace workspace = workspaceRepository.findTopByAnalysisIdOrderByCreatedAtDesc(analysis.getId())
                 .orElse(null);
 
         if (workspace == null) {
             return new WorkspaceStatusDto(null, WorkspaceStatus.STOPPED.name(), "EXPLORATORY", null, null, "No workspace");
         }
 
-        JupyterHubService.ServerStatus serverStatus = jupyterHubService.getServerStatus(workspace.getJupyterhubUsername());
+        String serverName = toServerName(analysis);
+        JupyterHubService.ServerStatus serverStatus = jupyterHubService.getNamedServerStatus(
+                workspace.getJupyterhubUsername(), serverName);
         workspace.setStatus(serverStatus.status());
         workspace.setStartedAt(serverStatus.startedAt());
         workspace.setLastActivity(serverStatus.lastActivity());
@@ -101,27 +128,29 @@ public class WorkspaceService {
     }
 
     @Transactional
-    public void terminateWorkspace(Jwt jwt) {
+    public void terminateWorkspace(Jwt jwt, UUID analysisId) {
         if (isDevProfile()) {
             return;
         }
 
-        User user = userService.syncFromJwt(jwt);
-        Workspace workspace = workspaceRepository.findTopByUserIdOrderByCreatedAtDesc(user.getId())
+        userService.syncFromJwt(jwt);
+        Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
+        Workspace workspace = workspaceRepository.findTopByAnalysisIdOrderByCreatedAtDesc(analysis.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No active workspace found"));
 
         if (workspace.getStatus() == WorkspaceStatus.STOPPED) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No active workspace found");
         }
 
-        jupyterHubService.stopServer(workspace.getJupyterhubUsername());
+        String serverName = toServerName(analysis);
+        jupyterHubService.stopNamedServer(workspace.getJupyterhubUsername(), serverName);
         workspace.setStatus(WorkspaceStatus.STOPPED);
         workspace.setLastActivity(Instant.now());
         workspaceRepository.save(workspace);
     }
 
     @Transactional
-    public WorkspaceUrlDto getWorkspaceUrl(Jwt jwt, String notebookPath) {
+    public WorkspaceUrlDto getWorkspaceUrl(Jwt jwt, UUID analysisId, String notebookPath) {
         if (isDevProfile()) {
             if (notebookPath != null && !notebookPath.isBlank()) {
                 return new WorkspaceUrlDto("http://localhost:8888/doc/tree/" + notebookPath);
@@ -134,17 +163,36 @@ public class WorkspaceService {
             return new WorkspaceUrlDto("http://localhost:8888/lab");
         }
 
-        WorkspaceStatusDto statusDto = getWorkspaceStatus(jwt);
+        WorkspaceStatusDto statusDto = getWorkspaceStatus(jwt, analysisId);
         if (!WorkspaceStatus.RUNNING.name().equals(statusDto.status())
                 && !WorkspaceStatus.IDLE.name().equals(statusDto.status())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No running workspace");
         }
 
+        Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
         String username = claimOrFallback(jwt, "preferred_username", jwt.getClaimAsString("email"));
+        String serverName = toServerName(analysis);
         if (notebookPath != null && !notebookPath.isBlank()) {
-            return new WorkspaceUrlDto(jupyterHubService.getDocUrl(username, notebookPath));
+            return new WorkspaceUrlDto(jupyterHubService.getNamedServerDocUrl(username, serverName, notebookPath));
         }
-        return new WorkspaceUrlDto(jupyterHubService.getLabUrl(username, defaultNotebook));
+        return new WorkspaceUrlDto(jupyterHubService.getNamedServerLabUrl(username, serverName, defaultNotebook));
+    }
+
+    public String getKernelStatus(Jwt jwt, UUID analysisId) {
+        if (isDevProfile()) {
+            return "idle";
+        }
+
+        userService.syncFromJwt(jwt);
+        Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
+        Workspace workspace = workspaceRepository.findTopByAnalysisIdOrderByCreatedAtDesc(analysis.getId())
+                .orElse(null);
+        if (workspace == null || workspace.getStatus() == WorkspaceStatus.STOPPED) {
+            return "disconnected";
+        }
+
+        String serverName = toServerName(analysis);
+        return jupyterHubService.getKernelStatus(workspace.getJupyterhubUsername(), serverName);
     }
 
     public List<ComputeProfileDto> getProfiles() {
@@ -158,6 +206,10 @@ public class WorkspaceService {
                 "4Gi",
                 0
         ));
+    }
+
+    private String toServerName(Analysis analysis) {
+        return analysis.getId().toString();
     }
 
     private WorkspaceStatusDto toDto(Workspace workspace, String message) {

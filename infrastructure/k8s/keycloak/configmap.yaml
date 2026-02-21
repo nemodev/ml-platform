@@ -72,15 +72,21 @@ data:
           "protocol": "openid-connect",
           "redirectUris": [
             "http://localhost:8181/hub/oauth_callback",
+            "http://localhost:30080/hub/oauth_callback",
             "http://localhost:30081/hub/oauth_callback",
+            "http://192.168.64.2:30080/hub/oauth_callback",
             "http://192.168.64.2:30081/hub/oauth_callback",
+            "http://172.16.100.10:30080/hub/oauth_callback",
             "http://172.16.100.10:30081/hub/oauth_callback",
             "https://portal.ml-platform.local/hub/oauth_callback"
           ],
           "webOrigins": [
             "http://localhost:8181",
+            "http://localhost:30080",
             "http://localhost:30081",
+            "http://192.168.64.2:30080",
             "http://192.168.64.2:30081",
+            "http://172.16.100.10:30080",
             "http://172.16.100.10:30081",
             "https://portal.ml-platform.local"
           ],
@@ -96,12 +102,12 @@ data:
       ],
       "users": [
         {
-          "username": "scientist1",
+          "username": "user1",
           "enabled": true,
           "emailVerified": true,
-          "firstName": "Scientist",
+          "firstName": "User",
           "lastName": "One",
-          "email": "scientist1@ml-platform.local",
+          "email": "user1@ml-platform.local",
           "credentials": [
             {
               "type": "password",
@@ -111,12 +117,12 @@ data:
           ]
         },
         {
-          "username": "scientist2",
+          "username": "user2",
           "enabled": true,
           "emailVerified": true,
-          "firstName": "Scientist",
+          "firstName": "User",
           "lastName": "Two",
-          "email": "scientist2@ml-platform.local",
+          "email": "user2@ml-platform.local",
           "credentials": [
             {
               "type": "password",

@@ -1,6 +1,6 @@
 <section class="card">
   <header class="card-header">
-    <h3>Deployments</h3>
+    <h3>Active Endpoints</h3>
     <button type="button" class="ghost" (click)="refreshDeployments()" [disabled]="loadingDeployments">
       {{ loadingDeployments ? 'Refreshing...' : 'Refresh' }}
     </button>
@@ -22,7 +22,10 @@
     </thead>
     <tbody>
       <tr *ngFor="let deployment of deployments">
-        <td>{{ deployment.endpointName }}</td>
+        <td>
+          <div>{{ deployment.endpointName }}</div>
+          <div class="inference-url" *ngIf="deployment.inferenceUrl">{{ deployment.inferenceUrl }}</div>
+        </td>
         <td>{{ deployment.modelName }} v{{ deployment.modelVersion }}</td>
         <td>
           <span class="status-badge" [class]="statusClass(deployment.status)">
@@ -54,7 +57,7 @@
   </table>
 
   <p class="empty" *ngIf="!loadingDeployments && deployments.length === 0">
-    No deployments yet.
+    No endpoints yet. Deploy a model from the list above.
   </p>
 </section>
 

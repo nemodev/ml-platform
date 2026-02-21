@@ -43,14 +43,14 @@ All components share a single Keycloak identity provider. The Spring Boot backen
 | **Language** | TypeScript | 5.4+ | Frontend |
 | **Language** | Python | 3.11 | Notebooks, pipelines, provisioning |
 | **Identity** | Keycloak | 26.1 | OIDC provider, realm management |
-| **Notebooks** | JupyterHub (Z2JH) | 3.3.8 | Multi-user notebook server on K8s |
-| **Experiments** | MLflow | 2.15.0 | Tracking, model registry, artifact store |
+| **Notebooks** | JupyterHub (Z2JH) | 4.3.2 | Multi-user notebook server on K8s |
+| **Experiments** | MLflow | 3.10.0 | Tracking, model registry, artifact store |
 | **Pipelines** | Apache Airflow | 2.10.3 | DAG orchestration, KubernetesExecutor |
 | **Processing** | Apache Spark | 4.0.1 | Distributed compute (client mode on K8s) |
 | **Data Format** | Delta Lake | >= 0.22.0 | ACID table format on S3 |
 | **Object Storage** | MinIO | latest | S3-compatible storage (official chart) |
 | **Database** | PostgreSQL | latest | Shared metadata store |
-| **Model Serving** | KServe | 0.13.x | InferenceService CRDs, V2 protocol |
+| **Model Serving** | KServe | 0.16.x | InferenceService CRDs, V2 protocol |
 | **Container Runtime** | Kubernetes | - | All components run as K8s workloads |
 | **Build** | Gradle | - | Backend build (Kotlin DSL) |
 | **Migrations** | Flyway | - | Database schema versioning |
@@ -113,25 +113,29 @@ All components share a single Keycloak identity provider. The Spring Boot backen
 
 | Controller | Path Prefix | Purpose |
 |-----------|-------------|---------|
-| `HealthController` | `/api/health` | Liveness/readiness probe |
-| `AuthController` | `/api/auth` | OIDC user sync (`/userinfo`), logout |
-| `PortalController` | `/api/portal` | Navigation sections metadata |
-| `WorkspaceController` | `/api/workspaces` | JupyterHub workspace lifecycle (launch/status/terminate) |
-| `ExperimentController` | `/api/experiments` | MLflow experiment CRUD, run listing, tracking URL |
-| `PipelineController` | `/api/pipelines` | Trigger notebook pipelines, list runs, get output URLs |
-| Model Serving Controller | `/api/serving`, `/api/models` | KServe deployment lifecycle, inference proxy |
+| `HealthController` | `/api/v1/health` | Liveness/readiness probe |
+| `AuthController` | `/api/v1/auth` | OIDC user sync (`/userinfo`), logout |
+| `PortalController` | `/api/v1/portal` | Navigation sections metadata |
+| `AnalysisController` | `/api/v1/analyses` | Analysis CRUD (create, list, get, delete) |
+| `WorkspaceController` | `/api/v1/analyses/{analysisId}/workspaces` | JupyterHub workspace lifecycle (launch/status/terminate/kernel-status) |
+| `ExperimentController` | `/api/v1/analyses/{analysisId}/experiments` | MLflow experiment CRUD, run listing, tracking URL, MLflow proxy |
+| `PipelineController` | `/api/v1/pipelines` | Trigger notebook pipelines, list runs, get output URLs |
+| `ModelController` | `/api/v1/models` | MLflow Model Registry: list models, list versions |
+| `ServingController` | `/api/v1/serving/deployments` | KServe deployment lifecycle, inference proxy |
 
 #### Services
 
 | Service | External Dependency | Protocol |
 |---------|-------------------|----------|
 | `UserService` | PostgreSQL | JPA (users table) |
+| `AnalysisService` | PostgreSQL | JPA (analyses table) |
 | `WorkspaceService` | JupyterHub | REST via `JupyterHubService` (WebClient) |
 | `MlflowService` | MLflow Tracking Server | REST via RestTemplate |
 | `ModelRegistryService` | MLflow Model Registry | REST via RestTemplate |
 | `PipelineService` | Airflow | REST via `AirflowService` (RestTemplate) |
 | `NotebookStorageService` | MinIO | S3 via MinIO Java SDK |
 | `KServeService` | Kubernetes API | K8s Java Client for InferenceService CRDs |
+| `ServingService` | KServeService + ModelRegistryService | Orchestration layer for deploy/predict |
 
 #### Configuration Classes
 
@@ -159,20 +163,30 @@ All components share a single Keycloak identity provider. The Spring Boot backen
 | `core/services/auth.service.ts` | Authentication state (BehaviorSubject), login/logout |
 | `core/guards/auth.guard.ts` | Route guard requiring authenticated user |
 | `core/interceptors/auth.interceptor.ts` | Attaches JWT Bearer token to all API requests |
-| `core/services/workspace.service.ts` | JupyterHub workspace API client |
-| `core/services/experiment.service.ts` | MLflow experiment API client |
+| `core/services/analysis.service.ts` | Analysis CRUD, active analysis selection state |
+| `core/services/workspace.service.ts` | JupyterHub workspace API client (analysis-scoped) |
+| `core/services/experiment.service.ts` | MLflow experiment API client (analysis-scoped) |
 | `core/services/pipeline.service.ts` | Pipeline API client |
+| `core/services/model.service.ts` | MLflow Model Registry API client |
+| `core/services/serving.service.ts` | KServe deployment API client |
+| `core/services/jupyter-bridge.service.ts` | Notebook ↔ Angular event bridge |
 
 #### Feature Components
 
 | Component | Route | Description |
 |-----------|-------|-------------|
-| `dashboard.component.ts` | `/` | Welcome page with username display |
-| `notebooks.component.ts` | `/notebooks` | Workspace launcher + embedded JupyterLab iframe |
-| `experiments.component.ts` | `/experiments` | Experiment list + embedded MLflow UI iframe |
+| `dashboard.component.ts` | `/dashboard` | Welcome page with username display |
+| `analyses.component.ts` | `/analyses` | Analysis list (create, select, delete) |
+| `analysis-layout.component.ts` | `/analyses/:analysisId` | Analysis workspace with embedded notebooks + experiments iframes |
+| `notebooks.component.ts` | `/analyses/:analysisId/notebooks` | Workspace launcher + embedded JupyterLab iframe |
+| `experiments.component.ts` | `/analyses/:analysisId/experiments` | Experiment list + embedded MLflow UI iframe |
+| `models.component.ts` | `/models` | Model registry + deployment management |
+| `deploy-dialog.component.ts` | (dialog) | Deploy model to KServe form |
+| `deployments.component.ts` | (child) | Deployment list with status + actions |
+| `predict-dialog.component.ts` | (dialog) | Send inference request form |
 | `pipelines.component.ts` | `/pipelines` | Pipeline run list with status filtering |
 | `trigger-dialog.component.ts` | (dialog) | Trigger notebook execution form |
-| `run-detail.component.ts` | `/pipelines/:id` | Pipeline run details with output download |
+| `run-detail.component.ts` | (child) | Pipeline run details with output download |
 
 ### Notebook Image
 
@@ -208,7 +222,7 @@ The shared PostgreSQL instance hosts 5 databases:
 | Database | Owner | Purpose |
 |----------|-------|---------|
 | `keycloak` | Keycloak | OIDC realm, users, clients, sessions |
-| `ml_platform` | Spring Boot | Application entities (users, workspaces, pipeline_runs, model_deployments) |
+| `ml_platform` | Spring Boot | Application entities (users, analyses, workspaces, pipeline_runs, model_deployments) |
 | `mlflow` | MLflow | Experiment metadata, run metrics, model registry |
 | `airflow` | Airflow | DAG definitions, task instances, XCom |
 | `jupyterhub` | JupyterHub | Hub state, user servers, API tokens |
@@ -227,18 +241,30 @@ users (
     last_login      TIMESTAMP NOT NULL
 )
 
--- V2: workspaces
+-- V8: analyses (groups notebooks + experiments per user)
+analyses (
+    id              UUID PRIMARY KEY,
+    user_id         UUID NOT NULL → users(id),
+    name            VARCHAR(255) NOT NULL,
+    description     TEXT,
+    created_at      TIMESTAMP NOT NULL
+)
+-- Unique constraint: (user_id, name)
+
+-- V2 + V8: workspaces (linked to analyses)
 workspaces (
     id                    UUID PRIMARY KEY,
     user_id               UUID NOT NULL → users(id),
+    analysis_id           UUID → analyses(id),
     profile               VARCHAR(50) DEFAULT 'EXPLORATORY',
-    status                VARCHAR(20) DEFAULT 'PENDING',  -- PENDING|RUNNING|STOPPED|FAILED
+    status                VARCHAR(20) DEFAULT 'PENDING',  -- PENDING|RUNNING|IDLE|STOPPED|FAILED
     pod_name              VARCHAR(255),
     jupyterhub_username   VARCHAR(255) NOT NULL,
     started_at            TIMESTAMP,
     last_activity         TIMESTAMP,
     created_at            TIMESTAMP NOT NULL
 )
+-- Unique constraint: one active workspace (PENDING|RUNNING|IDLE) per analysis
 
 -- V5: pipeline_runs
 pipeline_runs (
@@ -247,7 +273,7 @@ pipeline_runs (
     notebook_name      VARCHAR(255) NOT NULL,
     input_path         VARCHAR(512) NOT NULL,
     output_path        VARCHAR(512),
-    status             VARCHAR(20) DEFAULT 'PENDING',  -- PENDING|RUNNING|SUCCESS|FAILED
+    status             VARCHAR(20) DEFAULT 'PENDING',  -- PENDING|RUNNING|SUCCEEDED|FAILED
     airflow_dag_run_id VARCHAR(255),
     parameters         JSONB,
     enable_spark       BOOLEAN DEFAULT FALSE,
@@ -264,7 +290,7 @@ model_deployments (
     model_name      VARCHAR(255) NOT NULL,
     model_version   INTEGER NOT NULL,
     endpoint_name   VARCHAR(255) NOT NULL UNIQUE,
-    status          VARCHAR(20) NOT NULL,  -- CREATING|READY|FAILED|DELETING
+    status          VARCHAR(20) NOT NULL,  -- DEPLOYING|READY|FAILED|DELETING|DELETED
     inference_url   VARCHAR(512),
     storage_uri     VARCHAR(512) NOT NULL,
     error_message   TEXT,
@@ -311,54 +337,73 @@ Base URL: `http://localhost:8080/api`
 #### Authentication & Portal
 
 ```
-GET    /health                    → HealthResponse {status}
-GET    /auth/userinfo             → UserInfoResponse {username, email, displayName}
-POST   /auth/logout               → 200 (sync user then logout)
-GET    /portal/sections           → PortalSectionResponse[] {title, route, icon}
+GET    /v1/health                 → HealthResponse {status, timestamp}
+GET    /v1/auth/userinfo          → UserInfoResponse {username, email, displayName}
+POST   /v1/auth/logout            → 200 (sync user then logout)
+GET    /v1/portal/sections        → PortalSectionResponse[] {title, route, icon}
 ```
 
-#### Workspaces (JupyterHub)
+#### Analyses
 
 ```
-GET    /workspaces/profiles       → ComputeProfileDto[] {slug, displayName, description, cpu, memory}
-POST   /workspaces                → WorkspaceStatusDto {id, status, message}
-GET    /workspaces                → WorkspaceStatusDto {id, status, message}
-GET    /workspaces/url            → WorkspaceUrlDto {url}
-DELETE /workspaces                → 204
+POST   /v1/analyses               → AnalysisDto {id, name, description, createdAt}
+         Body: CreateAnalysisRequest {name, description}
+GET    /v1/analyses               → AnalysisDto[]
+GET    /v1/analyses/{id}          → AnalysisDto
+DELETE /v1/analyses/{id}          → 204
 ```
 
-#### Experiments (MLflow)
+#### Workspaces (JupyterHub) — scoped to analysis
 
 ```
-POST   /experiments               → ExperimentInfoDto {id, name, lifecycleStage}
-GET    /experiments               → ExperimentInfoDto[]
-GET    /experiments/{id}          → ExperimentDetailDto {experiment, runs[]}
-GET    /experiments/{id}/runs     → RunInfoDto[] {runId, status, metrics, params, startTime}
-GET    /experiments/tracking-url  → TrackingUrlDto {url}
+GET    /v1/analyses/{analysisId}/workspaces/profiles     → ComputeProfileDto[]
+POST   /v1/analyses/{analysisId}/workspaces              → WorkspaceStatusDto {id, status, message}
+         Body: LaunchWorkspaceRequest {profile}
+GET    /v1/analyses/{analysisId}/workspaces              → WorkspaceStatusDto
+GET    /v1/analyses/{analysisId}/workspaces/url           → WorkspaceUrlDto {url}
+GET    /v1/analyses/{analysisId}/workspaces/kernel-status → {status}
+DELETE /v1/analyses/{analysisId}/workspaces               → 204
+```
+
+#### Experiments (MLflow) — scoped to analysis
+
+```
+POST   /v1/analyses/{analysisId}/experiments              → ExperimentInfoDto {id, name, lifecycleStage}
+         Body: CreateExperimentRequest {name}
+GET    /v1/analyses/{analysisId}/experiments              → ExperimentInfoDto[]
+GET    /v1/analyses/{analysisId}/experiments/{id}         → ExperimentDetailDto {experiment, runs[]}
+GET    /v1/analyses/{analysisId}/experiments/{id}/runs    → RunInfoDto[]
+GET    /v1/analyses/{analysisId}/experiments/tracking-url → TrackingUrlDto {url}
+*      /v1/mlflow-proxy/**                                → MLflow API proxy (user-prefixed)
 ```
 
 #### Pipelines (Airflow)
 
 ```
-POST   /pipelines                 → PipelineRunInfoDto {id, status, notebookName, createdAt}
+POST   /v1/pipelines              → PipelineRunInfoDto {id, status, notebookName, createdAt}
          Body: TriggerPipelineRequest {notebookPath, parameters, enableSpark}
-GET    /pipelines                 → Page<PipelineRunInfoDto>
-GET    /pipelines/{runId}         → PipelineRunDetailDto {id, status, inputPath, outputPath, parameters}
-GET    /pipelines/{runId}/output  → PipelineOutputUrlDto {url, expiresAt}
-GET    /pipelines/notebooks       → NotebookInfoDto[] {name, path, lastModified}
+GET    /v1/pipelines              → PipelineRunInfoDto[]
+GET    /v1/pipelines/{runId}      → PipelineRunDetailDto {id, status, inputPath, outputPath, parameters}
+GET    /v1/pipelines/{runId}/output → PipelineOutputUrlDto {url, expiresAt}
+GET    /v1/pipelines/notebooks    → NotebookInfoDto[] {name, path, lastModified}
 ```
 
-#### Model Serving (KServe)
+#### Models (MLflow Registry)
 
 ```
-GET    /models                    → RegisteredModelInfoDto[] {name, latestVersion, description}
-GET    /models/{name}/versions    → ModelVersionInfoDto[] {version, status, stage, artifactUri}
-POST   /serving/deployments       → DeploymentInfoDto {id, endpointName, status}
+GET    /v1/models                 → RegisteredModelInfoDto[] {name, latestVersion, description}
+GET    /v1/models/{name}/versions → ModelVersionInfoDto[] {version, status, stage, artifactUri}
+```
+
+#### Serving (KServe Deployments)
+
+```
+POST   /v1/serving/deployments       → DeploymentInfoDto {id, endpointName, status}
          Body: DeployModelRequest {modelName, modelVersion}
-GET    /serving/deployments       → DeploymentInfoDto[]
-GET    /serving/deployments/{id}  → DeploymentDetailDto {id, endpointName, status, inferenceUrl}
-DELETE /serving/deployments/{id}  → 204
-POST   /serving/deployments/{id}/predict → PredictionResponseDto
+GET    /v1/serving/deployments       → DeploymentInfoDto[]
+GET    /v1/serving/deployments/{id}  → DeploymentDetailDto {id, endpointName, status, inferenceUrl}
+DELETE /v1/serving/deployments/{id}  → 204
+POST   /v1/serving/deployments/{id}/predict → PredictionResponseDto
          Body: PredictionRequestDto
 ```
 
@@ -386,30 +431,36 @@ ml-platform/
 │       │   │   ├── StorageConfig.java          # MinIO client
 │       │   │   └── KServeConfig.java           # K8s API client
 │       │   ├── controller/
+│       │   │   ├── AnalysisController.java
 │       │   │   ├── AuthController.java
-│       │   │   ├── HealthController.java
-│       │   │   ├── PortalController.java
-│       │   │   ├── WorkspaceController.java
 │       │   │   ├── ExperimentController.java
-│       │   │   └── PipelineController.java
+│       │   │   ├── HealthController.java
+│       │   │   ├── ModelController.java
+│       │   │   ├── PipelineController.java
+│       │   │   ├── PortalController.java
+│       │   │   ├── ServingController.java
+│       │   │   └── WorkspaceController.java
 │       │   ├── dto/                            # Java records (20+ DTOs)
 │       │   ├── model/
-│       │   │   ├── User.java                   # JPA entity
-│       │   │   ├── Workspace.java              # JPA entity
+│       │   │   ├── Analysis.java               # JPA entity
+│       │   │   ├── ModelDeployment.java        # JPA entity
 │       │   │   ├── PipelineRun.java            # JPA entity
-│       │   │   └── ModelDeployment.java        # JPA entity
+│       │   │   ├── User.java                   # JPA entity
+│       │   │   └── Workspace.java              # JPA entity (FK → Analysis)
 │       │   ├── repository/                     # Spring Data JPA interfaces
 │       │   └── service/
-│       │       ├── UserService.java
-│       │       ├── WorkspaceService.java
+│       │       ├── AirflowService.java
+│       │       ├── AnalysisService.java
 │       │       ├── JupyterHubService.java
+│       │       ├── KServeService.java
 │       │       ├── MlflowService.java
 │       │       ├── ModelRegistryService.java
-│       │       ├── PipelineService.java
-│       │       ├── AirflowService.java
 │       │       ├── NotebookStorageService.java
-│       │       ├── KServeService.java
-│       │       └── *UnavailableException.java  # Typed exceptions
+│       │       ├── PipelineService.java
+│       │       ├── ServingService.java
+│       │       ├── UserService.java
+│       │       ├── WorkspaceService.java
+│       │       └── *UnavailableException.java  # Typed exceptions (4 files)
 │       └── resources/
 │           ├── application.yaml                # Default config
 │           ├── application-dev.yaml            # Dev profile overrides
@@ -418,7 +469,9 @@ ml-platform/
 │               ├── V1__create_users.sql
 │               ├── V2__create_workspaces.sql
 │               ├── V005__create_pipeline_runs.sql
-│               └── V006__create_model_deployments.sql
+│               ├── V006__create_model_deployments.sql
+│               ├── V007__adjust_model_deployment_endpoint_uniqueness.sql
+│               └── V008__create_analyses_and_link_workspaces.sql
 │
 ├── frontend/
 │   ├── angular.json
@@ -437,14 +490,26 @@ ml-platform/
 │           │   ├── guards/auth.guard.ts
 │           │   ├── interceptors/auth.interceptor.ts
 │           │   └── services/
+│           │       ├── analysis.service.ts
 │           │       ├── auth.service.ts
-│           │       ├── workspace.service.ts
 │           │       ├── experiment.service.ts
-│           │       └── pipeline.service.ts
+│           │       ├── jupyter-bridge.service.ts
+│           │       ├── model.service.ts
+│           │       ├── pipeline.service.ts
+│           │       ├── serving.service.ts
+│           │       └── workspace.service.ts
 │           └── features/
+│               ├── analyses/
+│               │   ├── analyses.component.ts           # Analysis list
+│               │   └── analysis-layout.component.ts    # Tabbed notebooks/experiments
 │               ├── dashboard/dashboard.component.ts
-│               ├── notebooks/notebooks.component.ts
-│               ├── experiments/experiments.component.ts
+│               ├── models/
+│               │   ├── models.component.ts             # Registry + deployments
+│               │   ├── deploy-dialog/deploy-dialog.component.ts
+│               │   ├── deployments/deployments.component.ts
+│               │   └── predict-dialog/predict-dialog.component.ts
+│               ├── notebooks/notebooks.component.ts    # Embedded via analysis-layout
+│               ├── experiments/experiments.component.ts # Embedded via analysis-layout
 │               └── pipelines/
 │                   ├── pipelines.component.ts
 │                   ├── trigger-dialog/trigger-dialog.component.ts
@@ -457,12 +522,12 @@ ml-platform/
 │   │       └── requirements.txt                # 21 Python packages
 │   ├── helm/
 │   │   ├── jupyterhub/
-│   │   │   ├── Chart.yaml                      # Z2JH 3.3.8
+│   │   │   ├── Chart.yaml                      # Z2JH 4.3.2
 │   │   │   ├── values.yaml                     # Production defaults
 │   │   │   └── local-values.yaml               # Local dev overrides
 │   │   ├── mlflow/
 │   │   │   ├── Chart.yaml
-│   │   │   ├── values.yaml                     # MLflow 2.15.0 config
+│   │   │   ├── values.yaml                     # MLflow 3.10.0 config
 │   │   │   ├── local-values.yaml
 │   │   │   └── templates/
 │   │   │       ├── configmap.yaml
@@ -483,11 +548,13 @@ ml-platform/
 │   │   │   ├── dag-configmap.yaml              # notebook_runner DAG
 │   │   │   └── spark-rbac.yaml                 # ServiceAccount + ClusterRoleBinding
 │   │   └── sample-data/
+│   │       ├── batch-inference-notebook-configmap.yaml  # Batch inference notebook
 │   │       ├── provision-job.yaml              # K8s Job (writes Delta table)
 │   │       ├── provision-script-configmap.yaml # Python provisioning script
 │   │       ├── read-only-secret.yaml           # MinIO RO credentials
 │   │       └── sample-notebook-configmap.yaml  # Example Jupyter notebook
 │   └── scripts/
+│       ├── deploy-full-stack.sh                # Full stack deployment (r1)
 │       └── port-forward.sh                     # Local dev port forwarding
 │
 ├── specs/                                      # Feature specifications (speckit)
@@ -496,10 +563,11 @@ ml-platform/
 │   ├── 003-mlflow-experiment-tracking/
 │   ├── 004-sample-delta-data/
 │   ├── 005-airflow-notebook-pipeline/
-│   └── 006-model-serving-inference/
+│   ├── 006-model-serving-inference/
+│   └── 007-notebook-ui-customization/
 │
 ├── .specify/                                   # speckit configuration
-│   └── memory/constitution.md                  # Project constitution (v1.0.0)
+│   └── memory/constitution.md                  # Project constitution (v2.0.0)
 │
 ├── .gitignore
 ├── .dockerignore
@@ -520,7 +588,7 @@ All workloads run in a single `ml-platform` namespace.
 | PostgreSQL | StatefulSet (Helm) | official postgres | 5432 |
 | JupyterHub | Deployment (Z2JH Helm) | official jupyterhub | 8081 (hub), 80 (proxy) |
 | JupyterHub user pods | Pod (dynamic) | `ml-platform-notebook:latest` | 8888 |
-| MLflow | Deployment (custom Helm) | `ghcr.io/mlflow/mlflow:v2.15.0` | 5000 |
+| MLflow | Deployment (custom Helm) | `ghcr.io/mlflow/mlflow:v3.10.0` | 5000 |
 | MinIO | StatefulSet (official Helm) | official minio | 9000 (API), 9001 (console) |
 | Airflow Webserver | Deployment (Helm) | `apache/airflow:2.10.3-python3.11` | 8080 |
 | Airflow Scheduler | Deployment (Helm) | same | - |
@@ -534,7 +602,7 @@ All workloads run in a single `ml-platform` namespace.
 
 | Chart | Source | Local Values |
 |-------|--------|-------------|
-| JupyterHub | `https://hub.jupyter.org/helm-chart/` (Z2JH 3.3.8) | `helm/jupyterhub/local-values.yaml` |
+| JupyterHub | `https://hub.jupyter.org/helm-chart/` (Z2JH 4.3.2) | `helm/jupyterhub/local-values.yaml` |
 | MinIO | `https://charts.min.io` (official) | `helm/minio/local-values.yaml` |
 | Airflow | `https://airflow.apache.org` (official) | `helm/airflow/local-values.yaml` |
 | MLflow | Custom chart in `helm/mlflow/` | `helm/mlflow/local-values.yaml` |
@@ -546,7 +614,7 @@ All workloads run in a single `ml-platform` namespace.
 ```
 Frontend (browser) ─── https://portal.ml-platform.local ───► Backend (8080)
                                                               ├──► Keycloak     (keycloak.ml-platform.svc:8080)
-                                                              ├──► JupyterHub   (jupyterhub-hub.ml-platform.svc:8081)
+                                                              ├──► JupyterHub   (hub.ml-platform.svc:8081)
                                                               ├──► MLflow       (mlflow.ml-platform.svc:5000)
                                                               ├──► Airflow      (airflow-webserver.ml-platform.svc:8080)
                                                               ├──► MinIO        (minio.ml-platform.svc:9000)
@@ -580,7 +648,7 @@ Notebook pods ──► MLflow (MLFLOW_TRACKING_URI=http://mlflow.ml-platform.sv
   - `ml-platform-portal` — Public client (PKCE), redirect to `http://localhost:4200/*`
   - `ml-platform-jupyterhub` — Confidential client for JupyterHub OAuth
   - `ml-platform-backend` — Bearer-only client for JWT validation
-- **Test Users**: `scientist1`/`scientist1`, `scientist2`/`scientist2`
+- **Test Users**: `user1`/`password1` (user1@ml-platform.local), `user2`/`password2` (user2@ml-platform.local)
 
 ### Token Propagation
 
@@ -605,7 +673,8 @@ Notebook pods ──► MLflow (MLFLOW_TRACKING_URI=http://mlflow.ml-platform.sv
               ├──► 003-MLflow Experiment Tracking
               │         └──► 005-Airflow Notebook Pipeline
               │                    └──► 006-Model Serving & Inference
-              └──► 004-Sample Delta Lake Data
+              ├──► 004-Sample Delta Lake Data
+              └──► 007-Notebook UI Customization (Analysis entity)
 ```
 
 ### Feature Summary
@@ -617,7 +686,8 @@ Notebook pods ──► MLflow (MLFLOW_TRACKING_URI=http://mlflow.ml-platform.sv
 | 003 | MLflow Experiments | Implemented | ExperimentController, MlflowService, MlflowConfig | experiments.component, experiment.service | mlflow/ helm, minio/ helm |
 | 004 | Sample Delta Data | Implemented | (none) | (none) | sample-data/ manifests, minio/ updates |
 | 005 | Airflow Pipelines | Implemented | PipelineController, PipelineService, AirflowService, NotebookStorageService | pipelines, trigger-dialog, run-detail | airflow/ helm, dag-configmap, spark-rbac |
-| 006 | Model Serving | In Progress | KServeService, ModelRegistryService, KServeConfig, ModelDeployment | (pending) | (pending KServe manifests) |
+| 006 | Model Serving | Implemented | ModelController, ServingController, ServingService, KServeService, ModelRegistryService, ModelDeployment | models, deploy-dialog, deployments, predict-dialog, model.service, serving.service | KServe CRDs, ml-platform-serving namespace |
+| 007 | Notebook UI Customization | Implemented | AnalysisController, AnalysisService, Analysis model | analyses, analysis-layout, analysis.service, jupyter-bridge.service | V008 migration |
 
 ---
 
@@ -706,10 +776,19 @@ spring.security.oauth2.resourceserver.jwt.issuer-uri: http://keycloak.ml-platfor
 spring.flyway.enabled: true
 
 services:
-  jupyterhub.url: http://jupyterhub-hub.ml-platform.svc:8081
-  mlflow.url: http://mlflow.ml-platform.svc:5000
-  airflow.url: http://airflow-webserver.ml-platform.svc:8080
-  minio.endpoint: http://minio.ml-platform.svc:9000
+  jupyterhub:
+    url: http://hub.ml-platform.svc:8081
+    proxy-url: http://proxy-public.ml-platform.svc:80
+    api-token: ${JUPYTERHUB_API_TOKEN}
+  mlflow:
+    url: http://mlflow.ml-platform.svc:5000
+    tracking-url: http://mlflow.ml-platform.svc:5000
+  airflow:
+    url: http://airflow-webserver.ml-platform.svc:8080
+    username: admin
+    password: admin
+  minio:
+    endpoint: http://minio.ml-platform.svc:9000
 ```
 
 ### Environment Variables for Notebook Pods
@@ -740,7 +819,7 @@ The `notebook_runner` DAG (in `dag-configmap.yaml`) accepts these `dag_run.conf`
 
 ## Design Principles
 
-From the [project constitution](.specify/memory/constitution.md) (v1.0.0):
+From the [project constitution](.specify/memory/constitution.md) (v2.0.0):
 
 1. **MVP-First Incremental Delivery** — Each feature is independently deployable and verified before the next begins. The prior project failed by designing everything simultaneously.
 
@@ -752,4 +831,4 @@ From the [project constitution](.specify/memory/constitution.md) (v1.0.0):
 
 5. **Testing at System Boundaries** — Integration tests at component boundaries take priority over unit test coverage. Each feature must include end-to-end K8s verification.
 
-6. **Simplicity & YAGNI** — No GPU profiles, advanced RBAC, scale-to-zero, or multi-cluster until explicitly scoped. Prefer direct solutions over abstractions.
+6. **Production-Quality Within Scope** — Balanced engineering with best practices within bounded scope. No GPU profiles, advanced RBAC, scale-to-zero, or multi-cluster until explicitly scoped.

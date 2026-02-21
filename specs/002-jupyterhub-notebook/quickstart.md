@@ -135,7 +135,7 @@ ng serve
 5. In a new cell, verify all libraries:
    ```python
    import numpy, scipy, sklearn, matplotlib, seaborn
-   import plotly, torch, tensorflow, mlflow
+   import plotly, mlflow
    print("All imports successful!")
    ```
 6. Press Shift+Enter — should print "All imports successful!".

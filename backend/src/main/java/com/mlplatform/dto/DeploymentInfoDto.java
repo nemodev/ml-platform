@@ -8,6 +8,7 @@ public record DeploymentInfoDto(
         String modelName,
         Integer modelVersion,
         String endpointName,
+        String inferenceUrl,
         String status,
         Instant createdAt,
         Instant readyAt

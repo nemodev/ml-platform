@@ -36,6 +36,13 @@ public class Workspace {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Column(name = "analysis_id", insertable = false, updatable = false)
+    private UUID analysisId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "analysis_id")
+    private Analysis analysis;
+
     @Column(nullable = false)
     private String profile = "EXPLORATORY";
 
@@ -134,5 +141,17 @@ public class Workspace {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public UUID getAnalysisId() {
+        return analysisId;
+    }
+
+    public Analysis getAnalysis() {
+        return analysis;
+    }
+
+    public void setAnalysis(Analysis analysis) {
+        this.analysis = analysis;
     }
 }

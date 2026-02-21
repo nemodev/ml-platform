@@ -3,4 +3,4 @@ name: mlflow
 description: MLflow tracking server deployment for ML Platform
 type: application
 version: 0.1.0
-appVersion: "2.15.0"
+appVersion: "3.10.0"

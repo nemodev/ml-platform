@@ -13,13 +13,13 @@ export interface DeploymentInfo {
   modelName: string;
   modelVersion: number;
   endpointName: string;
+  inferenceUrl?: string;
   status: 'DEPLOYING' | 'READY' | 'FAILED' | 'DELETING' | 'DELETED';
   createdAt: string;
   readyAt?: string;
 }
 
 export interface DeploymentDetail extends DeploymentInfo {
-  inferenceUrl?: string;
   storageUri?: string;
   errorMessage?: string;
 }

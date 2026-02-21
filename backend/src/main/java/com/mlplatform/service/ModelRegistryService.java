@@ -2,11 +2,14 @@ package com.mlplatform.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mlplatform.config.MlflowConfig.MlflowProperties;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
@@ -20,6 +23,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 public class ModelRegistryService {
+
+    private static final Logger log = LoggerFactory.getLogger(ModelRegistryService.class);
+    private static final String MLFLOW_ARTIFACTS_SCHEME = "mlflow-artifacts:/";
 
     public record RegisteredModel(
             String name,
@@ -40,15 +46,18 @@ public class ModelRegistryService {
     private final RestTemplate mlflowRestTemplate;
     private final ObjectMapper objectMapper;
     private final Environment environment;
+    private final MlflowProperties mlflowProperties;
 
     public ModelRegistryService(
             @Qualifier("mlflowRestTemplate") RestTemplate mlflowRestTemplate,
             ObjectMapper objectMapper,
-            Environment environment
+            Environment environment,
+            MlflowProperties mlflowProperties
     ) {
         this.mlflowRestTemplate = mlflowRestTemplate;
         this.objectMapper = objectMapper;
         this.environment = environment;
+        this.mlflowProperties = mlflowProperties;
     }
 
     public List<RegisteredModel> listRegisteredModels(String username) {
@@ -140,6 +149,52 @@ public class ModelRegistryService {
                 .filter(item -> item.version() != null && item.version() == version)
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Model version not found"));
+    }
+
+    /**
+     * Resolve the S3 storage URI for a model version by calling MLflow's
+     * get-download-uri API. MLflow 3.x stores model version sources as
+     * {@code models:/m-<id>} which KServe cannot download. This method
+     * resolves the URI through MLflow and converts {@code mlflow-artifacts:/}
+     * to the actual S3 path using the configured artifact destination.
+     */
+    public String resolveModelStorageUri(String username, String modelName, int version) {
+        if (isDevProfile()) {
+            return "s3://ml-platform-mlflow/artifacts/mock/model";
+        }
+
+        String prefixedModelName = prefixModelName(username, modelName);
+        String path = UriComponentsBuilder
+                .fromPath("/api/2.0/mlflow/model-versions/get-download-uri")
+                .queryParam("name", prefixedModelName)
+                .queryParam("version", version)
+                .build().encode().toUriString();
+
+        JsonNode body = getForNode(path);
+        String artifactUri = text(body.path("artifact_uri"));
+        if (artifactUri == null || artifactUri.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "MLflow did not return an artifact URI for model version");
+        }
+
+        if (artifactUri.startsWith("s3://") || artifactUri.startsWith("gs://")) {
+            return artifactUri;
+        }
+
+        if (artifactUri.startsWith(MLFLOW_ARTIFACTS_SCHEME)) {
+            String destination = mlflowProperties.getArtifactDestination();
+            if (destination == null || destination.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "MLflow artifact destination is not configured (services.mlflow.artifact-destination)");
+            }
+            String suffix = artifactUri.substring(MLFLOW_ARTIFACTS_SCHEME.length());
+            String resolved = destination.replaceAll("/+$", "") + "/" + suffix;
+            log.info("Resolved model storage URI: {} -> {}", artifactUri, resolved);
+            return resolved;
+        }
+
+        log.warn("Unrecognized MLflow artifact URI scheme: {}", artifactUri);
+        return artifactUri;
     }
 
     public String prefixModelName(String username, String modelName) {

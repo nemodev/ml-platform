@@ -9,14 +9,21 @@ export const routes: Routes = [
     loadComponent: () => import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent)
   },
   {
-    path: 'notebooks',
+    path: 'analyses',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/notebooks/notebooks.component').then((m) => m.NotebooksComponent)
+    loadComponent: () => import('./features/analyses/analyses.component').then((m) => m.AnalysesComponent)
   },
   {
-    path: 'experiments',
+    path: 'analyses/:analysisId',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/experiments/experiments.component').then((m) => m.ExperimentsComponent)
+    loadComponent: () => import('./features/analyses/analysis-layout.component').then((m) => m.AnalysisLayoutComponent),
+    children: [
+      // Componentless routes — components are embedded in the layout for iframe
+      // persistence. These entries exist solely for routerLinkActive matching.
+      { path: 'notebooks', children: [] },
+      { path: 'experiments', children: [] },
+      { path: '', redirectTo: 'notebooks', pathMatch: 'full' }
+    ]
   },
   {
     path: 'models',
@@ -28,5 +35,8 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/pipelines/pipelines.component').then((m) => m.PipelinesComponent)
   },
+  // Backward-compat redirects for old bookmarked URLs
+  { path: 'notebooks', redirectTo: 'analyses', pathMatch: 'full' },
+  { path: 'experiments', redirectTo: 'analyses', pathMatch: 'full' },
   { path: '**', redirectTo: 'dashboard' }
 ];

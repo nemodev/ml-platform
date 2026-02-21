@@ -1,0 +1,237 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: batch-inference-notebook
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ml-platform
+    app.kubernetes.io/component: sample-data
+data:
+  batch-inference.ipynb: |
+    {
+      "cells": [
+        {
+          "cell_type": "markdown",
+          "metadata": {},
+          "source": [
+            "# Batch Inference with KServe\n",
+            "\n",
+            "This notebook demonstrates how to:\n",
+            "1. Load test data from the California Housing Delta table in MinIO\n",
+            "2. Send batch inference requests to a KServe endpoint (V2 protocol)\n",
+            "3. Compare predictions with actual target values\n",
+            "4. Visualize results with scatter plot and residual histogram"
+          ]
+        },
+        {
+          "cell_type": "markdown",
+          "metadata": {},
+          "source": [
+            "## Parameters"
+          ]
+        },
+        {
+          "cell_type": "code",
+          "execution_count": null,
+          "metadata": {
+            "tags": [
+              "parameters"
+            ]
+          },
+          "outputs": [],
+          "source": [
+            "# Papermill parameters -- override when running as a pipeline\n",
+            "endpoint_name = \"user1-california-housing-rf-v1\"\n",
+            "num_samples = 50"
+          ]
+        },
+        {
+          "cell_type": "markdown",
+          "metadata": {},
+          "source": [
+            "## 1. Load Test Data"
+          ]
+        },
+        {
+          "cell_type": "code",
+          "execution_count": null,
+          "metadata": {},
+          "outputs": [],
+          "source": [
+            "from deltalake import DeltaTable\n",
+            "import pandas as pd\n",
+            "import numpy as np\n",
+            "\n",
+            "dt = DeltaTable(\"s3://ml-platform-sample-data/california-housing\")\n",
+            "df = dt.to_pandas()\n",
+            "\n",
+            "feature_cols = [\"MedInc\", \"HouseAge\", \"AveRooms\", \"AveBedrms\",\n",
+            "                \"Population\", \"AveOccup\", \"Latitude\", \"Longitude\"]\n",
+            "X = df[feature_cols]\n",
+            "y = df[\"MedHouseVal\"]\n",
+            "\n",
+            "rng = np.random.RandomState(42)\n",
+            "idx = rng.choice(len(df), size=min(num_samples, len(df)), replace=False)\n",
+            "X_sample = X.iloc[idx].reset_index(drop=True)\n",
+            "y_actual = y.iloc[idx].reset_index(drop=True)\n",
+            "\n",
+            "print(f\"Loaded {len(df)} rows from Delta table\")\n",
+            "print(f\"Selected {len(X_sample)} samples for inference\")\n",
+            "X_sample.head()"
+          ]
+        },
+        {
+          "cell_type": "markdown",
+          "metadata": {},
+          "source": [
+            "## 2. Call KServe Endpoint"
+          ]
+        },
+        {
+          "cell_type": "code",
+          "execution_count": null,
+          "metadata": {},
+          "outputs": [],
+          "source": [
+            "import requests\n",
+            "import json\n",
+            "\n",
+            "inference_url = (\n",
+            "    f\"http://{endpoint_name}-predictor\"\n",
+            "    f\".ml-platform-serving.svc.cluster.local\"\n",
+            "    f\"/v2/models/{endpoint_name}/infer\"\n",
+            ")\n",
+            "\n",
+            "payload = {\n",
+            "    \"inputs\": [{\n",
+            "        \"name\": \"predict\",\n",
+            "        \"shape\": [len(X_sample), len(feature_cols)],\n",
+            "        \"datatype\": \"FP64\",\n",
+            "        \"data\": X_sample.values.tolist()\n",
+            "    }],\n",
+            "    \"parameters\": {\"content_type\": \"np\"}\n",
+            "}\n",
+            "\n",
+            "print(f\"Endpoint: {inference_url}\")\n",
+            "response = requests.post(inference_url, json=payload, timeout=30)\n",
+            "response.raise_for_status()\n",
+            "\n",
+            "result = response.json()\n",
+            "predictions = result[\"outputs\"][0][\"data\"]\n",
+            "if predictions and isinstance(predictions[0], list):\n",
+            "    predictions = [p[0] for p in predictions]\n",
+            "\n",
+            "print(f\"Received {len(predictions)} predictions (status {response.status_code})\")"
+          ]
+        },
+        {
+          "cell_type": "markdown",
+          "metadata": {},
+          "source": [
+            "## 3. Evaluate Results"
+          ]
+        },
+        {
+          "cell_type": "code",
+          "execution_count": null,
+          "metadata": {},
+          "outputs": [],
+          "source": [
+            "y_pred = pd.Series(predictions, name=\"Predicted\")\n",
+            "\n",
+            "results = pd.DataFrame({\n",
+            "    \"Actual\": y_actual,\n",
+            "    \"Predicted\": y_pred,\n",
+            "    \"Error\": y_actual - y_pred,\n",
+            "    \"AbsError\": (y_actual - y_pred).abs()\n",
+            "})\n",
+            "\n",
+            "mae = results[\"AbsError\"].mean()\n",
+            "rmse = np.sqrt((results[\"Error\"] ** 2).mean())\n",
+            "max_err = results[\"AbsError\"].max()\n",
+            "\n",
+            "print(f\"=== Batch Inference Results ===\")\n",
+            "print(f\"Endpoint:    {endpoint_name}\")\n",
+            "print(f\"Samples:     {len(results)}\")\n",
+            "print(f\"MAE:         {mae:.4f}\")\n",
+            "print(f\"RMSE:        {rmse:.4f}\")\n",
+            "print(f\"Max Error:   {max_err:.4f}\")\n",
+            "print(f\"Mean Actual: {y_actual.mean():.4f}\")\n",
+            "print(f\"Mean Pred:   {y_pred.mean():.4f}\")"
+          ]
+        },
+        {
+          "cell_type": "markdown",
+          "metadata": {},
+          "source": [
+            "## 4. Visualize Predictions"
+          ]
+        },
+        {
+          "cell_type": "code",
+          "execution_count": null,
+          "metadata": {},
+          "outputs": [],
+          "source": [
+            "import matplotlib\n",
+            "matplotlib.use(\"Agg\")\n",
+            "import matplotlib.pyplot as plt\n",
+            "\n",
+            "fig, axes = plt.subplots(1, 2, figsize=(12, 5))\n",
+            "\n",
+            "# Scatter: Actual vs Predicted\n",
+            "ax = axes[0]\n",
+            "ax.scatter(y_actual, y_pred, alpha=0.6, edgecolors=\"w\", linewidth=0.5, s=40)\n",
+            "lo = min(y_actual.min(), y_pred.min()) - 0.2\n",
+            "hi = max(y_actual.max(), y_pred.max()) + 0.2\n",
+            "ax.plot([lo, hi], [lo, hi], \"r--\", linewidth=1, label=\"Ideal\")\n",
+            "ax.set_xlabel(\"Actual MedHouseVal\")\n",
+            "ax.set_ylabel(\"Predicted MedHouseVal\")\n",
+            "ax.set_title(\"Actual vs Predicted\")\n",
+            "ax.legend()\n",
+            "ax.set_aspect(\"equal\", adjustable=\"box\")\n",
+            "\n",
+            "# Histogram: Residuals\n",
+            "ax = axes[1]\n",
+            "ax.hist(results[\"Error\"], bins=20, edgecolor=\"white\", color=\"#2563eb\", alpha=0.8)\n",
+            "ax.axvline(0, color=\"r\", linestyle=\"--\", linewidth=1)\n",
+            "ax.set_xlabel(\"Prediction Error (Actual - Predicted)\")\n",
+            "ax.set_ylabel(\"Count\")\n",
+            "ax.set_title(\"Residual Distribution\")\n",
+            "\n",
+            "fig.suptitle(f\"Batch Inference: {endpoint_name}\", fontsize=13, y=1.02)\n",
+            "plt.tight_layout()\n",
+            "plt.show()"
+          ]
+        },
+        {
+          "cell_type": "markdown",
+          "metadata": {},
+          "source": [
+            "## 5. Results Table"
+          ]
+        },
+        {
+          "cell_type": "code",
+          "execution_count": null,
+          "metadata": {},
+          "outputs": [],
+          "source": [
+            "results.head(20)"
+          ]
+        }
+      ],
+      "metadata": {
+        "kernelspec": {
+          "display_name": "Python 3",
+          "language": "python",
+          "name": "python3"
+        },
+        "language_info": {
+          "name": "python",
+          "version": "3.11.0"
+        }
+      },
+      "nbformat": 4,
+      "nbformat_minor": 4
+    }

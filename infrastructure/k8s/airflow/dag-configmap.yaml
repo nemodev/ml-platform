@@ -95,6 +95,7 @@ data:
             is_delete_operator_pod=True,
             env_vars={
                 "AWS_ENDPOINT_URL": "http://minio.ml-platform.svc:9000",
+                "AWS_ALLOW_HTTP": "true",
                 "AWS_DEFAULT_REGION": "us-east-1",
                 "AWS_ACCESS_KEY_ID": "minioadmin",
                 "AWS_SECRET_ACCESS_KEY": "minioadmin",

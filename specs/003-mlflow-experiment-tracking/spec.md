@@ -12,7 +12,7 @@
 
 ### Session 2026-02-16
 
-- Q: How should per-user experiment isolation be implemented in a shared MLflow server? → A: Backend proxy filters by user-prefixed experiment names (e.g., `username/experiment-name`)
+- Q: How should per-user experiment isolation be implemented in a shared MLflow server? → A: Backend proxy filters by user-and-analysis-prefixed experiment names (e.g., `username/analysisId/experiment-name`)
 - Q: What S3-compatible storage should be used for MLflow artifacts? → A: MinIO deployed on K8s (no cloud dependency)
 - Q: How should the MLflow UI be protected when it has no built-in auth? → A: Network-level isolation only; MLflow accessible only within the cluster, iframe trusts portal auth
 
@@ -53,10 +53,11 @@ tracking server to confirm the run exists.
 
 ### User Story 2 - View Experiments in Embedded UI (Priority: P2)
 
-A user navigates to the "Experiments" section in the portal. The
+A user navigates to the "Experiments" tab within an analysis. The
 experiment tracking UI is embedded within the portal. The user can
-browse their experiments, see a list of runs, compare metrics across
-runs, and inspect model artifacts — all without leaving the portal.
+browse their experiments scoped to the current analysis, see a list of
+runs, compare metrics across runs, and inspect model artifacts — all
+without leaving the portal.
 
 **Why this priority**: The visual UI makes experiment results accessible
 without writing code. It enables comparing runs, identifying the best
@@ -140,10 +141,11 @@ required.
   portal level; the MLflow UI itself has no auth layer.
 - **FR-006**: The tracking UI MUST be configured to allow framing by
   the portal domain (Content-Security-Policy frame-ancestors).
-- **FR-007**: Experiment data MUST be isolated per user — the backend
-  proxy creates experiments with user-prefixed names (e.g.,
-  `username/experiment-name`) and filters API responses to show only
-  the current user's experiments.
+- **FR-007**: Experiment data MUST be isolated per user and per
+  analysis — the backend proxy creates experiments with
+  user-and-analysis-prefixed names (e.g.,
+  `username/analysisId/experiment-name`) and filters API responses to
+  show only the current user's experiments within the active analysis.
 - **FR-008**: The tracking server MUST use a persistent database for
   metadata (not a local file store).
 
@@ -179,7 +181,8 @@ required.
   tracking UI within 30 seconds of the cell completing.
 - **SC-002**: The experiment tracking UI loads embedded in the portal
   without any additional login prompt.
-- **SC-003**: Two users can log runs concurrently and each sees only
-  their own experiments in the UI.
+- **SC-003**: Two analyses for the same user have fully isolated
+  experiments — experiments created in one analysis are not visible
+  in the other.
 - **SC-004**: A user can compare metrics across multiple runs within
   the same experiment using the embedded UI.

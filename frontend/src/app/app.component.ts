@@ -30,8 +30,7 @@ export class AppComponent implements OnInit {
 
   sections: PortalSection[] = [
     { id: 'dashboard', name: 'Dashboard', path: '/dashboard', enabled: true },
-    { id: 'notebooks', name: 'Notebooks', path: '/notebooks', enabled: true },
-    { id: 'experiments', name: 'Experiments', path: '/experiments', enabled: true },
+    { id: 'analyses', name: 'Analyses', path: '/analyses', enabled: true },
     { id: 'models', name: 'Models', path: '/models', enabled: true },
     { id: 'pipelines', name: 'Pipelines', path: '/pipelines', enabled: true }
   ];

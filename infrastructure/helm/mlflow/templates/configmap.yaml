@@ -8,5 +8,7 @@ metadata:
 data:
   BACKEND_STORE_URI: {{ .Values.mlflow.backendStoreUri | quote }}
   MLFLOW_DEFAULT_ARTIFACT_ROOT: {{ .Values.mlflow.artifactRoot | quote }}
+  MLFLOW_ARTIFACTS_DESTINATION: {{ .Values.mlflow.artifactDestination | quote }}
   MLFLOW_S3_ENDPOINT_URL: {{ .Values.mlflow.s3EndpointUrl | quote }}
   MLFLOW_S3_IGNORE_TLS: {{ .Values.mlflow.s3IgnoreTls | quote }}
+  MLFLOW_DISABLE_TELEMETRY: "true"

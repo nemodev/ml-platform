@@ -24,7 +24,8 @@ export class PredictDialogComponent {
         datatype: 'FP64',
         data: [[8.3252, 41.0, 6.984, 1.024, 322.0, 2.556, 37.88, -122.23]]
       }
-    ]
+    ],
+    parameters: { content_type: 'np' }
   }, null, 2);
 
   submitting = false;

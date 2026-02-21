@@ -8,7 +8,7 @@
 ### D1: MLflow Tracking Server Deployment
 
 **Decision**: Deploy MLflow tracking server using the official Docker
-image `ghcr.io/mlflow/mlflow:2.15.0` with a custom Helm chart. The
+image `ghcr.io/mlflow/mlflow:v3.10.0` with a custom Helm chart. The
 server runs with `--serve-artifacts` flag to proxy artifact access
 through itself.
 

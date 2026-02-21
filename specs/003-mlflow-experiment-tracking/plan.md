@@ -13,7 +13,7 @@ User isolation is achieved via username-prefixed experiment names
 managed by the backend proxy.
 
 Key technical decisions from research:
-- MLflow tracking server (`ghcr.io/mlflow/mlflow:2.15.0`) deployed
+- MLflow tracking server (`ghcr.io/mlflow/mlflow:v3.10.0`) deployed
   via custom Helm chart with `--serve-artifacts` for proxied artifact
   access
 - MinIO (official Helm chart from `charts.min.io`, standalone mode) for
@@ -29,7 +29,7 @@ Key technical decisions from research:
 
 **Language/Version**: Java 21 (backend), TypeScript 5.4+ (frontend),
   Python 3.11 (notebooks)
-**Primary Dependencies**: Spring Boot 3.5.x, Angular 17, MLflow 2.15.0,
+**Primary Dependencies**: Spring Boot 3.5.x, Angular 17, MLflow 3.10.0,
   MinIO (official Helm chart, `charts.min.io`), Keycloak 26.x
 **Storage**: PostgreSQL (`mlflow` database for metadata),
   MinIO (`ml-platform-mlflow` bucket for artifacts)

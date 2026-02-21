@@ -37,9 +37,11 @@
 
     <div class="iframe-shell">
       <iframe
+        id="mlflow-experiments-iframe"
         [src]="iframeUrl"
         title="MLflow Tracking"
         allow="clipboard-read; clipboard-write"
+        (load)="onMlflowIframeLoad()"
       ></iframe>
     </div>
   </div>

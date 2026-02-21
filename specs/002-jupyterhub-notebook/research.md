@@ -58,8 +58,8 @@ but only "Exploratory" was used during early development.
 ### D4: Custom Notebook Docker Image
 
 **Decision**: Build a custom Docker image based on
-`jupyter/scipy-notebook` with additional ML libraries (pytorch,
-tensorflow, mlflow, plotly, seaborn) and Spark dependencies. This
+`jupyter/scipy-notebook` with additional ML libraries (mlflow, plotly,
+seaborn) and Spark dependencies. This
 image is used for both JupyterHub singleuser servers and (in future
 feature 005) Airflow Papermill workers.
 

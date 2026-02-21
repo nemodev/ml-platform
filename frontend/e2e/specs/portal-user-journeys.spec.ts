@@ -1,6 +1,6 @@
 import { expect, Locator, Page, test } from '@playwright/test';
 
-const username = process.env.UI_TEST_USERNAME ?? 'scientist1';
+const username = process.env.UI_TEST_USERNAME ?? 'user1';
 const password = process.env.UI_TEST_PASSWORD ?? 'password1';
 type AuthMonitor = { requestCount: number };
 

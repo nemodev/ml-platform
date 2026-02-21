@@ -14,7 +14,7 @@ Customize the embedded JupyterLab UI to eliminate redundant chrome (menu bar, st
 ## Technical Context
 
 **Language/Version**: Java 21 (backend), TypeScript 5.4+ (frontend)
-**Primary Dependencies**: Spring Boot 3.5.x, Angular 17.3, JupyterLab 4.3.4, Notebook 7.3.2, JupyterHub 5.2.1 (Z2JH 3.3.8), jupyter-iframe-commands 0.3.0
+**Primary Dependencies**: Spring Boot 3.5.x, Angular 17.3, JupyterLab 4.3.4, Notebook 7.3.2, JupyterHub 5.4.3 (Z2JH 4.3.2), jupyter-iframe-commands 0.3.0
 **Storage**: N/A — no new database entities; all state is static config or ephemeral browser state
 **Testing**: Manual K8s deployment verification (per constitution Principle V), Angular component tests
 **Target Platform**: Kubernetes cluster (existing ML Platform deployment)

@@ -11,6 +11,8 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,8 @@ import org.springframework.web.util.UriUtils;
 
 @Service
 public class JupyterHubService {
+
+    private static final Logger log = LoggerFactory.getLogger(JupyterHubService.class);
 
     public record ServerStatus(
             WorkspaceStatus status,
@@ -39,11 +43,14 @@ public class JupyterHubService {
     ) {}
 
     private final WebClient webClient;
+    private final WebClient proxyWebClient;
     private final JupyterHubProperties properties;
     private final ObjectMapper objectMapper;
 
-    public JupyterHubService(WebClient jupyterHubWebClient, JupyterHubProperties properties, ObjectMapper objectMapper) {
+    public JupyterHubService(WebClient jupyterHubWebClient, WebClient jupyterHubProxyWebClient,
+                             JupyterHubProperties properties, ObjectMapper objectMapper) {
         this.webClient = jupyterHubWebClient;
+        this.proxyWebClient = jupyterHubProxyWebClient;
         this.properties = properties;
         this.objectMapper = objectMapper;
     }
@@ -71,6 +78,10 @@ public class JupyterHubService {
         executePost("/hub/api/users/{username}/server", username);
     }
 
+    public void spawnNamedServer(String username, String serverName) {
+        executePost("/hub/api/users/{username}/servers/{serverName}", username, serverName);
+    }
+
     public ServerStatus getServerStatus(String username) {
         try {
             String body = webClient.get()
@@ -94,20 +105,40 @@ public class JupyterHubService {
                 }
             }
 
-            String pending = server.path("pending").isNull() ? null : server.path("pending").asText(null);
-            boolean ready = server.path("ready").asBoolean(false);
-            Instant startedAt = parseInstant(server.path("started").asText(null));
-            Instant lastActivity = parseInstant(server.path("last_activity").asText(null));
-            String podName = server.path("state").path("pod_name").asText(null);
-
-            if (pending != null && !pending.isBlank()) {
-                return new ServerStatus(WorkspaceStatus.PENDING, startedAt, lastActivity, podName, "Server is starting");
+            return parseServerNode(server);
+        } catch (WebClientResponseException ex) {
+            if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
+                return new ServerStatus(WorkspaceStatus.STOPPED, null, null, null, "No running server");
             }
-            if (ready) {
-                return new ServerStatus(WorkspaceStatus.RUNNING, startedAt, lastActivity, podName, "Server is running");
+            throw ex;
+        } catch (WebClientRequestException ex) {
+            throw new JupyterHubUnavailableException("JupyterHub is unreachable", ex);
+        } catch (Exception ex) {
+            throw new JupyterHubUnavailableException("Unable to parse JupyterHub response", ex);
+        }
+    }
+
+    public ServerStatus getNamedServerStatus(String username, String serverName) {
+        try {
+            String body = webClient.get()
+                    .uri("/hub/api/users/{username}", username)
+                    .header("Authorization", "Bearer " + properties.getApiToken())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            JsonNode root = objectMapper.readTree(body);
+            JsonNode servers = root.path("servers");
+            if (!servers.isObject() || servers.isEmpty()) {
+                return new ServerStatus(WorkspaceStatus.STOPPED, null, null, null, "No running server");
             }
 
-            return new ServerStatus(WorkspaceStatus.IDLE, startedAt, lastActivity, podName, "Server is idle");
+            JsonNode server = servers.path(serverName);
+            if (server.isMissingNode() || server.isEmpty()) {
+                return new ServerStatus(WorkspaceStatus.STOPPED, null, null, null, "No running server");
+            }
+
+            return parseServerNode(server);
         } catch (WebClientResponseException ex) {
             if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return new ServerStatus(WorkspaceStatus.STOPPED, null, null, null, "No running server");
@@ -124,6 +155,23 @@ public class JupyterHubService {
         try {
             webClient.delete()
                     .uri("/hub/api/users/{username}/server", username)
+                    .header("Authorization", "Bearer " + properties.getApiToken())
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+        } catch (WebClientResponseException ex) {
+            if (ex.getStatusCode() != HttpStatus.NOT_FOUND) {
+                throw ex;
+            }
+        } catch (WebClientRequestException ex) {
+            throw new JupyterHubUnavailableException("JupyterHub is unreachable", ex);
+        }
+    }
+
+    public void stopNamedServer(String username, String serverName) {
+        try {
+            webClient.delete()
+                    .uri("/hub/api/users/{username}/servers/{serverName}", username, serverName)
                     .header("Authorization", "Bearer " + properties.getApiToken())
                     .retrieve()
                     .toBodilessEntity()
@@ -160,6 +208,60 @@ public class JupyterHubService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "notebookPath must be a relative path without '..' segments");
         }
         return properties.getUrl().replaceAll("/$", "") + "/user/" + username + "/doc/tree/" + notebookPath;
+    }
+
+    public String getNamedServerLabUrl(String username, String serverName, String defaultNotebook) {
+        String base = "/user/" + username + "/" + serverName + "/lab";
+        if (defaultNotebook != null && !defaultNotebook.isBlank()) {
+            if (defaultNotebook.contains("..") || defaultNotebook.startsWith("/")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "defaultNotebook must be a relative path without '..' segments");
+            }
+            return base + "/tree/" + defaultNotebook;
+        }
+        return base;
+    }
+
+    public String getNamedServerDocUrl(String username, String serverName, String notebookPath) {
+        if (notebookPath == null || notebookPath.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "notebookPath must not be blank");
+        }
+        if (notebookPath.contains("..") || notebookPath.startsWith("/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "notebookPath must be a relative path without '..' segments");
+        }
+        return "/user/" + username + "/" + serverName + "/doc/tree/" + notebookPath;
+    }
+
+    public String getKernelStatus(String username, String serverName) {
+        try {
+            String body = proxyWebClient.get()
+                    .uri("/user/{username}/{serverName}/api/sessions", username, serverName)
+                    .header("Authorization", "Bearer " + properties.getApiToken())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            JsonNode sessions = objectMapper.readTree(body);
+            if (!sessions.isArray() || sessions.isEmpty()) {
+                return "no_kernel";
+            }
+            for (JsonNode session : sessions) {
+                String execState = session.path("kernel").path("execution_state").asText("");
+                if ("busy".equals(execState)) {
+                    return "busy";
+                }
+                if ("starting".equals(execState)) {
+                    return "starting";
+                }
+            }
+            return "idle";
+        } catch (WebClientResponseException ex) {
+            if (ex.getStatusCode() == HttpStatus.NOT_FOUND || ex.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE) {
+                return "disconnected";
+            }
+            return "disconnected";
+        } catch (Exception ex) {
+            return "disconnected";
+        }
     }
 
     public List<NotebookFileInfo> listNotebookFiles(String username) {
@@ -243,10 +345,12 @@ public class JupyterHubService {
     }
 
     private JsonNode fetchContents(String username, String path, boolean includeContent, String format) {
+        log.debug("fetchContents called: username={}, path={}, includeContent={}", username, path, includeContent);
         for (int attempt = 1; attempt <= 2; attempt++) {
             try {
                 String encodedPath = path == null || path.isBlank() ? "" : "/" + UriUtils.encodePath(path, StandardCharsets.UTF_8);
-                String response = webClient.get()
+                log.debug("fetchContents attempt {}: requesting /user/{}/api/contents{}", attempt, username, encodedPath);
+                String response = proxyWebClient.get()
                         .uri(uriBuilder -> {
                             var builder = uriBuilder.path("/user/{username}/api/contents" + encodedPath);
                             if (includeContent) {
@@ -261,13 +365,16 @@ public class JupyterHubService {
                         .retrieve()
                         .bodyToMono(String.class)
                         .block();
+                log.debug("fetchContents succeeded for user={}, path={}", username, path);
                 return objectMapper.readTree(response);
             } catch (WebClientResponseException ex) {
+                log.warn("fetchContents WebClientResponseException: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
                 if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
                     throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notebook not found");
                 }
                 throw ex;
             } catch (WebClientRequestException ex) {
+                log.warn("fetchContents WebClientRequestException attempt {}: {}", attempt, ex.getMessage());
                 if (attempt == 2) {
                     throw new JupyterHubUnavailableException("JupyterHub is unreachable", ex);
                 }
@@ -280,16 +387,33 @@ public class JupyterHubService {
             } catch (ResponseStatusException ex) {
                 throw ex;
             } catch (Exception ex) {
+                log.error("fetchContents unexpected exception: type={}, message={}", ex.getClass().getName(), ex.getMessage(), ex);
                 throw new JupyterHubUnavailableException("Unable to read notebook metadata from JupyterHub", ex);
             }
         }
         throw new IllegalStateException("Unreachable code");
     }
 
-    private void executePost(String uri, String username) {
+    private ServerStatus parseServerNode(JsonNode server) {
+        String pending = server.path("pending").isNull() ? null : server.path("pending").asText(null);
+        boolean ready = server.path("ready").asBoolean(false);
+        Instant startedAt = parseInstant(server.path("started").asText(null));
+        Instant lastActivity = parseInstant(server.path("last_activity").asText(null));
+        String podName = server.path("state").path("pod_name").asText(null);
+
+        if (pending != null && !pending.isBlank()) {
+            return new ServerStatus(WorkspaceStatus.PENDING, startedAt, lastActivity, podName, "Server is starting");
+        }
+        if (ready) {
+            return new ServerStatus(WorkspaceStatus.RUNNING, startedAt, lastActivity, podName, "Server is running");
+        }
+        return new ServerStatus(WorkspaceStatus.IDLE, startedAt, lastActivity, podName, "Server is idle");
+    }
+
+    private void executePost(String uri, Object... uriVariables) {
         try {
             webClient.post()
-                    .uri(uri, username)
+                    .uri(uri, uriVariables)
                     .header("Authorization", "Bearer " + properties.getApiToken())
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue("{}")

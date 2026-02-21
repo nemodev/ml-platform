@@ -37,13 +37,13 @@ Optional arguments:
 Example:
 
 ```bash
-./infrastructure/scripts/run-ui-e2e.sh http://172.16.100.10:30080 scientist1 password1
+./infrastructure/scripts/run-ui-e2e.sh http://172.16.100.10:30080 user1 password1
 ```
 
 Run full workflows:
 
 ```bash
-./infrastructure/scripts/run-ui-e2e.sh http://172.16.100.10:30080 scientist1 password1 --mode full
+./infrastructure/scripts/run-ui-e2e.sh http://172.16.100.10:30080 user1 password1 --mode full
 ```
 
 Run all scenarios:

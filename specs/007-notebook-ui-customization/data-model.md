@@ -51,13 +51,13 @@ Client-side only. Reactive state driving the Angular toolbar UI.
 
 ### WorkspaceUrlDto (Existing — Extended)
 
-Existing DTO returned by `GET /api/v1/workspaces/url`. Extended with an optional `notebookPath` query parameter on the request side.
+Existing DTO returned by `GET /api/v1/analyses/{analysisId}/workspaces/url`. Extended with an optional `notebookPath` query parameter on the request side.
 
 | Field | Type | Existing/New | Description |
 |-------|------|-------------|-------------|
 | url | string | Existing | Full URL to the JupyterLab instance |
 
-**Change**: The backend `getWorkspaceUrl()` method accepts an optional `notebookPath` query parameter. When present, the URL uses `/doc/tree/{path}` instead of `/lab`.
+**Change**: The backend `getWorkspaceUrl()` method accepts an optional `notebookPath` query parameter. When present, the URL uses `/doc/tree/{path}` instead of `/lab`. The URL includes the JupyterHub named server segment (analysis UUID).
 
 ## State Transitions
 

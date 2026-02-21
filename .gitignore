@@ -29,6 +29,9 @@ venv/
 .env
 .env.*
 
+# Claude Code / MCP
+.mcp.json
+
 # Terraform
 .terraform/
 *.tfstate
