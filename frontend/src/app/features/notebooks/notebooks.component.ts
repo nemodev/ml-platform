@@ -33,6 +33,7 @@ export class NotebooksComponent implements OnInit, OnDestroy {
 
   // Bridge-driven toolbar state
   sidebarVisible = false;
+  headerVisible = true;
   currentTheme: 'light' | 'dark' = 'light';
   kernelStatus: 'idle' | 'busy' | 'disconnected' | 'unknown' | 'no_kernel' = 'unknown';
   lineNumbersVisible = true;
@@ -126,6 +127,9 @@ export class NotebooksComponent implements OnInit, OnDestroy {
       // Collapse sidebar for clean default view
       await this.bridgeService.execute('application:toggle-left-area');
       this.sidebarVisible = false;
+      // Hide JupyterLab top header for clean embedded view
+      await this.bridgeService.execute('application:toggle-header');
+      this.headerVisible = false;
       // Sync portal theme to notebook
       const jupyterTheme = this.currentTheme === 'dark' ? 'JupyterLab Dark' : 'JupyterLab Light';
       await this.bridgeService.execute('apputils:change-theme', { theme: jupyterTheme });
@@ -225,6 +229,7 @@ export class NotebooksComponent implements OnInit, OnDestroy {
 
   async toggleHeader(): Promise<void> {
     await this.bridgeService.execute('application:toggle-header');
+    this.headerVisible = !this.headerVisible;
   }
 
   // Command palette

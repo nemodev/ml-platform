@@ -82,7 +82,8 @@
                 (click)="toggleLineNumbers()" title="Toggle Line Numbers">
           # Lines
         </button>
-        <button type="button" class="toolbar-btn" (click)="toggleHeader()" title="Toggle JupyterLab Header">
+        <button type="button" class="toolbar-btn" [class.active]="headerVisible"
+                (click)="toggleHeader()" title="Toggle JupyterLab Header">
           &#9776; Header
         </button>
       </div>
