@@ -36,6 +36,9 @@ spec:
             - name: provision-script
               mountPath: /scripts
               readOnly: true
+            - name: sample-data
+              mountPath: /data
+              readOnly: true
           resources:
             requests:
               cpu: 500m
@@ -47,3 +50,6 @@ spec:
         - name: provision-script
           configMap:
             name: provision-sample-data-script
+        - name: sample-data
+          configMap:
+            name: california-housing-data

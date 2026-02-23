@@ -54,6 +54,13 @@ RUN mkdir -p /opt/conda/etc/jupyter/labconfig /opt/conda/share/jupyter/lab/setti
     && echo '{"@jupyterlab/apputils-extension:announcements":{"checkForUpdates":false,"fetchNews":"false"}}' \
        > /opt/conda/share/jupyter/lab/settings/overrides.json
 
+# Belt-and-suspenders: inject CSS into JupyterLab to hide the menu bar and the
+# in-notebook toolbar. The portal provides its own toolbar; these native controls
+# are redundant and confusing in the embedded view.  The top header panel
+# (#jp-top-panel) is left toggleable via the bridge "application:toggle-header" command.
+RUN JLAB_INDEX="/opt/conda/share/jupyter/lab/static/index.html" \
+    && sed -i 's|</head>|<style id="ml-platform-embed">#jp-menu-panel{display:none!important}.jp-NotebookPanel-toolbar{display:none!important}</style></head>|' "$JLAB_INDEX"
+
 RUN cat > /opt/conda/bin/executor <<'EOF' \
     && chmod +x /opt/conda/bin/executor
 #!/usr/bin/env bash
@@ -83,10 +90,5 @@ fi
 
 exec "$@"
 EOF
-
-# Pre-cache sklearn California Housing dataset for air-gapped provision jobs.
-# figshare (upstream host) is intermittently unavailable — allow build to proceed.
-RUN python -c "from sklearn.datasets import fetch_california_housing; fetch_california_housing()" \
-    || echo "WARN: california_housing pre-cache failed (figshare unavailable); provision job will download at runtime"
 
 ENV SPARK_CONF_DIR=/etc/spark/conf

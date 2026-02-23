@@ -368,6 +368,16 @@ except Exception:
     print(f'Created bucket {bucket}')
 " 2>/dev/null || echo "  WARNING: Could not verify bucket — ensure ${S3_BUCKET} exists"
 
+echo "  Creating sample data ConfigMap from bundled Parquet..."
+DATA_FILE="${SCRIPT_DIR}/data/california-housing.parquet"
+if [[ ! -f "$DATA_FILE" ]]; then
+  echo "ERROR: Sample data file not found: $DATA_FILE"
+  exit 1
+fi
+k -n "$NAMESPACE" create configmap california-housing-data \
+  --from-file=california-housing.parquet="$DATA_FILE" \
+  --dry-run=client -o yaml | k apply --server-side -f -
+
 k apply -f "$BUILD_DIR/provision-script-configmap.yaml"
 k apply -f "$BUILD_DIR/sample-notebook-configmap.yaml"
 k apply -f "$BUILD_DIR/batch-inference-notebook-configmap.yaml"

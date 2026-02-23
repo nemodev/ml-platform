@@ -13,16 +13,16 @@ data:
     Idempotent: safe to re-run. Uses mode="overwrite" to ensure
     the latest version of the dataset is always present.
 
-    The dataset is pre-cached in the notebook image at build time
-    (no internet access required at runtime).
+    The dataset is bundled as a Parquet file mounted from a ConfigMap
+    at /data/california-housing.parquet (no internet access required).
     """
     import os
     import sys
 
     import pandas as pd
-    from sklearn.datasets import fetch_california_housing
     from deltalake import write_deltalake, DeltaTable
 
+    DATA_FILE = "/data/california-housing.parquet"
     BUCKET = os.environ.get("S3_BUCKET", "__S3_BUCKET__")
     TABLE_PATH = f"s3://{BUCKET}/sample-data/california-housing"
 
@@ -35,11 +35,11 @@ data:
     }
 
     def main():
-        print(f"Loading California Housing dataset...")
-        data = fetch_california_housing(as_frame=True)
-        df = data.frame
-
-        df = df.rename(columns={"MedHouseVal": "MedHouseVal"})
+        print(f"Loading California Housing dataset from {DATA_FILE}...")
+        if not os.path.exists(DATA_FILE):
+            print(f"ERROR: Data file not found: {DATA_FILE}")
+            sys.exit(1)
+        df = pd.read_parquet(DATA_FILE)
 
         print(f"Dataset shape: {df.shape}")
         print(f"Columns: {df.columns.tolist()}")
