@@ -73,4 +73,7 @@ fi
 exec "$@"
 EOF
 
+# Pre-cache sklearn datasets so provision job works in air-gapped environments
+RUN python -c "from sklearn.datasets import fetch_california_housing; fetch_california_housing()"
+
 ENV SPARK_CONF_DIR=/etc/spark/conf

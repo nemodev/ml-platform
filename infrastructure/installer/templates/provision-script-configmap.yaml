@@ -12,12 +12,12 @@ data:
 
     Idempotent: safe to re-run. Uses mode="overwrite" to ensure
     the latest version of the dataset is always present.
+
+    The dataset is pre-cached in the notebook image at build time
+    (no internet access required at runtime).
     """
     import os
     import sys
-
-    import ssl
-    import certifi
 
     import pandas as pd
     from sklearn.datasets import fetch_california_housing
@@ -34,48 +34,10 @@ data:
         "AWS_S3_ALLOW_UNSAFE_RENAME": "true",
     }
 
-    def _load_dataset():
-        """Load California Housing with fallback for restricted environments."""
-        # First try normal download (works when internet is unrestricted)
-        try:
-            data = fetch_california_housing(as_frame=True)
-            return data.frame
-        except Exception as e:
-            print(f"  Standard fetch failed: {e}")
-
-        # Fallback: try with custom CA bundle from CUSTOM_CA_BUNDLE env var
-        ca_bundle = os.environ.get("CUSTOM_CA_BUNDLE")
-        if ca_bundle and os.path.isfile(ca_bundle):
-            print(f"  Retrying with custom CA bundle: {ca_bundle}")
-            os.environ["SSL_CERT_FILE"] = ca_bundle
-            os.environ["REQUESTS_CA_BUNDLE"] = ca_bundle
-            try:
-                data = fetch_california_housing(as_frame=True)
-                return data.frame
-            except Exception as e2:
-                print(f"  Custom CA fetch failed: {e2}")
-
-        # Final fallback: disable SSL verification (air-gapped / intercepting proxy)
-        print("  Retrying with SSL verification disabled...")
-        os.environ["PYTHONHTTPSVERIFY"] = "0"
-        try:
-            import urllib.request
-            ssl_ctx = ssl.create_default_context()
-            ssl_ctx.check_hostname = False
-            ssl_ctx.verify_mode = ssl.CERT_NONE
-            opener = urllib.request.build_opener(
-                urllib.request.HTTPSHandler(context=ssl_ctx)
-            )
-            urllib.request.install_opener(opener)
-            data = fetch_california_housing(as_frame=True)
-            return data.frame
-        except Exception as e3:
-            print(f"  ERROR: All download methods failed: {e3}")
-            sys.exit(1)
-
     def main():
         print(f"Loading California Housing dataset...")
-        df = _load_dataset()
+        data = fetch_california_housing(as_frame=True)
+        df = data.frame
 
         df = df.rename(columns={"MedHouseVal": "MedHouseVal"})
 
