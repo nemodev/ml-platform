@@ -9,16 +9,19 @@
 #   ./build-images.sh [options] [config-file]
 #
 # Options:
-#   --mac          Build for linux/arm64 (Apple Silicon). Default: linux/amd64.
-#   --no-push      Build images only, do not push to registry.
-#   --only <name>  Build only one image: backend, frontend, or notebook.
-#   --help         Show this help message.
+#   --mac              Build for linux/arm64 (Apple Silicon). Default: linux/amd64.
+#   --no-push          Build images only, do not push to registry.
+#   --only <name>      Build only one image: backend, frontend, or notebook.
+#   --remote <user@host>  Build on a remote amd64 machine via SSH (avoids QEMU).
+#                         Requires Docker on the remote host and SSH key auth.
+#   --help             Show this help message.
 #
 # Examples:
-#   ./build-images.sh                          # Build all, push, amd64
-#   ./build-images.sh --mac                    # Build all, push, arm64
-#   ./build-images.sh --only backend           # Build + push backend only
-#   ./build-images.sh --no-push config.env     # Build all, skip push
+#   ./build-images.sh                                  # Build all, push, amd64
+#   ./build-images.sh --mac                            # Build all, push, arm64
+#   ./build-images.sh --only backend                   # Build + push backend only
+#   ./build-images.sh --no-push config.env             # Build all, skip push
+#   ./build-images.sh --remote bruce@172.16.100.10     # Build on remote amd64 host
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -29,6 +32,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PLATFORM="linux/amd64"
 PUSH=true
 ONLY=""
+REMOTE_HOST=""
 CONFIG_FILE="${SCRIPT_DIR}/config.env"
 
 # ── Parse arguments ─────────────────────────────────────────────────────────
@@ -37,6 +41,7 @@ while [[ $# -gt 0 ]]; do
     --mac)       PLATFORM="linux/arm64"; shift ;;
     --no-push)   PUSH=false; shift ;;
     --only)      ONLY="$2"; shift 2 ;;
+    --remote)    REMOTE_HOST="$2"; shift 2 ;;
     --help|-h)
       sed -n '2,/^# ─── Defaults/{ /^#/s/^# \?//p; }' "$0"
       exit 0
@@ -73,7 +78,32 @@ echo "  Push:      $PUSH"
 if [[ -n "$ONLY" ]]; then
   echo "  Only:      $ONLY"
 fi
+if [[ -n "$REMOTE_HOST" ]]; then
+  echo "  Remote:    $REMOTE_HOST"
+fi
 echo ""
+
+# ── Remote builder setup ────────────────────────────────────────────────────
+BUILDER_NAME=""
+cleanup_builder() {
+  if [[ -n "$BUILDER_NAME" ]]; then
+    echo "  Cleaning up remote builder: $BUILDER_NAME"
+    docker buildx rm "$BUILDER_NAME" 2>/dev/null || true
+  fi
+}
+
+if [[ -n "$REMOTE_HOST" ]]; then
+  BUILDER_NAME="ml-platform-remote-$$"
+  echo "Setting up remote builder via ssh://$REMOTE_HOST ..."
+  docker buildx create --name "$BUILDER_NAME" \
+    --driver docker-container \
+    --platform linux/amd64 \
+    "ssh://$REMOTE_HOST"
+  docker buildx use "$BUILDER_NAME"
+  trap cleanup_builder EXIT
+  echo "  Remote builder ready: $BUILDER_NAME"
+  echo ""
+fi
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 STEP=0
@@ -98,11 +128,24 @@ build_and_push() {
   echo "  Building: $image"
   echo "  Context:  $context"
   echo "  Platform: $PLATFORM"
-  docker build --platform "$PLATFORM" -t "$image" "$@" "$context"
 
-  if [[ "$PUSH" == "true" ]]; then
-    echo "  Pushing:  $image"
-    docker push "$image"
+  if [[ -n "$REMOTE_HOST" ]]; then
+    # Remote build: use buildx, push directly to registry
+    local push_flag=""
+    if [[ "$PUSH" == "true" ]]; then
+      push_flag="--push"
+    else
+      push_flag="--load"
+    fi
+    docker buildx build --platform "$PLATFORM" \
+      -t "$image" $push_flag "$@" "$context"
+  else
+    # Local build: standard docker build + push
+    docker build --platform "$PLATFORM" -t "$image" "$@" "$context"
+    if [[ "$PUSH" == "true" ]]; then
+      echo "  Pushing:  $image"
+      docker push "$image"
+    fi
   fi
   echo "  Done: $image"
 }
