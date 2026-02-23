@@ -29,7 +29,7 @@ EOF
 
 USER jovyan
 COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install --no-cache-dir --only-binary=:all: -r /tmp/requirements.txt
 
 # Remove incompatible extensions from base image (not needed for embedded view)
 RUN pip uninstall -y jupyterlab-git nbdime jupyterlab-pygments 2>/dev/null || true
