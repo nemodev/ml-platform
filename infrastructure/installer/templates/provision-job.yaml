@@ -32,6 +32,10 @@ spec:
               value: "__S3_ALLOW_HTTP__"
             - name: S3_BUCKET
               value: __S3_BUCKET__
+            # Set CUSTOM_CA_BUNDLE to a mounted CA cert path if your
+            # environment uses a corporate proxy or custom CA.
+            # - name: CUSTOM_CA_BUNDLE
+            #   value: /etc/ssl/custom/ca-bundle.crt
           volumeMounts:
             - name: provision-script
               mountPath: /scripts
