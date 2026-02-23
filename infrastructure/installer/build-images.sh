@@ -114,7 +114,12 @@ if should_build "backend"; then
   step "Backend"
 
   echo "  Running Gradle build..."
-  (cd "${PROJECT_ROOT}/backend" && ./gradlew build -x test --quiet)
+  BACKEND_DIR="${PROJECT_ROOT}/backend"
+  if [[ -x "${BACKEND_DIR}/gradlew" ]]; then
+    (cd "$BACKEND_DIR" && ./gradlew build -x test --quiet)
+  else
+    (cd "$BACKEND_DIR" && gradle build -x test --quiet)
+  fi
 
   build_and_push "$BACKEND_IMAGE" "${PROJECT_ROOT}/backend"
 fi
