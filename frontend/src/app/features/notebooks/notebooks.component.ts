@@ -1,4 +1,4 @@
-import { NgIf } from '@angular/common';
+import { NgFor, NgIf } from '@angular/common';
 import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Subscription, interval, of } from 'rxjs';
@@ -14,7 +14,7 @@ import { JupyterBridgeService } from '../../core/services/jupyter-bridge.service
 @Component({
   selector: 'app-notebooks',
   standalone: true,
-  imports: [NgIf],
+  imports: [NgIf, NgFor],
   templateUrl: './notebooks.component.html',
   styleUrl: './notebooks.component.scss'
 })
@@ -35,6 +35,15 @@ export class NotebooksComponent implements OnInit, OnDestroy {
   sidebarVisible = false;
   currentTheme: 'light' | 'dark' = 'light';
   kernelStatus: 'idle' | 'busy' | 'disconnected' | 'unknown' | 'no_kernel' = 'unknown';
+  lineNumbersVisible = true;
+
+  // Command palette state
+  commandPaletteOpen = false;
+  allCommands: string[] = [];
+  filteredCommands: string[] = [];
+  commandFilter = '';
+  commandPaletteLoading = false;
+  lastExecutedCommand: string | null = null;
 
   private pollSub?: Subscription;
   private kernelPollSub?: Subscription;
@@ -170,6 +179,77 @@ export class NotebooksComponent implements OnInit, OnDestroy {
 
   async saveNotebook(): Promise<void> {
     await this.bridgeService.execute('notebook:save');
+  }
+
+  async interruptKernel(): Promise<void> {
+    await this.bridgeService.execute('notebook:interrupt-kernel');
+  }
+
+  async restartKernel(): Promise<void> {
+    await this.bridgeService.execute('notebook:restart-kernel');
+  }
+
+  async clearAllOutputs(): Promise<void> {
+    await this.bridgeService.execute('notebook:clear-all-cell-outputs');
+  }
+
+  // Cell operations
+  async insertCellBelow(): Promise<void> {
+    await this.bridgeService.execute('notebook:insert-cell-below');
+  }
+
+  async insertCellAbove(): Promise<void> {
+    await this.bridgeService.execute('notebook:insert-cell-above');
+  }
+
+  async moveCellUp(): Promise<void> {
+    await this.bridgeService.execute('notebook:move-cell-up');
+  }
+
+  async moveCellDown(): Promise<void> {
+    await this.bridgeService.execute('notebook:move-cell-down');
+  }
+
+  async undoCellAction(): Promise<void> {
+    await this.bridgeService.execute('notebook:undo-cell-action');
+  }
+
+  async redoCellAction(): Promise<void> {
+    await this.bridgeService.execute('notebook:redo-cell-action');
+  }
+
+  async toggleLineNumbers(): Promise<void> {
+    await this.bridgeService.execute('notebook:toggle-all-cell-line-numbers');
+    this.lineNumbersVisible = !this.lineNumbersVisible;
+  }
+
+  async toggleHeader(): Promise<void> {
+    await this.bridgeService.execute('application:toggle-header');
+  }
+
+  // Command palette
+  async toggleCommandPalette(): Promise<void> {
+    this.commandPaletteOpen = !this.commandPaletteOpen;
+    if (this.commandPaletteOpen && this.allCommands.length === 0) {
+      this.commandPaletteLoading = true;
+      this.allCommands = await this.bridgeService.listCommands();
+      this.allCommands.sort();
+      this.filteredCommands = this.allCommands;
+      this.commandPaletteLoading = false;
+    }
+  }
+
+  filterCommands(event: Event): void {
+    this.commandFilter = (event.target as HTMLInputElement).value;
+    const q = this.commandFilter.toLowerCase();
+    this.filteredCommands = q
+      ? this.allCommands.filter((cmd) => cmd.toLowerCase().includes(q))
+      : this.allCommands;
+  }
+
+  async executeCommand(commandId: string): Promise<void> {
+    this.lastExecutedCommand = commandId;
+    await this.bridgeService.execute(commandId);
   }
 
   private refreshStatus(): void {

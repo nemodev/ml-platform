@@ -13,6 +13,7 @@
   </div>
 
   <div class="running-card" *ngIf="(status === 'RUNNING' || status === 'IDLE') && iframeUrl">
+    <!-- Primary toolbar: execution, kernel, workspace -->
     <div class="toolbar">
       <div class="toolbar-left">
         <button *ngIf="bridgeConnected" type="button" class="toolbar-btn"
@@ -29,6 +30,16 @@
         <button type="button" class="toolbar-btn primary" (click)="runAll()" title="Run All Cells">
           &#9654; Run All
         </button>
+        <button type="button" class="toolbar-btn" (click)="interruptKernel()" title="Interrupt Kernel">
+          &#9632; Interrupt
+        </button>
+        <button type="button" class="toolbar-btn" (click)="restartKernel()" title="Restart Kernel">
+          &#8635; Restart
+        </button>
+        <span class="toolbar-sep"></span>
+        <button type="button" class="toolbar-btn" (click)="clearAllOutputs()" title="Clear All Outputs">
+          &#10005; Clear Outputs
+        </button>
         <button type="button" class="toolbar-btn" (click)="saveNotebook()" title="Save Notebook">
           &#128190; Save
         </button>
@@ -40,6 +51,70 @@
         <button type="button" class="toolbar-btn terminate" (click)="terminateWorkspace()">Terminate</button>
       </div>
     </div>
+
+    <!-- Secondary toolbar: cell operations, view controls, command palette toggle -->
+    <div class="toolbar toolbar-secondary" *ngIf="bridgeConnected">
+      <div class="toolbar-left">
+        <span class="toolbar-label">Cell:</span>
+        <button type="button" class="toolbar-btn" (click)="insertCellBelow()" title="Insert Cell Below">
+          &#43; Below
+        </button>
+        <button type="button" class="toolbar-btn" (click)="insertCellAbove()" title="Insert Cell Above">
+          &#43; Above
+        </button>
+        <button type="button" class="toolbar-btn" (click)="moveCellUp()" title="Move Cell Up">
+          &#9650; Up
+        </button>
+        <button type="button" class="toolbar-btn" (click)="moveCellDown()" title="Move Cell Down">
+          &#9660; Down
+        </button>
+        <span class="toolbar-sep"></span>
+        <span class="toolbar-label">Edit:</span>
+        <button type="button" class="toolbar-btn" (click)="undoCellAction()" title="Undo Cell Action">
+          &#8617; Undo
+        </button>
+        <button type="button" class="toolbar-btn" (click)="redoCellAction()" title="Redo Cell Action">
+          &#8618; Redo
+        </button>
+        <span class="toolbar-sep"></span>
+        <span class="toolbar-label">View:</span>
+        <button type="button" class="toolbar-btn" [class.active]="lineNumbersVisible"
+                (click)="toggleLineNumbers()" title="Toggle Line Numbers">
+          # Lines
+        </button>
+        <button type="button" class="toolbar-btn" (click)="toggleHeader()" title="Toggle JupyterLab Header">
+          &#9776; Header
+        </button>
+      </div>
+      <div class="toolbar-right">
+        <button type="button" class="toolbar-btn" [class.active]="commandPaletteOpen"
+                (click)="toggleCommandPalette()" title="Show all available JupyterLab commands">
+          &#9881; Commands
+        </button>
+      </div>
+    </div>
+
+    <!-- Command palette: full list of bridge-available JupyterLab commands -->
+    <div class="command-palette" *ngIf="commandPaletteOpen && bridgeConnected">
+      <div class="command-palette-header">
+        <input type="text" class="command-search" placeholder="Filter commands..."
+               [value]="commandFilter" (input)="filterCommands($event)">
+        <span class="command-count">{{ filteredCommands.length }} / {{ allCommands.length }} commands</span>
+      </div>
+      <div class="command-palette-info" *ngIf="lastExecutedCommand">
+        Last executed: <code>{{ lastExecutedCommand }}</code>
+      </div>
+      <div class="command-list" *ngIf="!commandPaletteLoading">
+        <button type="button" class="command-item" *ngFor="let cmd of filteredCommands"
+                (click)="executeCommand(cmd)" [title]="cmd">
+          {{ cmd }}
+        </button>
+      </div>
+      <div class="command-palette-loading" *ngIf="commandPaletteLoading">
+        <div class="spinner"></div> Loading commands from JupyterLab...
+      </div>
+    </div>
+
     <iframe id="jupyter-iframe" [src]="iframeUrl" title="JupyterLab"
             allow="clipboard-read; clipboard-write" (load)="onIframeLoad()"></iframe>
   </div>
