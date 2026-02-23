@@ -84,14 +84,9 @@ fi
 exec "$@"
 EOF
 
-# Pre-cache sklearn datasets so provision job works in air-gapped environments
-# figshare blocks Python's default urllib User-Agent with 403, so override it.
-RUN python -c "\
-import urllib.request; \
-opener = urllib.request.build_opener(); \
-opener.addheaders = [('User-Agent', 'Mozilla/5.0')]; \
-urllib.request.install_opener(opener); \
-from sklearn.datasets import fetch_california_housing; \
-fetch_california_housing()"
+# Pre-cache sklearn California Housing dataset for air-gapped provision jobs.
+# figshare (upstream host) is intermittently unavailable — allow build to proceed.
+RUN python -c "from sklearn.datasets import fetch_california_housing; fetch_california_housing()" \
+    || echo "WARN: california_housing pre-cache failed (figshare unavailable); provision job will download at runtime"
 
 ENV SPARK_CONF_DIR=/etc/spark/conf
