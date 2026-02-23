@@ -32,6 +32,9 @@ venv/
 # Claude Code / MCP
 .mcp.json
 
+# Installer build artifacts
+infrastructure/installer/.build/
+
 # Terraform
 .terraform/
 *.tfstate
