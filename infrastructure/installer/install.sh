@@ -39,6 +39,9 @@ source "$CONFIG_FILE"
 
 # ── Derived variables ────────────────────────────────────────────────────────
 
+# Map user-facing config names to internal template variables
+S3_ENDPOINT="${S3_INTERNAL_ENDPOINT}"
+
 # S3 endpoint without protocol (for KServe annotations, Airflow connection URI)
 S3_ENDPOINT_HOST="${S3_ENDPOINT#http://}"
 S3_ENDPOINT_HOST="${S3_ENDPOINT_HOST#https://}"
@@ -98,7 +101,7 @@ for var in NAMESPACE BACKEND_IMAGE FRONTEND_IMAGE NOTEBOOK_IMAGE \
            PLATFORM_URL FRONTEND_SERVICE_TYPE KEYCLOAK_REALM \
            KEYCLOAK_PORTAL_CLIENT_ID KEYCLOAK_JUPYTERHUB_CLIENT_ID \
            KEYCLOAK_JUPYTERHUB_CLIENT_SECRET JUPYTERHUB_API_TOKEN \
-           S3_ENDPOINT S3_ACCESS_KEY S3_SECRET_KEY S3_REGION S3_BUCKET \
+           S3_INTERNAL_ENDPOINT S3_ACCESS_KEY S3_SECRET_KEY S3_REGION S3_BUCKET \
            POSTGRES_PASSWORD DNS_RESOLVER; do
   if [[ -z "${!var:-}" ]]; then
     missing+=("$var")
@@ -299,6 +302,28 @@ step "S3 credentials and ObjectBucketClaim"
 k apply -f "$BUILD_DIR/s3-credentials-secret.yaml"
 k apply -f "$BUILD_DIR/sample-data-readonly-secret.yaml"
 echo "  S3 credential secrets created"
+
+if [[ -n "${S3_EXTERNAL_ENDPOINT:-}" ]]; then
+  # Extract hostname from URL (strip protocol and port)
+  S3_EXTERNAL_HOST="${S3_EXTERNAL_ENDPOINT#http://}"
+  S3_EXTERNAL_HOST="${S3_EXTERNAL_HOST#https://}"
+  S3_EXTERNAL_HOST="${S3_EXTERNAL_HOST%%:*}"
+  S3_EXTERNAL_HOST="${S3_EXTERNAL_HOST%%/*}"
+  echo "  Creating ExternalName service: minio → ${S3_EXTERNAL_HOST}"
+  cat <<EOFSVC | k apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: ${NAMESPACE}
+spec:
+  type: ExternalName
+  externalName: ${S3_EXTERNAL_HOST}
+  ports:
+    - port: 9000
+      targetPort: 9000
+EOFSVC
+fi
 
 if [[ "${DEPLOY_OBC:-false}" == "true" ]]; then
   echo "  Creating ObjectBucketClaim..."
