@@ -431,8 +431,8 @@ echo "  Airflow deployed"
 step "KServe setup"
 if ! k get crd inferenceservices.serving.kserve.io >/dev/null 2>&1; then
   echo "  Installing KServe CRDs..."
-  k apply -f https://github.com/kserve/kserve/releases/download/v0.16.0/kserve.yaml
-  k apply -f https://github.com/kserve/kserve/releases/download/v0.16.0/kserve-cluster-resources.yaml
+  k apply --server-side -f https://github.com/kserve/kserve/releases/download/v0.16.0/kserve.yaml
+  k apply --server-side -f https://github.com/kserve/kserve/releases/download/v0.16.0/kserve-cluster-resources.yaml
   echo "  Waiting for KServe controller..."
   k -n kserve wait --for=condition=Available deployment/kserve-controller-manager --timeout=300s 2>/dev/null || true
 fi
