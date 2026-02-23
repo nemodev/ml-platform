@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: __NAMESPACE__
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+        hub.jupyter.org/network-access-hub: "true"
+    spec:
+      serviceAccountName: backend
+      containers:
+        - name: backend
+          image: __BACKEND_IMAGE__
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: default
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://__POSTGRES_HOST__:__POSTGRES_PORT__/ml_platform
+            - name: SPRING_DATASOURCE_USERNAME
+              value: postgres
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: __POSTGRES_PASSWORD__
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: __KEYCLOAK_ISSUER_URI__
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+              value: __KEYCLOAK_JWK_SET_URI__
+            - name: JUPYTERHUB_API_TOKEN
+              value: __JUPYTERHUB_API_TOKEN__
+            - name: WORKSPACE_DEFAULT_NOTEBOOK
+              value: examples/sample-delta-data.ipynb
+            - name: APP_CORS_ALLOWED_ORIGINS
+              value: __PLATFORM_URL__
+            - name: SERVICES_JUPYTERHUB_URL
+              value: http://__NAMESPACE__-jupyterhub-hub.__NAMESPACE__.svc:8081
+            - name: SERVICES_JUPYTERHUB_PROXY_URL
+              value: http://__NAMESPACE__-jupyterhub-proxy-public.__NAMESPACE__.svc:80
+            - name: SERVICES_JUPYTERHUB_PUBLIC_URL
+              value: __PLATFORM_URL__
+            - name: SERVICES_MLFLOW_URL
+              value: http://mlflow.__NAMESPACE__.svc:5000
+            - name: SERVICES_MLFLOW_TRACKING_URL
+              value: /mlflow
+            - name: SERVICES_MLFLOW_ARTIFACT_DESTINATION
+              value: s3://__S3_BUCKET__/mlflow/artifacts
+            - name: SERVICES_AIRFLOW_URL
+              value: http://airflow-webserver.__NAMESPACE__.svc:8080
+            - name: SERVICES_MINIO_ENDPOINT
+              value: __S3_ENDPOINT__
+            - name: SERVICES_MINIO_ACCESS_KEY
+              value: __S3_ACCESS_KEY__
+            - name: SERVICES_MINIO_SECRET_KEY
+              value: __S3_SECRET_KEY__
+            - name: SERVICES_MINIO_PIPELINES_BUCKET
+              value: __S3_BUCKET__
+            - name: SERVICES_MINIO_PIPELINES_PREFIX
+              value: pipelines
+            - name: SERVICES_KSERVE_NAMESPACE
+              value: __NAMESPACE__
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 40
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi

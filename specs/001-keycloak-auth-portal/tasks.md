@@ -27,7 +27,7 @@
 - [X] T001 Create Kubernetes namespace manifest in infrastructure/k8s/namespace.yaml defining `ml-platform` namespace
 - [X] T002 Create Keycloak deployment manifest in infrastructure/k8s/keycloak/deployment.yaml using `quay.io/keycloak/keycloak:26.1` image with PostgreSQL connection, admin credentials, and readiness probe on `/realms/master`
 - [X] T003 [P] Create Keycloak service manifest in infrastructure/k8s/keycloak/service.yaml as ClusterIP on port 8080
-- [X] T004 [P] Create Keycloak realm ConfigMap in infrastructure/k8s/keycloak/configmap.yaml with realm `ml-platform`, public client `ml-platform-portal` (PKCE enabled, redirect URIs for localhost:4200 and localhost:8080), scopes `openid profile email`, and two test users (`scientist1`/`password1`, `scientist2`/`password2`)
+- [X] T004 [P] Create Keycloak realm ConfigMap in infrastructure/k8s/keycloak/configmap.yaml with realm `ml-platform`, public client `ml-platform-portal` (PKCE enabled, redirect URIs for localhost:4200 and localhost:8080), scopes `openid profile email`, and two test users (`user1`/`password1`, `user2`/`password2`)
 - [X] T005 [P] Create port-forward script in infrastructure/scripts/port-forward.sh for Keycloak (8180:8080), PostgreSQL (5432:5432), and backend (8080:8080)
 - [X] T006 Initialize Spring Boot 3.5.x project with Gradle in backend/ — create build.gradle.kts with dependencies: spring-boot-starter-web, spring-boot-starter-security, spring-boot-starter-oauth2-resource-server, spring-boot-starter-data-jpa, spring-boot-starter-actuator, flyway-core, postgresql, h2 (test/dev), springdoc-openapi-starter-webmvc-ui
 - [X] T007 [P] Create backend Dockerfile in backend/Dockerfile using eclipse-temurin:21-jdk-alpine base image, copying JAR and setting entrypoint
@@ -80,7 +80,7 @@
 - [X] T030 [US1] Create dashboard.component.ts in frontend/src/app/features/dashboard/dashboard.component.ts — standalone component displaying welcome message with authenticated user's name, serves as the landing page after login
 - [X] T031 [US1] Create app.component.ts in frontend/src/app/app.component.ts — portal shell layout with top header bar showing app title ("ML Platform") and authenticated user's username from auth.service, minimal styling with sidebar placeholder
 - [X] T032 [US1] Create app.routes.ts in frontend/src/app/app.routes.ts — define routes: default redirect to `/dashboard`, `/dashboard` loading DashboardComponent, all routes protected by authGuard
-- [X] T033 [US1] Deploy Keycloak to K8s cluster and verify login flow end-to-end: apply namespace.yaml, deploy PostgreSQL via Helm (`helm install postgresql oci://registry-1.docker.io/bitnamicharts/postgresql -n ml-platform`), apply keycloak/ manifests, start port-forwards, run backend with `local` profile, run frontend with `ng serve`, verify login with `scientist1`/`password1`
+- [X] T033 [US1] Deploy Keycloak to K8s cluster and verify login flow end-to-end: apply namespace.yaml, deploy PostgreSQL via Helm (`helm install postgresql oci://registry-1.docker.io/bitnamicharts/postgresql -n ml-platform`), apply keycloak/ manifests, start port-forwards, run backend with `local` profile, run frontend with `ng serve`, verify login with `user1`/`password1`
 
 **Checkpoint**: User can log in via Keycloak SSO and see their username on the dashboard. US1 acceptance scenarios 1-5 are verifiable.
 
@@ -117,7 +117,7 @@
 - [X] T041 [US3] Add logout endpoint in backend AuthController — implement `POST /api/v1/auth/logout` returning 204 per contracts/api.yaml
 - [X] T042 [US3] Add logout method to auth.service.ts in frontend/src/app/core/services/auth.service.ts — call backend `/api/v1/auth/logout`, then call OidcSecurityService `logoff()` which redirects to Keycloak end-session endpoint, clearing all tokens
 - [X] T043 [US3] Add logout button to portal header in frontend/src/app/app.component.ts — display "Sign Out" button next to username, wire click to auth.service.logout()
-- [ ] T044 [US3] Verify logout end-to-end: log in as scientist1, click "Sign Out", confirm redirect to Keycloak login page, navigate to `http://localhost:4200`, confirm login is required again (no cached session)
+- [ ] T044 [US3] Verify logout end-to-end: log in as user1, click "Sign Out", confirm redirect to Keycloak login page, navigate to `http://localhost:4200`, confirm login is required again (no cached session)
 
 **Checkpoint**: All user stories complete. Login, navigation, and logout all functional. US3 acceptance scenarios 1-2 verifiable.
 
@@ -127,7 +127,7 @@
 
 **Purpose**: Multi-user verification, edge case handling, and deployment readiness
 
-- [X] T045 [P] Verify multi-user: log in as scientist1 in Chrome, log in as scientist2 in Firefox, confirm each sees their own username and independent sessions (SC-003)
+- [X] T045 [P] Verify multi-user: log in as user1 in Chrome, log in as user2 in Firefox, confirm each sees their own username and independent sessions (SC-003)
 - [ ] T046 [P] Verify token expiry handling: configure Keycloak access token lifespan to 1 minute (temporarily), confirm silent refresh works, then set refresh token to 1 minute, confirm redirect to login after expiry
 - [X] T047 Add error handling for Keycloak unreachable scenario in frontend/src/app/app.component.ts — display user-friendly error message when OIDC initialization fails
 - [ ] T048 Run quickstart.md validation — execute all steps from specs/001-keycloak-auth-portal/quickstart.md on a fresh cluster and confirm every step succeeds

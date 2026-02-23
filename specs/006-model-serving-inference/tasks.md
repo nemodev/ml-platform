@@ -96,7 +96,7 @@
 
 - [X] T032 [US3] Verify backend proxy auth — send prediction request to POST /serving/deployments/{id}/predict without Authorization header, confirm 401 response
 - [X] T033 [US3] Verify pipeline service-to-service access — pipeline DAG notebook calls KServe ClusterIP URL directly within cluster, confirm no auth needed (KServe raw mode has no auth on ClusterIP)
-- [X] T034 [US3] Verify user isolation — scientist1 cannot access scientist2's deployments or send inference to scientist2's endpoints via the backend proxy
+- [X] T034 [US3] Verify user isolation — user1 cannot access user2's deployments or send inference to user2's endpoints via the backend proxy
 
 **Checkpoint**: User Story 3 complete — auth enforced on backend proxy, in-cluster access works for pipelines
 

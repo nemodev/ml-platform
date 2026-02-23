@@ -9,7 +9,7 @@
 
 ### User Story 1 - User Login via SSO (Priority: P1)
 
-A data scientist opens the platform URL in their browser. They are
+A data user opens the platform URL in their browser. They are
 redirected to a centralized login page where they enter their
 credentials (username and password). After successful authentication,
 they are redirected back to the platform portal and land on the

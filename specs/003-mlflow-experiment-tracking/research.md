@@ -61,8 +61,8 @@ installed in the MLflow container.
 
 **Decision**: The backend proxy automatically prepends the
 authenticated user's username to experiment names when creating
-experiments. Example: user `scientist1` creates experiment
-`my-training` → stored as `scientist1/my-training`. When listing
+experiments. Example: user `user1` creates experiment
+`my-training` → stored as `user1/my-training`. When listing
 experiments, the backend filters by the current user's prefix and
 strips the prefix before returning results.
 

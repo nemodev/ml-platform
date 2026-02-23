@@ -40,7 +40,7 @@
 
 ## Phase 3: User Story 1 — Read Sample Delta Table from Notebook (Priority: P1)
 
-**Goal**: A data scientist reads the pre-provisioned Delta table from object storage into a pandas DataFrame and inspects schema, row count, and sample rows.
+**Goal**: A data user reads the pre-provisioned Delta table from object storage into a pandas DataFrame and inspects schema, row count, and sample rows.
 
 **Independent Test**: Deploy MinIO + run provisioning Job, launch notebook, execute code that reads Delta table and displays first 5 rows with schema info.
 
@@ -80,7 +80,7 @@
 **Purpose**: Final verification and documentation
 
 - [ ] T021 Verify sample notebook is visible at /home/jovyan/examples/ in a freshly launched notebook workspace
-- [ ] T022 Verify all authenticated users can access the sample data (test with scientist1 and scientist2)
+- [ ] T022 Verify all authenticated users can access the sample data (test with user1 and user2)
 - [ ] T023 Run full quickstart.md validation (all 10 steps)
 - [ ] T024 Verify data loads in under 10 seconds (SC-001) — time the DeltaTable read + to_pandas() call
 

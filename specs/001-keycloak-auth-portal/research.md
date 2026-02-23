@@ -108,8 +108,8 @@
 ### D8: Test Users
 
 - **Decision**: Two pre-seeded users in realm config:
-  - `scientist1` / `password1` (default user)
-  - `scientist2` / `password2` (second user for multi-user testing)
+  - `user1` / `password1` (default user)
+  - `user2` / `password2` (second user for multi-user testing)
 - **Rationale**: Spec requires at least two test users (FR-007). Simple
   credentials for local dev. Production would use real credentials.
 - **Alternatives considered**:

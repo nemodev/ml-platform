@@ -17,7 +17,7 @@
 
 ### User Story 1 - Clean Embedded Notebook View (Priority: P1)
 
-A data scientist navigates to the Notebooks section of the ML Platform portal and launches a workspace. When JupyterLab loads in the embedded view, they see only the notebook editing area — the JupyterLab menu bar, status bar, and announcement popups are hidden. The notebook toolbar (Run, Stop, Restart buttons) remains visible so the user can interact with the notebook. The experience feels like a native part of the portal rather than a separate application embedded in an iframe.
+A data user navigates to the Notebooks section of the ML Platform portal and launches a workspace. When JupyterLab loads in the embedded view, they see only the notebook editing area — the JupyterLab menu bar, status bar, and announcement popups are hidden. The notebook toolbar (Run, Stop, Restart buttons) remains visible so the user can interact with the notebook. The experience feels like a native part of the portal rather than a separate application embedded in an iframe.
 
 **Why this priority**: This is the core value proposition — eliminating the "two applications stitched together" perception. It delivers immediate visual improvement with the least implementation effort (configuration-only changes to the notebook image).
 
@@ -35,7 +35,7 @@ A data scientist navigates to the Notebooks section of the ML Platform portal an
 
 ### User Story 2 - Dynamic UI Control from Portal (Priority: P2)
 
-A data scientist is working in the embedded notebook. The portal provides a toolbar above the iframe with controls to toggle the JupyterLab sidebar (file browser) on or off, switch between light and dark themes to match the portal appearance, and trigger notebook-wide operations (Run All Cells, Save). The portal can also detect and display the current kernel status (Idle, Busy, Disconnected) in its own toolbar, keeping the user informed without relying on JupyterLab's hidden status bar.
+A data user is working in the embedded notebook. The portal provides a toolbar above the iframe with controls to toggle the JupyterLab sidebar (file browser) on or off, switch between light and dark themes to match the portal appearance, and trigger notebook-wide operations (Run All Cells, Save). The portal can also detect and display the current kernel status (Idle, Busy, Disconnected) in its own toolbar, keeping the user informed without relying on JupyterLab's hidden status bar.
 
 **Why this priority**: Adds significant usability by giving the portal meaningful control over the embedded environment, making it a true integration rather than just a styled iframe. Depends on Story 1 being complete.
 
@@ -54,7 +54,7 @@ A data scientist is working in the embedded notebook. The portal provides a tool
 
 ### User Story 3 - Focused Single-Notebook View (Priority: P3)
 
-A data scientist opens a specific notebook from a pipeline run detail page or from a file listing in the portal. Instead of seeing the full JupyterLab workspace (with file browser, tabs, and multiple open documents), they see a focused single-document view showing only that notebook. This eliminates distractions and makes the portal feel like it manages the notebook context, not JupyterLab.
+A data user opens a specific notebook from a pipeline run detail page or from a file listing in the portal. Instead of seeing the full JupyterLab workspace (with file browser, tabs, and multiple open documents), they see a focused single-document view showing only that notebook. This eliminates distractions and makes the portal feel like it manages the notebook context, not JupyterLab.
 
 **Why this priority**: Enhances the integration for notebook-specific navigation flows (e.g., viewing a pipeline output notebook). Lower priority because the current `/lab` URL already works and the file browser can be toggled off via Story 2.
 

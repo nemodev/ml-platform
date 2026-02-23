@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: provision-sample-data
+  namespace: ml-test
+  labels:
+    app.kubernetes.io/part-of: ml-platform
+    app.kubernetes.io/component: sample-data
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: ml-platform
+        app.kubernetes.io/component: sample-data
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: provision
+          image: 172.16.100.10:30500/ml-platform/notebook:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "/scripts/provision.py"]
+          env:
+            - name: AWS_ENDPOINT_URL
+              value: http://minio.ml-platform.svc:9000
+            - name: AWS_ACCESS_KEY_ID
+              value: minioadmin
+            - name: AWS_SECRET_ACCESS_KEY
+              value: minioadmin
+            - name: AWS_ALLOW_HTTP
+              value: "true"
+            - name: S3_BUCKET
+              value: ml-test
+          volumeMounts:
+            - name: provision-script
+              mountPath: /scripts
+              readOnly: true
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: provision-script
+          configMap:
+            name: provision-sample-data-script

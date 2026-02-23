@@ -1,0 +1,99 @@
+executor: KubernetesExecutor
+
+airflowVersion: "2.10.3"
+defaultAirflowRepository: apache/airflow
+defaultAirflowTag: "2.10.3-python3.11"
+
+postgresql:
+  enabled: false
+
+redis:
+  enabled: false
+
+data:
+  metadataConnection:
+    user: postgres
+    pass: localdevpassword
+    protocol: postgresql
+    host: postgresql.ml-test.svc
+    port: 5432
+    db: airflow
+    sslmode: disable
+
+triggerer:
+  enabled: true
+
+workers:
+  extraVolumes:
+    - name: dags-config
+      configMap:
+        name: airflow-notebook-runner-dag
+        optional: true
+  extraVolumeMounts:
+    - name: dags-config
+      mountPath: /opt/airflow/dags/ml_platform_notebook_runner.py
+      subPath: notebook_runner.py
+      readOnly: true
+
+scheduler:
+  extraVolumes:
+    - name: dags-config
+      configMap:
+        name: airflow-notebook-runner-dag
+        optional: true
+  extraVolumeMounts:
+    - name: dags-config
+      mountPath: /opt/airflow/dags/ml_platform_notebook_runner.py
+      subPath: notebook_runner.py
+      readOnly: true
+
+webserver:
+  defaultUser:
+    role: Admin
+    username: admin
+    email: admin@example.com
+    firstName: admin
+    lastName: user
+    password: admin
+  extraVolumes:
+    - name: dags-config
+      configMap:
+        name: airflow-notebook-runner-dag
+        optional: true
+  extraVolumeMounts:
+    - name: dags-config
+      mountPath: /opt/airflow/dags/ml_platform_notebook_runner.py
+      subPath: notebook_runner.py
+      readOnly: true
+
+config:
+  api:
+    auth_backends: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+  core:
+    executor: KubernetesExecutor
+    load_examples: "False"
+  database:
+    sql_alchemy_conn: postgresql+psycopg2://postgres:localdevpassword@postgresql.ml-test.svc:5432/airflow
+  kubernetes_executor:
+    namespace: ml-test
+    delete_worker_pods: "True"
+  logging:
+    remote_logging: "True"
+    remote_base_log_folder: s3://ml-test/airflow-logs
+    remote_log_conn_id: minio_default
+
+extraEnv: |
+  - name: AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX
+    value: "True"
+  - name: AIRFLOW_CONN_MINIO_DEFAULT
+    value: s3://minioadmin:minioadmin@minio.ml-platform.svc:9000/ml-test?endpoint_url=http%3A%2F%2Fminio.ml-platform.svc%3A9000
+  - name: AWS_ACCESS_KEY_ID
+    value: minioadmin
+  - name: AWS_SECRET_ACCESS_KEY
+    value: minioadmin
+  - name: AWS_DEFAULT_REGION
+    value: us-east-1
+  - name: AWS_REGION
+    value: us-east-1
+  - name: MLFLOW_TRACKING_URI
+    value: http://mlflow.ml-test.svc:5000

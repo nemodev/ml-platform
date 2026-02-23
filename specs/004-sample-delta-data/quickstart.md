@@ -89,7 +89,7 @@ singleuser:
 
 ## Step 5: Verify Delta Table from Notebook (US1)
 
-1. Open `http://localhost:4200`, log in as `scientist1`.
+1. Open `http://localhost:4200`, log in as `user1`.
 2. Click "Notebooks" → launch workspace.
 3. Create a new notebook and run:
 

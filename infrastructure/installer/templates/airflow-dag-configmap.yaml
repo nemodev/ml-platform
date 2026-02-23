@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airflow-notebook-runner-dag
+  namespace: __NAMESPACE__
+data:
+  notebook_runner.py: |
+    import shlex
+    from datetime import datetime
+
+    from airflow import DAG
+    from airflow.operators.python import PythonOperator
+    from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
+
+
+    def _build_papermill_command(**context):
+        conf = context["dag_run"].conf or {}
+        notebook_path = conf.get("notebook_path") or conf.get("input_path")
+        output_path = conf.get("output_path")
+        parameters = conf.get("parameters") or {}
+        enable_spark = bool(conf.get("enable_spark", False))
+
+        if not notebook_path or not output_path:
+            raise ValueError("dag_run.conf must include notebook_path/input_path and output_path")
+
+        cmd = ["papermill", notebook_path, output_path]
+        for key, value in parameters.items():
+            cmd.extend(["-p", str(key), str(value)])
+
+        papermill_cmd = " ".join(shlex.quote(item) for item in cmd)
+
+        if not enable_spark:
+            return papermill_cmd
+
+        spark_image = conf.get("spark_image", "__NOTEBOOK_IMAGE__")
+        spark_submit_args = [
+            "--master", "k8s://https://kubernetes.default.svc",
+            "--conf", "spark.kubernetes.namespace=__NAMESPACE__",
+            "--conf", "spark.kubernetes.authenticate.driver.serviceAccountName=airflow-spark-sa",
+            "--conf", "spark.kubernetes.authenticate.executor.serviceAccountName=airflow-spark-sa",
+            "--conf", "spark.kubernetes.driver.pod.name=${HOSTNAME}",
+            "--conf", "spark.driver.host=${POD_IP}",
+            "--conf", "spark.driver.bindAddress=0.0.0.0",
+            "--conf", "spark.executor.instances=2",
+            "--conf", "spark.executor.cores=1",
+            "--conf", "spark.executor.memory=2g",
+            "--conf", f"spark.kubernetes.container.image={spark_image}",
+            "--conf", "spark.hadoop.fs.s3a.endpoint=__S3_ENDPOINT__",
+            "--conf", "spark.hadoop.fs.s3a.path.style.access=true",
+            "--conf", "spark.hadoop.fs.s3a.access.key=__S3_ACCESS_KEY__",
+            "--conf", "spark.hadoop.fs.s3a.secret.key=__S3_SECRET_KEY__",
+            "--conf", "spark.hadoop.fs.s3a.connection.ssl.enabled=__S3A_SSL_ENABLED__",
+            "pyspark-shell",
+        ]
+        spark_submit_args_str = " ".join(spark_submit_args)
+        spark_setup = [
+            "export SPARK_HOME=/opt/conda/lib/python3.11/site-packages/pyspark",
+            "export POD_IP=$(hostname -i | awk '{print $1}')",
+            "export SPARK_MASTER=k8s://https://kubernetes.default.svc",
+            "export SPARK_EXECUTOR_INSTANCES=2",
+            "export SPARK_EXECUTOR_CORES=1",
+            "export SPARK_EXECUTOR_MEMORY=2g",
+            "export SPARK_KUBERNETES_CONTAINER_IMAGE=" + shlex.quote(spark_image),
+            "export PYSPARK_SUBMIT_ARGS=\"" + spark_submit_args_str + "\"",
+        ]
+        spark_setup.append(papermill_cmd)
+        return " && ".join(spark_setup)
+
+
+    DEFAULT_ARGS = {
+        "owner": "ml-platform",
+        "depends_on_past": False,
+        "retries": 0,
+    }
+
+    with DAG(
+        dag_id="notebook_runner",
+        default_args=DEFAULT_ARGS,
+        schedule_interval=None,
+        start_date=datetime(2024, 1, 1),
+        catchup=False,
+        tags=["ml-platform", "notebooks"],
+    ) as dag:
+        run_notebook = KubernetesPodOperator(
+            task_id="run_notebook",
+            name="run-notebook",
+            namespace="__NAMESPACE__",
+            service_account_name="airflow-spark-sa",
+            image="__NOTEBOOK_IMAGE__",
+            image_pull_policy="IfNotPresent",
+            cmds=["bash", "-lc"],
+            arguments=["{{ task_instance.xcom_pull(task_ids='prepare_command') }}"],
+            do_xcom_push=False,
+            get_logs=True,
+            is_delete_operator_pod=True,
+            env_vars={
+                "AWS_ENDPOINT_URL": "__S3_ENDPOINT__",
+                "AWS_ALLOW_HTTP": "__S3_ALLOW_HTTP__",
+                "AWS_DEFAULT_REGION": "__S3_REGION__",
+                "AWS_ACCESS_KEY_ID": "__S3_ACCESS_KEY__",
+                "AWS_SECRET_ACCESS_KEY": "__S3_SECRET_KEY__",
+                "MLFLOW_TRACKING_URI": "http://mlflow.__NAMESPACE__.svc:5000",
+                "KSERVE_NAMESPACE": "__NAMESPACE__",
+                "S3_BUCKET": "__S3_BUCKET__",
+                "SPARK_CONF_DIR": "/etc/spark/conf",
+            },
+        )
+
+        prepare_command = PythonOperator(
+            task_id="prepare_command",
+            python_callable=_build_papermill_command,
+        )
+
+        prepare_command >> run_notebook

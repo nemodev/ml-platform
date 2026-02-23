@@ -265,43 +265,73 @@ public class JupyterHubService {
     }
 
     public List<NotebookFileInfo> listNotebookFiles(String username) {
+        List<String> serverNames = getRunningServerNames(username);
+        if (serverNames.isEmpty()) {
+            return List.of();
+        }
+
         List<NotebookFileInfo> notebooks = new ArrayList<>();
-        collectNotebookFiles(username, "", notebooks);
+        for (String serverName : serverNames) {
+            try {
+                collectNotebookFiles(username, serverName, "", notebooks);
+            } catch (Exception ex) {
+                log.warn("Failed to list notebooks from server '{}' for user '{}': {}", serverName, username, ex.getMessage());
+            }
+        }
         notebooks.sort(Comparator.comparing(NotebookFileInfo::path));
         return notebooks;
     }
 
     public byte[] getNotebookContent(String username, String notebookPath) {
         String normalizedPath = normalizePath(notebookPath);
-        JsonNode notebookNode = fetchContents(username, normalizedPath, true, null);
-
-        String type = notebookNode.path("type").asText("");
-        if (!"notebook".equals(type) && !"file".equals(type)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Path does not reference a notebook file");
+        List<String> serverNames = getRunningServerNames(username);
+        if (serverNames.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "No running JupyterHub server found for user " + username);
         }
 
-        JsonNode contentNode = notebookNode.path("content");
-        if (contentNode.isMissingNode() || contentNode.isNull()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notebook content is unavailable");
-        }
+        Exception lastException = null;
+        for (String serverName : serverNames) {
+            try {
+                JsonNode notebookNode = fetchContents(username, serverName, normalizedPath, true, null);
 
-        String format = notebookNode.path("format").asText("");
-        if ("base64".equalsIgnoreCase(format) && contentNode.isTextual()) {
-            return Base64.getDecoder().decode(contentNode.asText(""));
-        }
+                String type = notebookNode.path("type").asText("");
+                if (!"notebook".equals(type) && !"file".equals(type)) {
+                    continue;
+                }
 
-        try {
-            if (contentNode.isTextual()) {
-                return contentNode.asText("").getBytes(StandardCharsets.UTF_8);
+                JsonNode contentNode = notebookNode.path("content");
+                if (contentNode.isMissingNode() || contentNode.isNull()) {
+                    continue;
+                }
+
+                String format = notebookNode.path("format").asText("");
+                if ("base64".equalsIgnoreCase(format) && contentNode.isTextual()) {
+                    return Base64.getDecoder().decode(contentNode.asText(""));
+                }
+
+                if (contentNode.isTextual()) {
+                    return contentNode.asText("").getBytes(StandardCharsets.UTF_8);
+                }
+                return objectMapper.writeValueAsBytes(contentNode);
+            } catch (ResponseStatusException ex) {
+                if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
+                    lastException = ex;
+                    continue;
+                }
+                throw ex;
+            } catch (Exception ex) {
+                lastException = ex;
             }
-            return objectMapper.writeValueAsBytes(contentNode);
-        } catch (Exception ex) {
-            throw new JupyterHubUnavailableException("Unable to read notebook content", ex);
         }
+
+        if (lastException instanceof ResponseStatusException rse) {
+            throw rse;
+        }
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notebook not found in any running server");
     }
 
-    private void collectNotebookFiles(String username, String path, List<NotebookFileInfo> notebooks) {
-        JsonNode root = fetchContents(username, path, true, null);
+    private void collectNotebookFiles(String username, String serverName, String path, List<NotebookFileInfo> notebooks) {
+        JsonNode root = fetchContents(username, serverName, path, true, null);
         String type = root.path("type").asText("");
 
         if ("directory".equals(type)) {
@@ -320,7 +350,7 @@ public class JupyterHubService {
                     if (itemPath.contains(".ipynb_checkpoints")) {
                         continue;
                     }
-                    collectNotebookFiles(username, itemPath, notebooks);
+                    collectNotebookFiles(username, serverName, itemPath, notebooks);
                     continue;
                 }
 
@@ -344,15 +374,16 @@ public class JupyterHubService {
         return new NotebookFileInfo(name, path, lastModified, size);
     }
 
-    private JsonNode fetchContents(String username, String path, boolean includeContent, String format) {
-        log.debug("fetchContents called: username={}, path={}, includeContent={}", username, path, includeContent);
+    private JsonNode fetchContents(String username, String serverName, String path, boolean includeContent, String format) {
+        log.debug("fetchContents called: username={}, server={}, path={}, includeContent={}", username, serverName, path, includeContent);
+        String serverSegment = (serverName == null || serverName.isBlank()) ? "" : "/" + serverName;
         for (int attempt = 1; attempt <= 2; attempt++) {
             try {
                 String encodedPath = path == null || path.isBlank() ? "" : "/" + UriUtils.encodePath(path, StandardCharsets.UTF_8);
-                log.debug("fetchContents attempt {}: requesting /user/{}/api/contents{}", attempt, username, encodedPath);
+                log.debug("fetchContents attempt {}: requesting /user/{}{}/api/contents{}", attempt, username, serverSegment, encodedPath);
                 String response = proxyWebClient.get()
                         .uri(uriBuilder -> {
-                            var builder = uriBuilder.path("/user/{username}/api/contents" + encodedPath);
+                            var builder = uriBuilder.path("/user/{username}" + serverSegment + "/api/contents" + encodedPath);
                             if (includeContent) {
                                 builder = builder.queryParam("content", 1);
                             }
@@ -365,7 +396,10 @@ public class JupyterHubService {
                         .retrieve()
                         .bodyToMono(String.class)
                         .block();
-                log.debug("fetchContents succeeded for user={}, path={}", username, path);
+                log.debug("fetchContents succeeded for user={}, server={}, path={}", username, serverName, path);
+                if (response == null) {
+                    throw new JupyterHubUnavailableException("JupyterHub returned empty response for user " + username, new IllegalStateException("null response body"));
+                }
                 return objectMapper.readTree(response);
             } catch (WebClientResponseException ex) {
                 log.warn("fetchContents WebClientResponseException: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
@@ -408,6 +442,42 @@ public class JupyterHubService {
             return new ServerStatus(WorkspaceStatus.RUNNING, startedAt, lastActivity, podName, "Server is running");
         }
         return new ServerStatus(WorkspaceStatus.IDLE, startedAt, lastActivity, podName, "Server is idle");
+    }
+
+    private List<String> getRunningServerNames(String username) {
+        try {
+            String body = webClient.get()
+                    .uri("/hub/api/users/{username}", username)
+                    .header("Authorization", "Bearer " + properties.getApiToken())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            JsonNode root = objectMapper.readTree(body);
+            JsonNode servers = root.path("servers");
+            if (!servers.isObject() || servers.isEmpty()) {
+                return List.of();
+            }
+
+            List<String> names = new ArrayList<>();
+            servers.fieldNames().forEachRemaining(name -> {
+                JsonNode server = servers.path(name);
+                if (server.path("ready").asBoolean(false)) {
+                    names.add(name);
+                }
+            });
+            return names;
+        } catch (WebClientResponseException ex) {
+            if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
+                return List.of();
+            }
+            throw ex;
+        } catch (WebClientRequestException ex) {
+            throw new JupyterHubUnavailableException("JupyterHub is unreachable", ex);
+        } catch (Exception ex) {
+            log.error("Failed to get running servers for user {}: {}", username, ex.getMessage());
+            return List.of();
+        }
     }
 
     private void executePost(String uri, Object... uriVariables) {

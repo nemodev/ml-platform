@@ -22,7 +22,7 @@ A Kubernetes-native machine learning platform that unifies interactive notebook 
 
 ## System Overview
 
-The ML Platform provides data scientists with an integrated workflow:
+The ML Platform provides data users with an integrated workflow:
 
 1. **Develop** interactively in JupyterHub notebooks with pre-loaded sample data (Delta Lake)
 2. **Track** experiments and metrics in MLflow with automatic user isolation

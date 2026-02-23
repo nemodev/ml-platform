@@ -98,7 +98,7 @@ Verify experiment endpoints:
 TOKEN=$(curl -s -X POST \
   "http://localhost:8180/realms/ml-platform/protocol/openid-connect/token" \
   -d "client_id=ml-platform-cli" \
-  -d "username=scientist1" \
+  -d "username=user1" \
   -d "password=password1" \
   -d "grant_type=password" \
   -d "scope=openid" | jq -r '.access_token')
@@ -126,7 +126,7 @@ ng serve
 
 ## Step 8: Verify Logging from Notebook (US1)
 
-1. Open `http://localhost:4200`, log in as `scientist1`.
+1. Open `http://localhost:4200`, log in as `user1`.
 2. Click "Notebooks" → launch workspace.
 3. Create a new notebook and run:
    ```python
@@ -140,7 +140,7 @@ ng serve
 
    # In local dev notebook kernels, set tracking URI explicitly.
    mlflow.set_tracking_uri("http://mlflow.ml-platform.svc:5000")
-   username = os.getenv("JUPYTERHUB_USER", "scientist1")
+   username = os.getenv("JUPYTERHUB_USER", "user1")
 
    # Load data
    X, y = load_iris(return_X_y=True)
@@ -171,10 +171,10 @@ ng serve
 
 ## Step 10: Verify User Isolation (SC-003)
 
-1. Open a different browser, log in as `scientist2`.
+1. Open a different browser, log in as `user2`.
 2. Navigate to "Experiments" — should see NO experiments.
 3. Open a notebook and log a run to a different experiment.
-4. Switch to scientist1's browser — scientist2's experiment should
+4. Switch to user1's browser — user2's experiment should
    NOT be visible.
 
 ## Step 11: Verify SSO Passthrough (US3)
@@ -184,7 +184,7 @@ ng serve
 
 ## Step 12: Verify Metric Comparison (SC-004)
 
-1. As scientist1, run the training script 3 more times with different
+1. As user1, run the training script 3 more times with different
    `n_estimators` values (50, 200, 500).
 2. In the Experiments UI, select all 4 runs.
 3. Compare accuracy metrics side by side.

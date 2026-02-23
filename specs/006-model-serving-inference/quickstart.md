@@ -65,7 +65,7 @@ Verify model endpoints:
 TOKEN=$(curl -s -X POST \
   "http://localhost:8180/realms/ml-platform/protocol/openid-connect/token" \
   -d "client_id=ml-platform-cli" \
-  -d "username=scientist1" \
+  -d "username=user1" \
   -d "password=password1" \
   -d "grant_type=password" \
   -d "scope=openid" | jq -r '.access_token')
@@ -91,7 +91,7 @@ ng serve
 
 ## Step 5: Register a Model in MLflow (US1 - Prerequisite)
 
-1. Open `http://localhost:4200`, log in as `scientist1`.
+1. Open `http://localhost:4200`, log in as `user1`.
 2. Click "Notebooks" → launch workspace.
 3. Create a notebook and run:
 
@@ -105,7 +105,7 @@ from sklearn.model_selection import train_test_split
 
 # Use direct in-cluster MLflow from notebooks for local dev.
 mlflow.set_tracking_uri("http://mlflow.ml-platform.svc:5000")
-username = os.getenv("JUPYTERHUB_USER", "scientist1")
+username = os.getenv("JUPYTERHUB_USER", "user1")
 
 # Load data
 data = fetch_california_housing()
@@ -142,7 +142,7 @@ Verify via CLI:
 ```bash
 # Check InferenceService status
 kubectl get inferenceservices -n ml-platform-serving
-# Expected: scientist1-housing-regressor-v1  READY
+# Expected: user1-housing-regressor-v1  READY
 
 # Check deployment status via API
 curl -H "Authorization: Bearer $TOKEN" \
@@ -207,7 +207,7 @@ import requests
 import json
 
 # Call inference endpoint (in-cluster URL)
-endpoint_url = "http://scientist1-housing-regressor-v1-predictor.ml-platform-serving.svc.cluster.local/v2/models/scientist1-housing-regressor-v1/infer"
+endpoint_url = "http://user1-housing-regressor-v1-predictor.ml-platform-serving.svc.cluster.local/v2/models/user1-housing-regressor-v1/infer"
 
 payload = {
     "inputs": [{
@@ -232,7 +232,7 @@ print(f"Predictions: {predictions['outputs'][0]['data']}")
 
 ## Step 11: Verify User Isolation
 
-1. Log in as `scientist2` in a different browser.
+1. Log in as `user2` in a different browser.
 2. Navigate to "Models" — should see NO registered models.
 3. Navigate to "Deployments" — should see NO deployments.
 

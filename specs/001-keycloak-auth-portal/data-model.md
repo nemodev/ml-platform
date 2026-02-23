@@ -57,8 +57,8 @@ API request after login.
 | Client | `ml-platform-portal` (public, PKCE) |
 | Redirect URIs | `http://localhost:4200/*`, `http://localhost:8080/*` (local); `https://<portal-domain>/*` (prod) |
 | Scopes | `openid profile email` |
-| Test User 1 | `scientist1` / `password1` |
-| Test User 2 | `scientist2` / `password2` |
+| Test User 1 | `user1` / `password1` |
+| Test User 2 | `user2` / `password2` |
 
 ## Database Schema (PostgreSQL)
 

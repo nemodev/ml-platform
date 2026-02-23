@@ -1,0 +1,8 @@
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: ml-test
+  namespace: ml-test
+spec:
+  bucketName: ml-test
+  storageClassName: s3-buckets

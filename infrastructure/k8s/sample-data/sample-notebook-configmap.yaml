@@ -37,10 +37,12 @@ data:
           "metadata": {},
           "outputs": [],
           "source": [
+            "import os\n",
             "from deltalake import DeltaTable\n",
             "import pandas as pd\n",
             "\n",
-            "dt = DeltaTable(\"s3://ml-platform-sample-data/california-housing\")\n",
+            "sample_bucket = os.environ.get('S3_BUCKET', 'ml-platform-sample-data')\n",
+            "dt = DeltaTable(f\"s3://{sample_bucket}/sample-data/california-housing\")\n",
             "df = dt.to_pandas()\n",
             "print(f\"Shape: {df.shape}\")\n",
             "df.head()"
@@ -127,8 +129,9 @@ data:
             "import os\n",
             "import mlflow\n",
             "\n",
-            "prefix = os.environ.get('MLFLOW_EXPERIMENT_PREFIX', '')\n",
-            "mlflow.set_experiment(prefix + \"california-housing-demo\")\n",
+            "exp_prefix = os.environ.get('MLFLOW_EXPERIMENT_PREFIX', '')\n",
+            "model_prefix = os.environ.get('MLFLOW_MODEL_PREFIX', '')\n",
+            "mlflow.set_experiment(exp_prefix + \"california-housing-demo\")\n",
             "\n",
             "with mlflow.start_run():\n",
             "    mlflow.log_param(\"n_estimators\", 100)\n",
@@ -140,7 +143,7 @@ data:
             "    mlflow.sklearn.log_model(\n",
             "        model,\n",
             "        \"random-forest-regressor\",\n",
-            "        registered_model_name=\"california-housing-rf\"\n",
+            "        registered_model_name=model_prefix + \"california-housing-rf\"\n",
             "    )\n",
             "    print(\"Run logged and model registered in MLflow!\")"
           ]

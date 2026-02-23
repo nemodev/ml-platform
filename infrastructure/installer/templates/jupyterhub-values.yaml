@@ -1,0 +1,144 @@
+fullnameOverride: __NAMESPACE__-jupyterhub
+
+prePuller:
+  hook:
+    enabled: false
+  continuous:
+    enabled: false
+
+hub:
+  db:
+    type: postgres
+    url: postgresql://postgres:__POSTGRES_PASSWORD__@__POSTGRES_HOST__:__POSTGRES_PORT__/jupyterhub
+  networkPolicy:
+    enabled: false
+  config:
+    JupyterHub:
+      authenticator_class: generic-oauth
+      load_roles:
+        - name: jupyterhub-idle-culler
+          scopes:
+            - list:users
+            - read:users:activity
+            - admin:servers
+            - delete:servers
+            - admin:users
+          services:
+            - jupyterhub-idle-culler
+        - name: platform-api-role
+          scopes:
+            - admin:users
+            - admin:servers
+          services:
+            - platform-api
+    Authenticator:
+      auto_login: true
+    GenericOAuthenticator:
+      client_id: __KEYCLOAK_JUPYTERHUB_CLIENT_ID__
+      client_secret: __KEYCLOAK_JUPYTERHUB_CLIENT_SECRET__
+      authorize_url: __KEYCLOAK_AUTHORIZE_URL__
+      token_url: __KEYCLOAK_TOKEN_URL__
+      userdata_url: __KEYCLOAK_USERDATA_URL__
+      oauth_callback_url: __KEYCLOAK_OAUTH_CALLBACK_URL__
+      login_service: Keycloak
+      username_claim: preferred_username
+      scope:
+        - openid
+        - profile
+        - email
+      allow_all: true
+    KubeSpawner:
+      args:
+        - "--ServerApp.tornado_settings={\"headers\":{\"Content-Security-Policy\":\"frame-ancestors 'self' __PLATFORM_URL__\"}}"
+  services:
+    platform-api:
+      api_token: __JUPYTERHUB_API_TOKEN__
+      admin: true
+  extraConfig:
+    00-security.py: |
+      c.JupyterHub.tornado_settings = {
+        "headers": {
+          "Content-Security-Policy": "frame-ancestors 'self' __PLATFORM_URL__"
+        }
+      }
+    01-named-servers.py: |
+      c.JupyterHub.allow_named_servers = True
+      c.JupyterHub.named_server_limit_per_user = 10
+
+      async def pre_spawn_hook(spawner):
+          username = spawner.user.name
+          spawner.environment['MLFLOW_MODEL_PREFIX'] = f'{username}/'
+
+          server_name = spawner.name
+          if server_name:
+              spawner.environment['ANALYSIS_ID'] = server_name
+              spawner.environment['ANALYSIS_S3_PATH'] = f's3://__S3_BUCKET__/{username}/{server_name}/'
+              spawner.environment['MLFLOW_EXPERIMENT_PREFIX'] = f'{username}/{server_name}/'
+
+      c.KubeSpawner.pre_spawn_hook = pre_spawn_hook
+
+singleuser:
+  image:
+    name: __NOTEBOOK_IMAGE_NAME__
+    tag: __NOTEBOOK_IMAGE_TAG__
+    pullPolicy: IfNotPresent
+  networkPolicy:
+    enabled: false
+  extraEnv:
+    MLFLOW_TRACKING_URI: http://mlflow.__NAMESPACE__.svc:5000
+    KSERVE_NAMESPACE: __NAMESPACE__
+    S3_BUCKET: __S3_BUCKET__
+    AWS_ENDPOINT_URL: __S3_ENDPOINT__
+    AWS_ALLOW_HTTP: "__S3_ALLOW_HTTP__"
+    AWS_ACCESS_KEY_ID:
+      valueFrom:
+        secretKeyRef:
+          name: sample-data-readonly-credentials
+          key: AWS_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY:
+      valueFrom:
+        secretKeyRef:
+          name: sample-data-readonly-credentials
+          key: AWS_SECRET_ACCESS_KEY
+  profileList:
+    - display_name: Exploratory
+      description: Interactive data exploration and small experiments
+      slug: exploratory
+      default: true
+      kubespawner_override:
+        cpu_guarantee: 1
+        cpu_limit: 2
+        mem_guarantee: 2G
+        mem_limit: 4G
+  storage:
+    type: dynamic
+    capacity: 10Gi
+    homeMountPath: /home/jovyan
+    extraVolumes:
+      - name: sample-notebook
+        configMap:
+          name: sample-notebook
+      - name: batch-inference-notebook
+        configMap:
+          name: batch-inference-notebook
+    extraVolumeMounts:
+      - name: sample-notebook
+        mountPath: /home/jovyan/examples/sample-delta-data.ipynb
+        subPath: sample-delta-data.ipynb
+        readOnly: true
+      - name: batch-inference-notebook
+        mountPath: /home/jovyan/examples/batch-inference.ipynb
+        subPath: batch-inference.ipynb
+        readOnly: true
+
+proxy:
+  chp:
+    networkPolicy:
+      enabled: false
+
+cull:
+  enabled: true
+  timeout: 1800
+  every: 300
+  users: true
+  removeNamedServers: true

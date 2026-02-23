@@ -294,7 +294,7 @@ components:
           example: 1
         endpointName:
           type: string
-          example: scientist1-iris-classifier-v1
+          example: user1-iris-classifier-v1
         status:
           type: string
           enum: [DEPLOYING, READY, FAILED, DELETING, DELETED]

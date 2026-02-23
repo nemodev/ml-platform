@@ -1,0 +1,99 @@
+executor: KubernetesExecutor
+
+airflowVersion: "2.10.3"
+defaultAirflowRepository: apache/airflow
+defaultAirflowTag: "2.10.3-python3.11"
+
+postgresql:
+  enabled: false
+
+redis:
+  enabled: false
+
+data:
+  metadataConnection:
+    user: postgres
+    pass: __POSTGRES_PASSWORD__
+    protocol: postgresql
+    host: __POSTGRES_HOST__
+    port: __POSTGRES_PORT__
+    db: airflow
+    sslmode: disable
+
+triggerer:
+  enabled: true
+
+workers:
+  extraVolumes:
+    - name: dags-config
+      configMap:
+        name: airflow-notebook-runner-dag
+        optional: true
+  extraVolumeMounts:
+    - name: dags-config
+      mountPath: /opt/airflow/dags/ml_platform_notebook_runner.py
+      subPath: notebook_runner.py
+      readOnly: true
+
+scheduler:
+  extraVolumes:
+    - name: dags-config
+      configMap:
+        name: airflow-notebook-runner-dag
+        optional: true
+  extraVolumeMounts:
+    - name: dags-config
+      mountPath: /opt/airflow/dags/ml_platform_notebook_runner.py
+      subPath: notebook_runner.py
+      readOnly: true
+
+webserver:
+  defaultUser:
+    role: Admin
+    username: admin
+    email: admin@example.com
+    firstName: admin
+    lastName: user
+    password: admin
+  extraVolumes:
+    - name: dags-config
+      configMap:
+        name: airflow-notebook-runner-dag
+        optional: true
+  extraVolumeMounts:
+    - name: dags-config
+      mountPath: /opt/airflow/dags/ml_platform_notebook_runner.py
+      subPath: notebook_runner.py
+      readOnly: true
+
+config:
+  api:
+    auth_backends: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+  core:
+    executor: KubernetesExecutor
+    load_examples: "False"
+  database:
+    sql_alchemy_conn: postgresql+psycopg2://postgres:__POSTGRES_PASSWORD__@__POSTGRES_HOST__:__POSTGRES_PORT__/airflow
+  kubernetes_executor:
+    namespace: __NAMESPACE__
+    delete_worker_pods: "True"
+  logging:
+    remote_logging: "True"
+    remote_base_log_folder: s3://__S3_BUCKET__/airflow-logs
+    remote_log_conn_id: minio_default
+
+extraEnv: |
+  - name: AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX
+    value: "True"
+  - name: AIRFLOW_CONN_MINIO_DEFAULT
+    value: s3://__S3_ACCESS_KEY__:__S3_SECRET_KEY__@__S3_ENDPOINT_HOST__/__S3_BUCKET__?endpoint_url=__S3_ENDPOINT_URLENCODED__
+  - name: AWS_ACCESS_KEY_ID
+    value: __S3_ACCESS_KEY__
+  - name: AWS_SECRET_ACCESS_KEY
+    value: __S3_SECRET_KEY__
+  - name: AWS_DEFAULT_REGION
+    value: __S3_REGION__
+  - name: AWS_REGION
+    value: __S3_REGION__
+  - name: MLFLOW_TRACKING_URI
+    value: http://mlflow.__NAMESPACE__.svc:5000

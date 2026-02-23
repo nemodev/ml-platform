@@ -18,7 +18,7 @@
 
 ### User Story 1 - Read Sample Delta Table from Notebook (Priority: P1)
 
-A data scientist opens a notebook and wants to access sample training
+A data user opens a notebook and wants to access sample training
 data. They write Python code that reads a pre-provisioned Delta table
 from object storage into a dataframe. The data loads successfully and
 the user can inspect its schema, row count, and sample rows.

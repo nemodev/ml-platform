@@ -22,7 +22,7 @@
 
 ### User Story 1 - Trigger Notebook as Pipeline Job (Priority: P1)
 
-A data scientist has developed a notebook in the interactive
+A data user has developed a notebook in the interactive
 environment and wants to run it as a production pipeline job. From the
 portal's "Pipelines" section, the user selects a notebook and triggers
 it as a non-interactive job. The system accepts the request and begins
@@ -55,7 +55,7 @@ completes successfully with the output preserved.
 
 ### User Story 2 - Pipeline Job with Spark (Priority: P2)
 
-A data scientist triggers a notebook pipeline job that contains
+A data user triggers a notebook pipeline job that contains
 distributed data processing code using Spark. The pipeline system
 spawns Spark driver and executor pods on the cluster. The Spark job
 processes data and writes results. The user can see that Spark workers

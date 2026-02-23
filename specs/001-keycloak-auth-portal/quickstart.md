@@ -76,7 +76,7 @@ The frontend starts at `http://localhost:4200`.
 1. Open `http://localhost:4200` in a browser.
 2. You should be redirected to Keycloak login at
    `http://localhost:8180/realms/ml-platform/...`.
-3. Log in with `scientist1` / `password1`.
+3. Log in with `user1` / `password1`.
 4. You should be redirected back to the portal dashboard.
 5. Your username should appear in the portal header.
 
@@ -90,7 +90,7 @@ The frontend starts at `http://localhost:4200`.
 
 1. Open a different browser (or incognito window).
 2. Navigate to `http://localhost:4200`.
-3. Log in with `scientist2` / `password2`.
+3. Log in with `user2` / `password2`.
 4. Confirm both users see their own username in the header.
 
 ## Step 8: Verify Logout

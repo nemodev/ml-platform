@@ -128,15 +128,15 @@ components:
         username:
           type: string
           description: Preferred username from Keycloak
-          example: scientist1
+          example: user1
         displayName:
           type: string
           description: Full display name
-          example: Test Scientist 1
+          example: Test user 1
         email:
           type: string
           format: email
-          example: scientist1@ml-platform.local
+          example: user1@ml-platform.local
 
     PortalSection:
       type: object

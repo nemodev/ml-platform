@@ -1,0 +1,40 @@
+image:
+  repository: ghcr.io/mlflow/mlflow
+  tag: v3.10.0
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 5000
+
+database:
+  host: __POSTGRES_HOST__
+  port: __POSTGRES_PORT__
+  name: mlflow
+  user: postgres
+  password: __POSTGRES_PASSWORD__
+
+minio:
+  endpoint: __S3_ENDPOINT__
+  secretName: ""
+  accessKeyKey: ""
+  secretKeyKey: ""
+  accessKey: __S3_ACCESS_KEY__
+  secretKey: __S3_SECRET_KEY__
+
+mlflow:
+  gunicornWorkers: 2
+  allowedHosts: "mlflow.__NAMESPACE__.svc*,localhost,10.*,172.*,192.168.*"
+  artifactRoot: "mlflow-artifacts:/"
+  artifactDestination: s3://__S3_BUCKET__/mlflow/artifacts
+  s3EndpointUrl: __S3_ENDPOINT__
+  s3IgnoreTls: "__S3_IGNORE_TLS__"
+  backendStoreUri: postgresql://postgres:__POSTGRES_PASSWORD__@__POSTGRES_HOST__:__POSTGRES_PORT__/mlflow
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi

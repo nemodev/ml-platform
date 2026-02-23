@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm-config
+  namespace: ml-test
+data:
+  ml-platform-realm.json: |
+    {
+      "realm": "ml-platform",
+      "enabled": true,
+      "registrationAllowed": false,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "resetPasswordAllowed": true,
+      "clients": [
+        {
+          "clientId": "ml-platform-portal",
+          "name": "ML Platform Portal",
+          "enabled": true,
+          "publicClient": true,
+          "protocol": "openid-connect",
+          "redirectUris": [
+            "http://172.16.100.10:30081/*",
+            "http://localhost:4200/*",
+            "http://localhost:8080/*",
+            "http://localhost:30080/*"
+          ],
+          "webOrigins": [
+            "http://172.16.100.10:30081",
+            "http://localhost:4200",
+            "http://localhost:8080",
+            "http://localhost:30080"
+          ],
+          "attributes": {
+            "post.logout.redirect.uris": "+"
+          },
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email"
+          ],
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false
+        },
+        {
+          "clientId": "ml-platform-cli",
+          "name": "ML Platform CLI",
+          "enabled": true,
+          "publicClient": true,
+          "protocol": "openid-connect",
+          "standardFlowEnabled": false,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": false,
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email"
+          ]
+        },
+        {
+          "clientId": "ml-platform-jupyterhub",
+          "name": "ML Platform JupyterHub",
+          "enabled": true,
+          "publicClient": false,
+          "secret": "ml-platform-jupyterhub-secret",
+          "protocol": "openid-connect",
+          "redirectUris": [
+            "http://172.16.100.10:30081/hub/oauth_callback",
+            "http://localhost:8181/hub/oauth_callback",
+            "http://localhost:30080/hub/oauth_callback",
+            "http://localhost:30081/hub/oauth_callback"
+          ],
+          "webOrigins": [
+            "http://172.16.100.10:30081",
+            "http://localhost:8181",
+            "http://localhost:30080",
+            "http://localhost:30081"
+          ],
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false,
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email"
+          ]
+        }
+      ],
+      "users": [
+        {
+          "username": "user1",
+          "enabled": true,
+          "emailVerified": true,
+          "firstName": "User",
+          "lastName": "One",
+          "email": "user1@ml-platform.local",
+          "credentials": [
+            {
+              "type": "password",
+              "value": "password1",
+              "temporary": false
+            }
+          ]
+        },
+        {
+          "username": "user2",
+          "enabled": true,
+          "emailVerified": true,
+          "firstName": "User",
+          "lastName": "Two",
+          "email": "user2@ml-platform.local",
+          "credentials": [
+            {
+              "type": "password",
+              "value": "password2",
+              "temporary": false
+            }
+          ]
+        }
+      ]
+    }

@@ -28,7 +28,7 @@ can run multiple analyses concurrently, each with an independent
 notebook server (JupyterHub named server) and persistent storage.
 
 **Why this priority**: The embedded notebook is the primary workspace
-for data scientists. Without it, the platform has no interactive
+for data users. Without it, the platform has no interactive
 development capability.
 
 **Independent Test**: Can be verified by logging into the portal,

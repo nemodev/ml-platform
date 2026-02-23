@@ -1,0 +1,451 @@
+#!/usr/bin/env bash
+# ──────────────────────────────────────────────────────────────────────────────
+# ML Platform Installer
+#
+# Deploys all platform components EXCEPT S3 storage, which is expected to be
+# pre-existing. Keycloak is optionally deployed (DEPLOY_KEYCLOAK=true).
+# See config.env.example for all options.
+#
+# Usage:
+#   ./install.sh [config-file]       # config-file defaults to ./config.env
+#   ./install.sh --render-only       # generate manifests without applying
+# ──────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+TEMPLATES_DIR="${SCRIPT_DIR}/templates"
+BUILD_DIR="${SCRIPT_DIR}/.build"
+
+RENDER_ONLY=false
+CONFIG_FILE="${SCRIPT_DIR}/config.env"
+
+for arg in "$@"; do
+  case "$arg" in
+    --render-only) RENDER_ONLY=true ;;
+    *) CONFIG_FILE="$arg" ;;
+  esac
+done
+
+# ── Load configuration ───────────────────────────────────────────────────────
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  echo "ERROR: Config file not found: $CONFIG_FILE"
+  echo "Copy config.env.example to config.env and edit it."
+  exit 1
+fi
+echo "Loading config from: $CONFIG_FILE"
+# shellcheck disable=SC1090
+source "$CONFIG_FILE"
+
+# ── Derived variables ────────────────────────────────────────────────────────
+
+# S3 endpoint without protocol (for KServe annotations, Airflow connection URI)
+S3_ENDPOINT_HOST="${S3_ENDPOINT#http://}"
+S3_ENDPOINT_HOST="${S3_ENDPOINT_HOST#https://}"
+
+# S3 flags
+if [[ "$S3_ENDPOINT" == https://* ]]; then
+  S3_USE_HTTPS=1
+  S3_ALLOW_HTTP=false
+  S3_IGNORE_TLS=false
+  S3A_SSL_ENABLED=true
+else
+  S3_USE_HTTPS=0
+  S3_ALLOW_HTTP=true
+  S3_IGNORE_TLS=true
+  S3A_SSL_ENABLED=false
+fi
+
+# URL-encoded S3 endpoint (for Airflow connection URI)
+S3_ENDPOINT_URLENCODED=$(echo "$S3_ENDPOINT" | sed 's|:|%3A|g; s|/|%2F|g')
+
+# PostgreSQL
+if [[ "${DEPLOY_POSTGRESQL:-true}" == "true" ]]; then
+  POSTGRES_HOST="${POSTGRES_HOST:-postgresql.${NAMESPACE}.svc}"
+  POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+fi
+: "${POSTGRES_HOST:?POSTGRES_HOST is required when DEPLOY_POSTGRESQL=false}"
+: "${POSTGRES_PORT:?POSTGRES_PORT is required when DEPLOY_POSTGRESQL=false}"
+
+# Keycloak
+if [[ "${DEPLOY_KEYCLOAK:-false}" == "true" ]]; then
+  KEYCLOAK_URL="${KEYCLOAK_URL:-http://keycloak.${NAMESPACE}.svc.cluster.local:8080}"
+fi
+: "${KEYCLOAK_ADMIN_PASSWORD:=admin}"
+
+# Keycloak derived URLs
+KEYCLOAK_ISSUER_URI="${PLATFORM_URL}/realms/${KEYCLOAK_REALM}"
+KEYCLOAK_JWK_SET_URI="${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs"
+KEYCLOAK_AUTHORIZE_URL="${PLATFORM_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth"
+KEYCLOAK_TOKEN_URL="${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token"
+KEYCLOAK_USERDATA_URL="${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/userinfo"
+KEYCLOAK_OAUTH_CALLBACK_URL="${PLATFORM_URL}/hub/oauth_callback"
+
+# Notebook image parts (for JupyterHub Helm)
+NOTEBOOK_IMAGE_NAME="${NOTEBOOK_IMAGE%:*}"
+NOTEBOOK_IMAGE_TAG="${NOTEBOOK_IMAGE##*:}"
+
+# Frontend NodePort line (conditionally rendered)
+if [[ "${FRONTEND_SERVICE_TYPE}" == "NodePort" ]]; then
+  NODEPORT_LINE="nodePort: ${FRONTEND_NODE_PORT}"
+else
+  NODEPORT_LINE=""
+fi
+
+# ── Validate required config ────────────────────────────────────────────────
+missing=()
+for var in NAMESPACE BACKEND_IMAGE FRONTEND_IMAGE NOTEBOOK_IMAGE \
+           PLATFORM_URL FRONTEND_SERVICE_TYPE KEYCLOAK_REALM \
+           KEYCLOAK_PORTAL_CLIENT_ID KEYCLOAK_JUPYTERHUB_CLIENT_ID \
+           KEYCLOAK_JUPYTERHUB_CLIENT_SECRET JUPYTERHUB_API_TOKEN \
+           S3_ENDPOINT S3_ACCESS_KEY S3_SECRET_KEY S3_REGION S3_BUCKET \
+           POSTGRES_PASSWORD DNS_RESOLVER; do
+  if [[ -z "${!var:-}" ]]; then
+    missing+=("$var")
+  fi
+done
+if [[ "${DEPLOY_KEYCLOAK:-false}" != "true" ]] && [[ -z "${KEYCLOAK_URL:-}" ]]; then
+  missing+=("KEYCLOAK_URL")
+fi
+if [[ ${#missing[@]} -gt 0 ]]; then
+  echo "ERROR: Missing required configuration variables:"
+  printf '  - %s\n' "${missing[@]}"
+  exit 1
+fi
+
+# ── Render templates ─────────────────────────────────────────────────────────
+echo "Rendering templates to ${BUILD_DIR}/"
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
+
+render() {
+  local input="$1"
+  local output="${BUILD_DIR}/$(basename "$input")"
+  sed \
+    -e "s|__NAMESPACE__|${NAMESPACE}|g" \
+    -e "s|__BACKEND_IMAGE__|${BACKEND_IMAGE}|g" \
+    -e "s|__FRONTEND_IMAGE__|${FRONTEND_IMAGE}|g" \
+    -e "s|__NOTEBOOK_IMAGE__|${NOTEBOOK_IMAGE}|g" \
+    -e "s|__NOTEBOOK_IMAGE_NAME__|${NOTEBOOK_IMAGE_NAME}|g" \
+    -e "s|__NOTEBOOK_IMAGE_TAG__|${NOTEBOOK_IMAGE_TAG}|g" \
+    -e "s|__PLATFORM_URL__|${PLATFORM_URL}|g" \
+    -e "s|__FRONTEND_SERVICE_TYPE__|${FRONTEND_SERVICE_TYPE}|g" \
+    -e "s|__FRONTEND_NODE_PORT__|${FRONTEND_NODE_PORT:-30080}|g" \
+    -e "s|__NODEPORT_LINE__|${NODEPORT_LINE}|g" \
+    -e "s|__KEYCLOAK_URL__|${KEYCLOAK_URL}|g" \
+    -e "s|__KEYCLOAK_REALM__|${KEYCLOAK_REALM}|g" \
+    -e "s|__KEYCLOAK_PORTAL_CLIENT_ID__|${KEYCLOAK_PORTAL_CLIENT_ID}|g" \
+    -e "s|__KEYCLOAK_JUPYTERHUB_CLIENT_ID__|${KEYCLOAK_JUPYTERHUB_CLIENT_ID}|g" \
+    -e "s|__KEYCLOAK_JUPYTERHUB_CLIENT_SECRET__|${KEYCLOAK_JUPYTERHUB_CLIENT_SECRET}|g" \
+    -e "s|__KEYCLOAK_ISSUER_URI__|${KEYCLOAK_ISSUER_URI}|g" \
+    -e "s|__KEYCLOAK_JWK_SET_URI__|${KEYCLOAK_JWK_SET_URI}|g" \
+    -e "s|__KEYCLOAK_AUTHORIZE_URL__|${KEYCLOAK_AUTHORIZE_URL}|g" \
+    -e "s|__KEYCLOAK_TOKEN_URL__|${KEYCLOAK_TOKEN_URL}|g" \
+    -e "s|__KEYCLOAK_USERDATA_URL__|${KEYCLOAK_USERDATA_URL}|g" \
+    -e "s|__KEYCLOAK_OAUTH_CALLBACK_URL__|${KEYCLOAK_OAUTH_CALLBACK_URL}|g" \
+    -e "s|__KEYCLOAK_ADMIN_PASSWORD__|${KEYCLOAK_ADMIN_PASSWORD}|g" \
+    -e "s|__JUPYTERHUB_API_TOKEN__|${JUPYTERHUB_API_TOKEN}|g" \
+    -e "s|__S3_ENDPOINT__|${S3_ENDPOINT}|g" \
+    -e "s|__S3_ENDPOINT_HOST__|${S3_ENDPOINT_HOST}|g" \
+    -e "s|__S3_ENDPOINT_URLENCODED__|${S3_ENDPOINT_URLENCODED}|g" \
+    -e "s|__S3_ACCESS_KEY__|${S3_ACCESS_KEY}|g" \
+    -e "s|__S3_SECRET_KEY__|${S3_SECRET_KEY}|g" \
+    -e "s|__S3_REGION__|${S3_REGION}|g" \
+    -e "s|__S3_USE_HTTPS__|${S3_USE_HTTPS}|g" \
+    -e "s|__S3_ALLOW_HTTP__|${S3_ALLOW_HTTP}|g" \
+    -e "s|__S3_IGNORE_TLS__|${S3_IGNORE_TLS}|g" \
+    -e "s|__S3A_SSL_ENABLED__|${S3A_SSL_ENABLED}|g" \
+    -e "s|__S3_BUCKET__|${S3_BUCKET}|g" \
+    -e "s|__POSTGRES_HOST__|${POSTGRES_HOST}|g" \
+    -e "s|__POSTGRES_PORT__|${POSTGRES_PORT}|g" \
+    -e "s|__POSTGRES_PASSWORD__|${POSTGRES_PASSWORD}|g" \
+    -e "s|__DNS_RESOLVER__|${DNS_RESOLVER}|g" \
+    -e "s|__OBC_STORAGE_CLASS__|${OBC_STORAGE_CLASS:-s3-buckets}|g" \
+    "$input" > "$output"
+}
+
+# Render all templates
+for template in "${TEMPLATES_DIR}"/*.yaml; do
+  render "$template"
+done
+
+# Copy sample notebook configmaps (only namespace changes)
+for f in sample-notebook-configmap.yaml batch-inference-notebook-configmap.yaml; do
+  src="${PROJECT_ROOT}/infrastructure/k8s/sample-data/${f}"
+  if [[ -f "$src" ]]; then
+    sed "s|namespace: ml-platform|namespace: ${NAMESPACE}|g" "$src" > "${BUILD_DIR}/${f}"
+  else
+    echo "WARNING: ${f} not found at ${src}, skipping"
+  fi
+done
+
+echo "Templates rendered to ${BUILD_DIR}/"
+if [[ "$RENDER_ONLY" == "true" ]]; then
+  echo "Render-only mode: skipping deployment."
+  ls -la "$BUILD_DIR/"
+  exit 0
+fi
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+STEP=0
+TOTAL_STEPS=11
+
+step() {
+  STEP=$((STEP + 1))
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "  [${STEP}/${TOTAL_STEPS}] $1"
+  echo "═══════════════════════════════════════════════════════════════"
+}
+
+k() {
+  kubectl "$@"
+}
+
+h() {
+  helm "$@"
+}
+
+# ── Pre-flight checks ───────────────────────────────────────────────────────
+echo ""
+echo "Pre-flight checks..."
+if ! command -v kubectl &>/dev/null; then
+  echo "ERROR: kubectl not found in PATH"
+  exit 1
+fi
+if ! command -v helm &>/dev/null; then
+  echo "ERROR: helm not found in PATH"
+  exit 1
+fi
+kubectl cluster-info --request-timeout=5s >/dev/null 2>&1 || {
+  echo "ERROR: Cannot connect to Kubernetes cluster. Check your kubeconfig."
+  exit 1
+}
+echo "  kubectl: $(kubectl version --client -o yaml 2>/dev/null | grep gitVersion || echo 'available')"
+echo "  helm:    $(helm version --template '{{.Version}}' 2>/dev/null || echo 'available')"
+echo "  cluster: $(kubectl cluster-info 2>&1 | grep -o 'https\?://[^ ]*' || echo 'connected')"
+echo ""
+
+# ── Helm repository setup ───────────────────────────────────────────────────
+echo "Preparing Helm repositories..."
+helm repo add jupyterhub https://hub.jupyter.org/helm-chart/ --force-update >/dev/null 2>&1 || true
+helm repo add apache-airflow https://airflow.apache.org --force-update >/dev/null 2>&1 || true
+helm repo update >/dev/null 2>&1
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 1: Namespace
+# ══════════════════════════════════════════════════════════════════════════════
+step "Creating namespace"
+k apply -f "$BUILD_DIR/namespaces.yaml"
+echo "  Namespace: ${NAMESPACE}"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 2: PostgreSQL
+# ══════════════════════════════════════════════════════════════════════════════
+step "PostgreSQL"
+if [[ "${DEPLOY_POSTGRESQL:-true}" == "true" ]]; then
+  echo "  Deploying PostgreSQL StatefulSet..."
+  k apply -f "$BUILD_DIR/postgresql.yaml"
+
+  echo "  Waiting for PostgreSQL pod..."
+  k -n "$NAMESPACE" rollout status statefulset/postgresql --timeout=300s
+
+  echo "  Creating application databases..."
+  # Wait a moment for postgres to accept connections after readiness
+  sleep 5
+  POSTGRES_POD="postgresql-0"
+  DATABASES="ml_platform mlflow airflow jupyterhub"
+  if [[ "${CREATE_KEYCLOAK_DB:-true}" == "true" ]]; then
+    DATABASES="$DATABASES keycloak"
+  fi
+  k -n "$NAMESPACE" exec "$POSTGRES_POD" -- sh -c "
+    set -eu
+    export PGPASSWORD='${POSTGRES_PASSWORD}'
+    for db in ${DATABASES}; do
+      if ! psql -U postgres -d postgres -tAc \"SELECT 1 FROM pg_database WHERE datname='\${db}'\" | grep -q 1; then
+        psql -U postgres -d postgres -c \"CREATE DATABASE \${db};\"
+        echo \"  Created database: \${db}\"
+      else
+        echo \"  Database exists: \${db}\"
+      fi
+    done
+  "
+else
+  echo "  Using external PostgreSQL at ${POSTGRES_HOST}:${POSTGRES_PORT}"
+  echo "  IMPORTANT: Ensure databases exist: ml_platform, mlflow, airflow, jupyterhub, keycloak"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 3: Keycloak
+# ══════════════════════════════════════════════════════════════════════════════
+step "Keycloak"
+if [[ "${DEPLOY_KEYCLOAK:-false}" == "true" ]]; then
+  echo "  Deploying Keycloak..."
+  k apply -f "$BUILD_DIR/keycloak-realm-configmap.yaml"
+  k apply -f "$BUILD_DIR/keycloak-service.yaml"
+  k apply -f "$BUILD_DIR/keycloak-deployment.yaml"
+
+  echo "  Waiting for Keycloak rollout..."
+  k -n "$NAMESPACE" rollout status deployment/keycloak --timeout=15m
+  echo "  Keycloak deployed"
+else
+  echo "  Using external Keycloak at ${KEYCLOAK_URL}"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 4: ObjectBucketClaim & S3 credentials
+# ══════════════════════════════════════════════════════════════════════════════
+step "S3 credentials and ObjectBucketClaim"
+k apply -f "$BUILD_DIR/s3-credentials-secret.yaml"
+k apply -f "$BUILD_DIR/sample-data-readonly-secret.yaml"
+echo "  S3 credential secrets created"
+
+if [[ "${DEPLOY_OBC:-false}" == "true" ]]; then
+  echo "  Creating ObjectBucketClaim..."
+  k apply -f "$BUILD_DIR/obc.yaml"
+  echo "  OBC created for: ${S3_BUCKET}"
+else
+  echo "  OBC disabled — ensure bucket exists: ${S3_BUCKET}"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 4: MLflow
+# ══════════════════════════════════════════════════════════════════════════════
+step "MLflow"
+h upgrade --install mlflow "$PROJECT_ROOT/infrastructure/helm/mlflow" \
+  -n "$NAMESPACE" \
+  -f "$BUILD_DIR/mlflow-values.yaml" \
+  --wait --timeout 15m
+echo "  MLflow deployed"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 5: Sample data
+# ══════════════════════════════════════════════════════════════════════════════
+step "Sample data provisioning"
+
+echo "  Ensuring S3 bucket exists: ${S3_BUCKET}..."
+k -n "$NAMESPACE" run ensure-bucket --rm -i --restart=Never \
+  --image="${NOTEBOOK_IMAGE}" \
+  --env="AWS_ENDPOINT_URL=${S3_ENDPOINT}" \
+  --env="AWS_ACCESS_KEY_ID=${S3_ACCESS_KEY}" \
+  --env="AWS_SECRET_ACCESS_KEY=${S3_SECRET_KEY}" \
+  --env="AWS_ALLOW_HTTP=${S3_ALLOW_HTTP}" \
+  --env="S3_BUCKET=${S3_BUCKET}" \
+  --command -- python -c "
+import boto3, os
+s3 = boto3.client('s3', endpoint_url=os.environ['AWS_ENDPOINT_URL'])
+bucket = os.environ['S3_BUCKET']
+try:
+    s3.head_bucket(Bucket=bucket)
+    print(f'Bucket {bucket} exists')
+except Exception:
+    s3.create_bucket(Bucket=bucket)
+    print(f'Created bucket {bucket}')
+" 2>/dev/null || echo "  WARNING: Could not verify bucket — ensure ${S3_BUCKET} exists"
+
+k apply -f "$BUILD_DIR/provision-script-configmap.yaml"
+k apply -f "$BUILD_DIR/sample-notebook-configmap.yaml"
+k apply -f "$BUILD_DIR/batch-inference-notebook-configmap.yaml"
+
+echo "  Running provision job..."
+k -n "$NAMESPACE" delete job provision-sample-data --ignore-not-found
+k apply -f "$BUILD_DIR/provision-job.yaml"
+k -n "$NAMESPACE" wait --for=condition=complete job/provision-sample-data --timeout=20m
+echo "  Sample data provisioned"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 6: JupyterHub
+# ══════════════════════════════════════════════════════════════════════════════
+step "JupyterHub"
+h upgrade --install jupyterhub jupyterhub/jupyterhub \
+  -n "$NAMESPACE" \
+  --version 4.1.0 \
+  -f "$BUILD_DIR/jupyterhub-values.yaml" \
+  --wait --timeout 20m
+echo "  JupyterHub deployed"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 7: Airflow
+# ══════════════════════════════════════════════════════════════════════════════
+step "Airflow"
+k apply -f "$BUILD_DIR/airflow-spark-rbac.yaml"
+k apply -f "$BUILD_DIR/airflow-dag-configmap.yaml"
+
+echo "  Running Airflow database migration..."
+AIRFLOW_DB_CONN="postgresql+psycopg2://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/airflow"
+k -n "$NAMESPACE" run airflow-db-migrate --rm -i --restart=Never \
+  --image="apache/airflow:2.10.3-python3.11" \
+  --env="AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW_DB_CONN}" \
+  --command -- airflow db migrate 2>/dev/null
+echo "  Database migration complete"
+
+h upgrade --install airflow apache-airflow/airflow \
+  -n "$NAMESPACE" \
+  -f "$BUILD_DIR/airflow-values.yaml" \
+  --wait --timeout 20m
+echo "  Airflow deployed"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 8: KServe
+# ══════════════════════════════════════════════════════════════════════════════
+step "KServe setup"
+if ! k get crd inferenceservices.serving.kserve.io >/dev/null 2>&1; then
+  echo "  Installing KServe CRDs..."
+  k apply -f https://github.com/kserve/kserve/releases/download/v0.16.0/kserve.yaml
+  k apply -f https://github.com/kserve/kserve/releases/download/v0.16.0/kserve-cluster-resources.yaml
+  echo "  Waiting for KServe controller..."
+  k -n kserve wait --for=condition=Available deployment/kserve-controller-manager --timeout=300s 2>/dev/null || true
+fi
+
+if k -n kserve get configmap inferenceservice-config >/dev/null 2>&1; then
+  echo "  Configuring KServe for RawDeployment mode..."
+  k patch configmap/inferenceservice-config \
+    -n kserve \
+    --type=merge \
+    -p '{"data":{"deploy":"{\"defaultDeploymentMode\":\"RawDeployment\"}"}}'
+fi
+
+k apply -f "$BUILD_DIR/kserve-s3-secret.yaml"
+k apply -f "$BUILD_DIR/kserve-service-account.yaml"
+echo "  KServe configured in ${NAMESPACE}"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 9: Backend
+# ══════════════════════════════════════════════════════════════════════════════
+step "Backend"
+k apply -f "$BUILD_DIR/backend-serviceaccount.yaml"
+k apply -f "$BUILD_DIR/backend-rbac.yaml"
+k apply -f "$BUILD_DIR/backend-deployment.yaml"
+k apply -f "$BUILD_DIR/backend-service.yaml"
+
+echo "  Waiting for backend rollout..."
+k -n "$NAMESPACE" rollout status deployment/backend --timeout=20m
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 10: Frontend
+# ══════════════════════════════════════════════════════════════════════════════
+step "Frontend"
+k apply -f "$BUILD_DIR/frontend-nginx-configmap.yaml"
+k apply -f "$BUILD_DIR/frontend-deployment.yaml"
+k apply -f "$BUILD_DIR/frontend-service.yaml"
+
+echo "  Waiting for frontend rollout..."
+k -n "$NAMESPACE" rollout status deployment/frontend --timeout=20m
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Done
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "═══════════════════════════════════════════════════════════════"
+echo "  ML Platform installation complete!"
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
+echo "  Platform URL:  ${PLATFORM_URL}"
+echo "  Namespace:     ${NAMESPACE}"
+echo ""
+echo "  Services:"
+k -n "$NAMESPACE" get svc frontend backend mlflow 2>/dev/null || true
+echo ""
+echo "  Deployments:"
+k -n "$NAMESPACE" get deploy backend frontend 2>/dev/null || true
+echo ""

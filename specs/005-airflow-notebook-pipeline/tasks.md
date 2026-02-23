@@ -106,7 +106,7 @@
 
 **Purpose**: User isolation, error handling, and full validation
 
-- [X] T035 Verify user isolation — scientist1's pipeline runs are NOT visible to scientist2 and vice versa
+- [X] T035 Verify user isolation — user1's pipeline runs are NOT visible to user2 and vice versa
 - [X] T036 Verify failed pipeline handling — trigger a notebook with intentional error, confirm FAILED status with error_message populated, confirm output notebook shows failing cell with traceback
 - [ ] T037 Verify resource exhaustion edge case — trigger pipeline when cluster resources are limited, confirm PENDING status with appropriate messaging
 - [X] T038 Add dev profile mock responses for AirflowService — return mock pipeline runs with simulated status transitions for backend development without Airflow in backend/src/main/resources/application-dev.yaml

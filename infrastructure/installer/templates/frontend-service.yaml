@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: __NAMESPACE__
+spec:
+  type: __FRONTEND_SERVICE_TYPE__
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      __NODEPORT_LINE__

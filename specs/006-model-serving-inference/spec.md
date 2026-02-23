@@ -20,7 +20,7 @@
 
 ### User Story 1 - Deploy Registered Model to Inference Endpoint (Priority: P1)
 
-A data scientist has trained a model and registered it in the experiment
+A data user has trained a model and registered it in the experiment
 tracking system's model registry. They want to deploy this model as a
 live inference endpoint. The user selects a registered model version and
 initiates deployment. The system creates a serving endpoint that is

@@ -1,0 +1,8 @@
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: __S3_BUCKET__
+  namespace: __NAMESPACE__
+spec:
+  bucketName: __S3_BUCKET__
+  storageClassName: __OBC_STORAGE_CLASS__

@@ -23,7 +23,7 @@ paths:
         within the specified analysis. The backend automatically
         prefixes the experiment name with the user's username and
         analysis UUID for isolation (e.g.,
-        scientist1/a1b2c3d4/my-experiment).
+        user1/a1b2c3d4/my-experiment).
       operationId: createExperiment
       tags: [Experiments]
       parameters:

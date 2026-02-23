@@ -98,7 +98,7 @@ KServe manages InferenceService CRDs in Kubernetes. Example:
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: scientist1-iris-classifier-v1
+  name: user1-iris-classifier-v1
   namespace: ml-platform-serving
   annotations:
     serving.kserve.io/deploymentMode: RawDeployment
@@ -122,7 +122,7 @@ spec:
 
 `{username}-{model-name}-v{version}` (lowercase, hyphens)
 
-Example: `scientist1-iris-classifier-v1`
+Example: `user1-iris-classifier-v1`
 
 ### Inference URL
 

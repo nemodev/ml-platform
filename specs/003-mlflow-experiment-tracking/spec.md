@@ -20,7 +20,7 @@
 
 ### User Story 1 - Log Experiment from Notebook (Priority: P1)
 
-A data scientist opens a notebook and writes a training script. The
+A data user opens a notebook and writes a training script. The
 script uses the experiment tracking client to log parameters (e.g.,
 learning rate, number of estimators), metrics (e.g., accuracy, RMSE),
 and the trained model as an artifact. After the cell executes, the run

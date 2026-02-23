@@ -360,7 +360,7 @@ components:
           description: >
             Full JupyterLab URL for iframe embedding. Includes
             the user-specific path and named server segment.
-          example: http://localhost:8180/user/scientist1/a1b2c3d4/lab
+          example: http://localhost:8180/user/user1/a1b2c3d4/lab
 
     ErrorResponse:
       type: object

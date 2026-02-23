@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm-config
+  namespace: __NAMESPACE__
+data:
+  ml-platform-realm.json: |
+    {
+      "realm": "__KEYCLOAK_REALM__",
+      "enabled": true,
+      "registrationAllowed": false,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "resetPasswordAllowed": true,
+      "clients": [
+        {
+          "clientId": "__KEYCLOAK_PORTAL_CLIENT_ID__",
+          "name": "ML Platform Portal",
+          "enabled": true,
+          "publicClient": true,
+          "protocol": "openid-connect",
+          "redirectUris": [
+            "__PLATFORM_URL__/*",
+            "http://localhost:4200/*",
+            "http://localhost:8080/*",
+            "http://localhost:30080/*"
+          ],
+          "webOrigins": [
+            "__PLATFORM_URL__",
+            "http://localhost:4200",
+            "http://localhost:8080",
+            "http://localhost:30080"
+          ],
+          "attributes": {
+            "post.logout.redirect.uris": "+"
+          },
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email"
+          ],
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false
+        },
+        {
+          "clientId": "ml-platform-cli",
+          "name": "ML Platform CLI",
+          "enabled": true,
+          "publicClient": true,
+          "protocol": "openid-connect",
+          "standardFlowEnabled": false,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": false,
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email"
+          ]
+        },
+        {
+          "clientId": "__KEYCLOAK_JUPYTERHUB_CLIENT_ID__",
+          "name": "ML Platform JupyterHub",
+          "enabled": true,
+          "publicClient": false,
+          "secret": "__KEYCLOAK_JUPYTERHUB_CLIENT_SECRET__",
+          "protocol": "openid-connect",
+          "redirectUris": [
+            "__PLATFORM_URL__/hub/oauth_callback",
+            "http://localhost:8181/hub/oauth_callback",
+            "http://localhost:30080/hub/oauth_callback",
+            "http://localhost:30081/hub/oauth_callback"
+          ],
+          "webOrigins": [
+            "__PLATFORM_URL__",
+            "http://localhost:8181",
+            "http://localhost:30080",
+            "http://localhost:30081"
+          ],
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false,
+          "defaultClientScopes": [
+            "openid",
+            "profile",
+            "email"
+          ]
+        }
+      ],
+      "users": [
+        {
+          "username": "user1",
+          "enabled": true,
+          "emailVerified": true,
+          "firstName": "User",
+          "lastName": "One",
+          "email": "user1@ml-platform.local",
+          "credentials": [
+            {
+              "type": "password",
+              "value": "password1",
+              "temporary": false
+            }
+          ]
+        },
+        {
+          "username": "user2",
+          "enabled": true,
+          "emailVerified": true,
+          "firstName": "User",
+          "lastName": "Two",
+          "email": "user2@ml-platform.local",
+          "credentials": [
+            {
+              "type": "password",
+              "value": "password2",
+              "temporary": false
+            }
+          ]
+        }
+      ]
+    }

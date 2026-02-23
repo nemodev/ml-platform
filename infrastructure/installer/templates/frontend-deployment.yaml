@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: __NAMESPACE__
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: __FRONTEND_IMAGE__
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: API_UPSTREAM
+              value: http://backend.__NAMESPACE__.svc.cluster.local:8080
+            - name: MLFLOW_UPSTREAM
+              value: http://mlflow.__NAMESPACE__.svc.cluster.local:5000
+            - name: KEYCLOAK_UPSTREAM
+              value: __KEYCLOAK_URL__
+            - name: JUPYTERHUB_UPSTREAM
+              value: http://__NAMESPACE__-jupyterhub-proxy-public.__NAMESPACE__.svc.cluster.local:80
+            - name: RUNTIME_API_URL
+              value: /api/v1
+            - name: RUNTIME_KEYCLOAK_URL
+              value: ""
+            - name: RUNTIME_KEYCLOAK_REALM
+              value: __KEYCLOAK_REALM__
+            - name: RUNTIME_KEYCLOAK_CLIENT_ID
+              value: __KEYCLOAK_PORTAL_CLIENT_ID__
+            - name: RUNTIME_ENABLE_OIDC
+              value: "true"
+          volumeMounts:
+            - name: frontend-nginx-template
+              mountPath: /etc/nginx/templates/default.conf.template
+              subPath: default.conf.template
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: frontend-nginx-template
+          configMap:
+            name: frontend-nginx-template

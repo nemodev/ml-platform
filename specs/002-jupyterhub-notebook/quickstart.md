@@ -88,7 +88,7 @@ Verify workspace endpoint:
 TOKEN=$(curl -s -X POST \
   "http://localhost:8180/realms/ml-platform/protocol/openid-connect/token" \
   -d "client_id=ml-platform-cli" \
-  -d "username=scientist1" \
+  -d "username=user1" \
   -d "password=password1" \
   -d "grant_type=password" \
   -d "scope=openid" | jq -r '.access_token')
@@ -115,7 +115,7 @@ ng serve
 ## Step 8: Verify Notebook Embedding (US1)
 
 1. Open `http://localhost:4200` in a browser.
-2. Log in with `scientist1` / `password1`.
+2. Log in with `user1` / `password1`.
 3. Click "Notebooks" in the navigation sidebar.
 4. A workspace launcher should appear (or auto-launch).
 5. Wait for the server to start (PENDING → RUNNING).
@@ -152,15 +152,15 @@ ng serve
 
 1. Open a different browser (or incognito window).
 2. Navigate to `http://localhost:4200`.
-3. Log in with `scientist2` / `password2`.
+3. Log in with `user2` / `password2`.
 4. Click "Notebooks" — a separate workspace should launch.
-5. Create a notebook named "scientist2-test.ipynb".
-6. Switch back to scientist1's browser — scientist2's notebook
+5. Create a notebook named "user2-test.ipynb".
+6. Switch back to user1's browser — user2's notebook
    should NOT be visible.
 
 ## Step 12: Verify Persistence (SC-005)
 
-1. In scientist1's notebook, create and save a file.
+1. In user1's notebook, create and save a file.
 2. Go back to the portal dashboard (or close the browser tab).
 3. Wait for the idle culler to stop the server (30 minutes), or
    manually terminate via the portal.

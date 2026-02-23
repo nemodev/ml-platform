@@ -86,7 +86,7 @@ Verify pipeline endpoints:
 TOKEN=$(curl -s -X POST \
   "http://localhost:8180/realms/ml-platform/protocol/openid-connect/token" \
   -d "client_id=ml-platform-cli" \
-  -d "username=scientist1" \
+  -d "username=user1" \
   -d "password=password1" \
   -d "grant_type=password" \
   -d "scope=openid" | jq -r '.access_token')
@@ -112,7 +112,7 @@ ng serve
 
 ## Step 8: Verify Notebook Pipeline Execution (US1)
 
-1. Open `http://localhost:4200`, log in as `scientist1`.
+1. Open `http://localhost:4200`, log in as `user1`.
 2. Click "Notebooks" → launch workspace.
 3. Create a simple notebook `hello-pipeline.ipynb`:
    ```python
@@ -205,10 +205,10 @@ ng serve
 
 ## Step 12: Verify User Isolation
 
-1. Log in as `scientist2` in a different browser.
+1. Log in as `user2` in a different browser.
 2. Navigate to "Pipelines" — should see NO runs.
-3. Trigger a pipeline as scientist2.
-4. Switch to scientist1's browser — scientist2's run should NOT
+3. Trigger a pipeline as user2.
+4. Switch to user1's browser — user2's run should NOT
    be visible.
 
 ## Dev Profile (no Airflow needed)
