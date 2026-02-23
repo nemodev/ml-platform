@@ -347,11 +347,16 @@ k apply -f "$BUILD_DIR/provision-script-configmap.yaml"
 k apply -f "$BUILD_DIR/sample-notebook-configmap.yaml"
 k apply -f "$BUILD_DIR/batch-inference-notebook-configmap.yaml"
 
-echo "  Running provision job..."
-k -n "$NAMESPACE" delete job provision-sample-data --ignore-not-found
-k apply -f "$BUILD_DIR/provision-job.yaml"
-k -n "$NAMESPACE" wait --for=condition=complete job/provision-sample-data --timeout=20m
-echo "  Sample data provisioned"
+if [[ "${PROVISION_SAMPLE_DATA:-true}" == "true" ]]; then
+  echo "  Running provision job..."
+  k -n "$NAMESPACE" delete job provision-sample-data --ignore-not-found
+  k apply -f "$BUILD_DIR/provision-job.yaml"
+  k -n "$NAMESPACE" wait --for=condition=complete job/provision-sample-data --timeout=20m
+  echo "  Sample data provisioned"
+else
+  echo "  Skipping sample data provisioning (PROVISION_SAMPLE_DATA=false)"
+  echo "  Run later: kubectl apply -f ${BUILD_DIR}/provision-job.yaml"
+fi
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 6: JupyterHub
