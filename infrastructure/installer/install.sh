@@ -88,11 +88,59 @@ KEYCLOAK_OAUTH_CALLBACK_URL="${PLATFORM_URL}/hub/oauth_callback"
 NOTEBOOK_IMAGE_NAME="${NOTEBOOK_IMAGE%:*}"
 NOTEBOOK_IMAGE_TAG="${NOTEBOOK_IMAGE##*:}"
 
+# Frontend service ports
+FRONTEND_HTTP_PORT="${FRONTEND_HTTP_PORT:-80}"
+
 # Frontend NodePort line (conditionally rendered)
 if [[ "${FRONTEND_SERVICE_TYPE}" == "NodePort" ]]; then
   NODEPORT_LINE="nodePort: ${FRONTEND_NODE_PORT}"
 else
   NODEPORT_LINE=""
+fi
+
+# LoadBalancer IP (optional — for kube-vip or cloud LB to assign a specific IP)
+if [[ "${FRONTEND_SERVICE_TYPE}" == "LoadBalancer" ]] && [[ -n "${FRONTEND_LOADBALANCER_IP:-}" ]]; then
+  LOADBALANCER_IP="loadBalancerIP: ${FRONTEND_LOADBALANCER_IP}"
+else
+  LOADBALANCER_IP=""
+fi
+
+# ── TLS variables ──────────────────────────────────────────────────────────
+if [[ "${TLS_ENABLED:-false}" == "true" ]]; then
+  # Extract hostname/IP from PLATFORM_URL
+  TLS_HOSTNAME="${PLATFORM_URL#https://}"
+  TLS_HOSTNAME="${TLS_HOSTNAME#http://}"
+  TLS_HOSTNAME="${TLS_HOSTNAME%%:*}"
+  TLS_HOSTNAME="${TLS_HOSTNAME%%/*}"
+
+  # Nginx config directives
+  TLS_LISTEN="listen 8443 ssl;"
+  TLS_SSL_CERT="ssl_certificate /etc/nginx/tls/tls.crt;"
+  TLS_SSL_KEY="ssl_certificate_key /etc/nginx/tls/tls.key;"
+  TLS_SSL_PROTOCOLS="ssl_protocols TLSv1.2 TLSv1.3;"
+
+  # Deployment YAML (flow-style for single-line sed replacement)
+  TLS_PORT="- {name: https, containerPort: 8443}"
+  TLS_VOLUME_MOUNT="- {name: tls-cert, mountPath: /etc/nginx/tls, readOnly: true}"
+  TLS_VOLUME="- {name: tls-cert, secret: {secretName: frontend-tls}}"
+
+  # Service YAML
+  FRONTEND_HTTPS_PORT="${FRONTEND_HTTPS_PORT:-443}"
+  if [[ "${FRONTEND_SERVICE_TYPE}" == "NodePort" ]]; then
+    TLS_SERVICE_PORT="- {name: https, port: ${FRONTEND_HTTPS_PORT}, targetPort: https, nodePort: ${FRONTEND_HTTPS_NODE_PORT:-30443}}"
+  else
+    TLS_SERVICE_PORT="- {name: https, port: ${FRONTEND_HTTPS_PORT}, targetPort: https}"
+  fi
+else
+  TLS_LISTEN=""
+  TLS_SSL_CERT=""
+  TLS_SSL_KEY=""
+  TLS_SSL_PROTOCOLS=""
+  TLS_PORT=""
+  TLS_VOLUME_MOUNT=""
+  TLS_VOLUME=""
+  TLS_SERVICE_PORT=""
+  TLS_HOSTNAME=""
 fi
 
 # ── Validate required config ────────────────────────────────────────────────
@@ -134,7 +182,9 @@ render() {
     -e "s|__PLATFORM_URL__|${PLATFORM_URL}|g" \
     -e "s|__FRONTEND_SERVICE_TYPE__|${FRONTEND_SERVICE_TYPE}|g" \
     -e "s|__FRONTEND_NODE_PORT__|${FRONTEND_NODE_PORT:-30080}|g" \
+    -e "s|__HTTP_PORT__|${FRONTEND_HTTP_PORT}|g" \
     -e "s|__NODEPORT_LINE__|${NODEPORT_LINE}|g" \
+    -e "s|__LOADBALANCER_IP__|${LOADBALANCER_IP}|g" \
     -e "s|__KEYCLOAK_URL__|${KEYCLOAK_URL}|g" \
     -e "s|__KEYCLOAK_REALM__|${KEYCLOAK_REALM}|g" \
     -e "s|__KEYCLOAK_PORTAL_CLIENT_ID__|${KEYCLOAK_PORTAL_CLIENT_ID}|g" \
@@ -164,6 +214,17 @@ render() {
     -e "s|__POSTGRES_PASSWORD__|${POSTGRES_PASSWORD}|g" \
     -e "s|__DNS_RESOLVER__|${DNS_RESOLVER}|g" \
     -e "s|__CLUSTER_DOMAIN__|${CLUSTER_DOMAIN:-cluster.local}|g" \
+    -e "s|__TLS_LISTEN__|${TLS_LISTEN}|g" \
+    -e "s|__TLS_SSL_CERT__|${TLS_SSL_CERT}|g" \
+    -e "s|__TLS_SSL_KEY__|${TLS_SSL_KEY}|g" \
+    -e "s|__TLS_SSL_PROTOCOLS__|${TLS_SSL_PROTOCOLS}|g" \
+    -e "s|__TLS_PORT__|${TLS_PORT}|g" \
+    -e "s|__TLS_VOLUME_MOUNT__|${TLS_VOLUME_MOUNT}|g" \
+    -e "s|__TLS_VOLUME__|${TLS_VOLUME}|g" \
+    -e "s|__TLS_SERVICE_PORT__|${TLS_SERVICE_PORT}|g" \
+    -e "s|__TLS_ISSUER__|${TLS_ISSUER:-selfsigned}|g" \
+    -e "s|__TLS_ISSUER_KIND__|${TLS_ISSUER_KIND:-ClusterIssuer}|g" \
+    -e "s|__TLS_HOSTNAME__|${TLS_HOSTNAME}|g" \
     -e "s|__OBC_STORAGE_CLASS__|${OBC_STORAGE_CLASS:-s3-buckets}|g" \
     "$input" > "$output"
 }
@@ -466,6 +527,46 @@ k -n "$NAMESPACE" rollout status deployment/backend --timeout=20m
 # STEP 10: Frontend
 # ══════════════════════════════════════════════════════════════════════════════
 step "Frontend"
+
+if [[ "${TLS_ENABLED:-false}" == "true" ]]; then
+  # Create self-signed ClusterIssuer if needed
+  if [[ "${TLS_ISSUER:-selfsigned}" == "selfsigned" ]]; then
+    if ! k get clusterissuer selfsigned >/dev/null 2>&1; then
+      echo "  Creating self-signed ClusterIssuer..."
+      k apply -f "$BUILD_DIR/frontend-selfsigned-issuer.yaml"
+    else
+      echo "  Self-signed ClusterIssuer already exists"
+    fi
+  fi
+
+  # Create cert-manager Certificate (handles IP vs DNS hostname)
+  echo "  Creating TLS certificate (issuer: ${TLS_ISSUER:-selfsigned})..."
+  if [[ "$TLS_HOSTNAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    # IP address — use ipAddresses field (generated inline)
+    cat <<EOFCERT | k apply -f -
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: frontend-tls
+  namespace: ${NAMESPACE}
+spec:
+  secretName: frontend-tls
+  ipAddresses:
+    - ${TLS_HOSTNAME}
+  issuerRef:
+    name: ${TLS_ISSUER:-selfsigned}
+    kind: ${TLS_ISSUER_KIND:-ClusterIssuer}
+EOFCERT
+  else
+    # DNS name — use rendered template
+    k apply -f "$BUILD_DIR/frontend-certificate.yaml"
+  fi
+
+  echo "  Waiting for TLS certificate..."
+  k -n "$NAMESPACE" wait --for=condition=Ready certificate/frontend-tls --timeout=120s
+  echo "  TLS certificate ready"
+fi
+
 k apply -f "$BUILD_DIR/frontend-nginx-configmap.yaml"
 k apply -f "$BUILD_DIR/frontend-deployment.yaml"
 k apply -f "$BUILD_DIR/frontend-service.yaml"
@@ -482,6 +583,9 @@ echo "  ML Platform installation complete!"
 echo "═══════════════════════════════════════════════════════════════"
 echo ""
 echo "  Platform URL:  ${PLATFORM_URL}"
+if [[ "${TLS_ENABLED:-false}" == "true" ]]; then
+  echo "  TLS:           enabled (issuer: ${TLS_ISSUER:-selfsigned})"
+fi
 echo "  Namespace:     ${NAMESPACE}"
 echo ""
 echo "  Services:"

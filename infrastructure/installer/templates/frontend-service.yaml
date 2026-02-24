@@ -5,10 +5,12 @@ metadata:
   namespace: __NAMESPACE__
 spec:
   type: __FRONTEND_SERVICE_TYPE__
+  __LOADBALANCER_IP__
   selector:
     app: frontend
   ports:
     - name: http
-      port: 80
+      port: __HTTP_PORT__
       targetPort: http
       __NODEPORT_LINE__
+    __TLS_SERVICE_PORT__

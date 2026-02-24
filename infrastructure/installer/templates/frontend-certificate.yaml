@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: frontend-tls
+  namespace: __NAMESPACE__
+spec:
+  secretName: frontend-tls
+  dnsNames:
+    - __TLS_HOSTNAME__
+  issuerRef:
+    name: __TLS_ISSUER__
+    kind: __TLS_ISSUER_KIND__

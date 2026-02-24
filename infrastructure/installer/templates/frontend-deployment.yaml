@@ -20,6 +20,7 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+            __TLS_PORT__
           env:
             - name: API_UPSTREAM
               value: http://backend.__NAMESPACE__.svc.__CLUSTER_DOMAIN__:8080
@@ -43,6 +44,7 @@ spec:
             - name: frontend-nginx-template
               mountPath: /etc/nginx/templates/default.conf.template
               subPath: default.conf.template
+            __TLS_VOLUME_MOUNT__
           readinessProbe:
             httpGet:
               path: /
@@ -70,3 +72,4 @@ spec:
         - name: frontend-nginx-template
           configMap:
             name: frontend-nginx-template
+        __TLS_VOLUME__

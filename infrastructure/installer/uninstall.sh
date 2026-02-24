@@ -25,6 +25,9 @@ echo "[1/7] Removing backend & frontend..."
 kubectl -n "$NAMESPACE" delete deploy backend frontend --ignore-not-found
 kubectl -n "$NAMESPACE" delete svc backend frontend --ignore-not-found
 kubectl -n "$NAMESPACE" delete configmap frontend-nginx-template --ignore-not-found
+kubectl -n "$NAMESPACE" delete certificate frontend-tls --ignore-not-found 2>/dev/null || true
+kubectl -n "$NAMESPACE" delete secret frontend-tls --ignore-not-found
+# Note: selfsigned ClusterIssuer is cluster-scoped and may be shared; not deleted here.
 kubectl -n "$NAMESPACE" delete sa backend --ignore-not-found
 kubectl -n "$NAMESPACE" delete role backend-kserve-manager --ignore-not-found
 kubectl -n "$NAMESPACE" delete rolebinding backend-kserve-manager --ignore-not-found

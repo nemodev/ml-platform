@@ -7,8 +7,12 @@ data:
   default.conf.template: |
     server {
       listen 8080;
+      __TLS_LISTEN__
       server_name _;
       absolute_redirect off;
+      __TLS_SSL_CERT__
+      __TLS_SSL_KEY__
+      __TLS_SSL_PROTOCOLS__
 
       root /usr/share/nginx/html;
       index index.html;
