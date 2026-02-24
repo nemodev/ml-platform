@@ -162,7 +162,10 @@ if namespace_exists; then
     kubectl -n "$NAMESPACE" delete svc postgresql --ignore-not-found
     kubectl -n "$NAMESPACE" delete secret postgresql-credentials --ignore-not-found
     if [[ "${UNINSTALL_PURGE_PVC}" == "true" ]]; then
-      mapfile -t POSTGRES_PVCS < <(
+      POSTGRES_PVCS=()
+      while IFS= read -r pvc; do
+        [[ -n "$pvc" ]] && POSTGRES_PVCS+=("$pvc")
+      done < <(
         kubectl -n "$NAMESPACE" get pvc -o name 2>/dev/null \
           | sed -n 's|^persistentvolumeclaim/||p' \
           | grep '^data-postgresql-' || true
