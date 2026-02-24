@@ -240,7 +240,7 @@ public class KServeService {
     }
 
     public String buildClusterInferenceUrl(String endpointName) {
-        return "http://" + endpointName + "-predictor." + properties.getNamespace() + ".svc.cluster.local";
+        return "http://" + endpointName + "-predictor." + properties.getNamespace() + ".svc";
     }
 
     private CustomObjectsApi customObjectsApi() {
