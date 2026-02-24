@@ -34,7 +34,7 @@ All components share Keycloak SSO. The Spring Boot backend orchestrates everythi
 | **Data Format** | Delta Lake | >= 0.22.0 |
 | **Storage** | MinIO (S3-compatible) | latest (official chart) |
 | **Database** | PostgreSQL | latest (shared instance) |
-| **Model Serving** | KServe (raw mode) | 0.16.x |
+| **Model Serving** | KServe (Standard mode) | 0.16.x |
 | **Build** | Gradle (Kotlin DSL) | - |
 | **Migrations** | Flyway | - |
 
@@ -482,7 +482,7 @@ ml-platform/
 |----------|------|---------|
 | `*-predictor` | Deployment (InferenceService) | mlserver (V2 protocol) |
 
-KServe runs in **raw deployment mode** — no Knative, no Istio, no scale-to-zero.
+KServe runs in **Standard mode** — no Knative, no Istio, no scale-to-zero.
 
 ### Helm Charts (DO NOT use Bitnami)
 

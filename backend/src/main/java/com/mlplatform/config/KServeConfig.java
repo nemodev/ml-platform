@@ -43,6 +43,7 @@ public class KServeConfig {
         private String serviceAccountName = "kserve-s3-sa";
         private String modelFormatName = "mlflow";
         private String runtimeName = "kserve-mlserver";
+        private String deploymentMode = "Standard";
         private String kubeconfigPath;
         private String kubeContext;
         private boolean mockEnabled;
@@ -77,6 +78,14 @@ public class KServeConfig {
 
         public void setRuntimeName(String runtimeName) {
             this.runtimeName = runtimeName;
+        }
+
+        public String getDeploymentMode() {
+            return deploymentMode;
+        }
+
+        public void setDeploymentMode(String deploymentMode) {
+            this.deploymentMode = deploymentMode;
         }
 
         public String getKubeconfigPath() {

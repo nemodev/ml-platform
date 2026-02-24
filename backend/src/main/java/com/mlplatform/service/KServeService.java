@@ -270,11 +270,13 @@ public class KServeService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("apiVersion", "serving.kserve.io/v1beta1");
         payload.put("kind", "InferenceService");
-        payload.put("metadata", Map.of(
-                "name", endpointName,
-                "namespace", properties.getNamespace(),
-                "annotations", Map.of("serving.kserve.io/deploymentMode", "RawDeployment")
-        ));
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("name", endpointName);
+        metadata.put("namespace", properties.getNamespace());
+        if (properties.getDeploymentMode() != null && !properties.getDeploymentMode().isBlank()) {
+            metadata.put("annotations", Map.of("serving.kserve.io/deploymentMode", properties.getDeploymentMode()));
+        }
+        payload.put("metadata", metadata);
         payload.put("spec", Map.of(
                 "predictor", Map.of(
                         "serviceAccountName", properties.getServiceAccountName(),

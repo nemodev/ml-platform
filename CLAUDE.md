@@ -76,7 +76,7 @@ bash infrastructure/scripts/deploy-full-stack.sh
 - Workspaces and experiments are **analysis-scoped**: `/api/v1/analyses/{analysisId}/workspaces`, `/api/v1/analyses/{analysisId}/experiments`
 - Test users: `user1`/`password1`, `user2`/`password2`
 - Database: 5 PostgreSQL databases (keycloak, ml_platform, mlflow, airflow, jupyterhub), 8 Flyway migrations
-- KServe runs in raw deployment mode (no Knative/Istio) in `ml-platform-serving` namespace
+- KServe runs in Standard mode (non-Knative Kubernetes deployment mode) in `ml-platform-serving` namespace
 - Single notebook image used for: JupyterHub servers, Airflow pipeline workers, Spark executors, data provisioning
 
 ## Deployment Contexts

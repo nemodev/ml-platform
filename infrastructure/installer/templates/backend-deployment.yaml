@@ -67,6 +67,8 @@ spec:
               value: pipelines
             - name: SERVICES_KSERVE_NAMESPACE
               value: __NAMESPACE__
+            - name: SERVICES_KSERVE_DEPLOYMENT_MODE
+              value: Standard
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness

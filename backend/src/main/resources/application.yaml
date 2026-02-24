@@ -53,6 +53,7 @@ services:
     service-account-name: kserve-s3-sa
     model-format-name: mlflow
     runtime-name: kserve-mlserver
+    deployment-mode: Standard
     mock-enabled: false
   minio:
     endpoint: http://minio.ml-platform.svc:9000

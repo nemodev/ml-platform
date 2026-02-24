@@ -32,6 +32,7 @@ services:
     service-account-name: kserve-s3-sa
     model-format-name: sklearn
     runtime-name: kserve-sklearnserver
+    deployment-mode: Standard
     kubeconfig-path: ${KUBECONFIG_PATH:${user.home}/.kube/config}
     kube-context: ${KUBECONFIG_CONTEXT:local}
     mock-enabled: false

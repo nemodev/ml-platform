@@ -39,6 +39,7 @@ services:
     service-account-name: kserve-s3-sa
     model-format-name: sklearn
     runtime-name: kserve-sklearnserver
+    deployment-mode: Standard
     mock-enabled: true
   minio:
     endpoint: https://minio.example.invalid
