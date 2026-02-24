@@ -35,6 +35,35 @@ h() {
   helm --kube-context "$CONTEXT" "$@"
 }
 
+wait_for_kserve_crds() {
+  local crd
+  for crd in \
+    inferenceservices.serving.kserve.io \
+    clusterservingruntimes.serving.kserve.io \
+    clusterstoragecontainers.serving.kserve.io \
+    llminferenceserviceconfigs.serving.kserve.io; do
+    echo "[${CONTEXT}] waiting for CRD ${crd}"
+    k wait --for=condition=Established "crd/${crd}" --timeout=180s
+  done
+}
+
+reconcile_kserve_release() {
+  echo "[${CONTEXT}] reconciling kserve ${KSERVE_VERSION}"
+  if ! k get crd certificates.cert-manager.io >/dev/null 2>&1; then
+    echo "[${CONTEXT}] ERROR: cert-manager CRDs are missing (certificates.cert-manager.io not found)"
+    echo "[${CONTEXT}] install cert-manager first, then retry"
+    return 1
+  fi
+
+  # First pass seeds CRDs from kserve.yaml and may fail before discovery refresh.
+  k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml" >/dev/null 2>&1 || true
+  wait_for_kserve_crds
+
+  # Second pass should fully succeed once CRDs are established.
+  k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml"
+  k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml"
+}
+
 echo "[${CONTEXT}] preparing helm repositories"
 helm repo add bitnami https://charts.bitnami.com/bitnami --force-update >/dev/null
 helm repo add minio https://charts.min.io/ --force-update >/dev/null
@@ -174,9 +203,7 @@ k apply -f "$PROVISION_JOB"
 rm -f "$PROVISION_JOB"
 k -n "$NS" wait --for=condition=complete job/provision-sample-data --timeout=20m
 
-echo "[${CONTEXT}] reconciling kserve ${KSERVE_VERSION}"
-k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml"
-k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml"
+reconcile_kserve_release
 k -n "$KSERVE_SYSTEM_NAMESPACE" rollout status deployment/kserve-controller-manager --timeout=300s
 if k -n "$KSERVE_SYSTEM_NAMESPACE" get configmap inferenceservice-config >/dev/null 2>&1; then
   k patch configmap/inferenceservice-config \

@@ -275,6 +275,36 @@ h() {
   helm "$@"
 }
 
+wait_for_kserve_crds() {
+  local crd
+  for crd in \
+    inferenceservices.serving.kserve.io \
+    clusterservingruntimes.serving.kserve.io \
+    clusterstoragecontainers.serving.kserve.io \
+    llminferenceserviceconfigs.serving.kserve.io; do
+    echo "  Waiting for CRD: ${crd}"
+    k wait --for=condition=Established "crd/${crd}" --timeout=180s
+  done
+}
+
+reconcile_kserve_release() {
+  echo "  Reconciling KServe release ${KSERVE_VERSION}..."
+  if ! k get crd certificates.cert-manager.io >/dev/null 2>&1; then
+    echo "ERROR: cert-manager CRDs are missing (certificates.cert-manager.io not found)."
+    echo "Install cert-manager first, then re-run install.sh."
+    return 1
+  fi
+
+  # First pass creates/updates CRDs in kserve.yaml.
+  # It may fail on custom resources until discovery catches up.
+  k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml" >/dev/null 2>&1 || true
+  wait_for_kserve_crds
+
+  # Second pass must succeed once CRDs are established.
+  k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml"
+  k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml"
+}
+
 # ── Pre-flight checks ───────────────────────────────────────────────────────
 echo ""
 echo "Pre-flight checks..."
@@ -495,9 +525,7 @@ echo "  Airflow deployed"
 # STEP 8: KServe
 # ══════════════════════════════════════════════════════════════════════════════
 step "KServe setup"
-echo "  Reconciling KServe release ${KSERVE_VERSION}..."
-k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml"
-k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml"
+reconcile_kserve_release
 echo "  Waiting for KServe controller rollout..."
 k -n "$KSERVE_SYSTEM_NAMESPACE" rollout status deployment/kserve-controller-manager --timeout=300s 2>/dev/null || true
 
