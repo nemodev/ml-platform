@@ -196,6 +196,12 @@ public class ServingService {
 
         if (deployment.getStatus() == DeploymentStatus.DELETING) {
             if ("DELETED".equals(phase)) {
+                if (kServeService.hasResidualRuntimeResources(deployment.getEndpointName())) {
+                    deployment.setStatus(DeploymentStatus.DELETING);
+                    deployment.setErrorMessage("InferenceService deleted; waiting for predictor resources to terminate");
+                    modelDeploymentRepository.save(deployment);
+                    return;
+                }
                 deployment.setStatus(DeploymentStatus.DELETED);
                 deployment.setDeletedAt(Instant.now());
                 modelDeploymentRepository.save(deployment);

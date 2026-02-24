@@ -243,6 +243,14 @@ public class KServeService {
         return "http://" + endpointName + "-predictor." + properties.getNamespace() + ".svc";
     }
 
+    public boolean hasResidualRuntimeResources(String endpointName) {
+        if (isMockMode()) {
+            return false;
+        }
+        return hasResidualResources("/api/v1/namespaces/%s/pods", endpointName)
+                || hasResidualResources("/api/v1/namespaces/%s/services", endpointName);
+    }
+
     private CustomObjectsApi customObjectsApi() {
         return new CustomObjectsApi(apiClient);
     }
@@ -402,6 +410,46 @@ public class KServeService {
         } catch (Exception ex) {
             log.warn("Unable to inspect pod failure state for endpoint {}: {}", endpointName, ex.getMessage());
             return null;
+        }
+    }
+
+    private boolean hasResidualResources(String pathPattern, String endpointName) {
+        String path = String.format(pathPattern, properties.getNamespace());
+        try {
+            Call call = apiClient.buildCall(
+                    null,
+                    path,
+                    "GET",
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    null,
+                    new LinkedHashMap<>(),
+                    new LinkedHashMap<>(),
+                    new LinkedHashMap<>(),
+                    resolveAuthNames(),
+                    null
+            );
+            ApiResponse<String> apiResponse = apiClient.execute(call, String.class);
+            JsonNode root = objectMapper.readTree(apiResponse.getData() == null ? "{}" : apiResponse.getData());
+            JsonNode items = root.path("items");
+            if (!items.isArray() || items.isEmpty()) {
+                return false;
+            }
+            String predictorPrefix = endpointName + "-predictor";
+            for (JsonNode itemNode : items) {
+                String linkedEndpoint = text(itemNode.path("metadata").path("labels").path("serving.kserve.io/inferenceservice"));
+                if (endpointName.equals(linkedEndpoint)) {
+                    return true;
+                }
+                String name = text(itemNode.path("metadata").path("name"));
+                if (name != null && (name.equals(predictorPrefix) || name.startsWith(predictorPrefix + "-"))) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception ex) {
+            log.warn("Unable to verify runtime cleanup for endpoint {}: {}", endpointName, ex.getMessage());
+            return true;
         }
     }
 
