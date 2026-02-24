@@ -43,8 +43,23 @@ source "$CONFIG_FILE"
 S3_ENDPOINT="${S3_INTERNAL_ENDPOINT}"
 KSERVE_VERSION="${KSERVE_VERSION:-v0.16.0}"
 KSERVE_RELEASE_URL="https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}"
+KSERVE_CRD_BASE_URL="https://raw.githubusercontent.com/kserve/kserve/${KSERVE_VERSION}/config/crd/full"
 KSERVE_DEFAULT_DEPLOYMENT_MODE="${KSERVE_DEFAULT_DEPLOYMENT_MODE:-Standard}"
 KSERVE_SYSTEM_NAMESPACE="${KSERVE_SYSTEM_NAMESPACE:-kserve}"
+
+KSERVE_CRD_FILES=(
+  serving.kserve.io_inferenceservices.yaml
+  serving.kserve.io_trainedmodels.yaml
+  serving.kserve.io_clusterservingruntimes.yaml
+  serving.kserve.io_servingruntimes.yaml
+  serving.kserve.io_inferencegraphs.yaml
+  serving.kserve.io_clusterstoragecontainers.yaml
+  serving.kserve.io_localmodelcaches.yaml
+  serving.kserve.io_localmodelnodegroups.yaml
+  serving.kserve.io_localmodelnodes.yaml
+  llmisvc/serving.kserve.io_llminferenceservices.yaml
+  llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+)
 
 # S3 endpoint without protocol (for KServe annotations, Airflow connection URI)
 S3_ENDPOINT_HOST="${S3_ENDPOINT#http://}"
@@ -275,12 +290,27 @@ h() {
   helm "$@"
 }
 
+apply_kserve_crds() {
+  local crd_file
+  for crd_file in "${KSERVE_CRD_FILES[@]}"; do
+    echo "  Applying KServe CRD: ${crd_file}"
+    k apply --server-side --force-conflicts -f "${KSERVE_CRD_BASE_URL}/${crd_file}"
+  done
+}
+
 wait_for_kserve_crds() {
   local crd
   for crd in \
     inferenceservices.serving.kserve.io \
+    trainedmodels.serving.kserve.io \
     clusterservingruntimes.serving.kserve.io \
+    servingruntimes.serving.kserve.io \
+    inferencegraphs.serving.kserve.io \
     clusterstoragecontainers.serving.kserve.io \
+    localmodelcaches.serving.kserve.io \
+    localmodelnodegroups.serving.kserve.io \
+    localmodelnodes.serving.kserve.io \
+    llminferenceservices.serving.kserve.io \
     llminferenceserviceconfigs.serving.kserve.io; do
     echo "  Waiting for CRD: ${crd}"
     k wait --for=condition=Established "crd/${crd}" --timeout=180s
@@ -295,12 +325,11 @@ reconcile_kserve_release() {
     return 1
   fi
 
-  # First pass creates/updates CRDs in kserve.yaml.
-  # It may fail on custom resources until discovery catches up.
-  k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml" >/dev/null 2>&1 || true
+  echo "  Applying KServe CRDs from ${KSERVE_VERSION}..."
+  apply_kserve_crds
   wait_for_kserve_crds
 
-  # Second pass must succeed once CRDs are established.
+  # Apply controller/resources only after CRDs are established.
   k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml"
   k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml"
 }
