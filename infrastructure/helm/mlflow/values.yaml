@@ -26,7 +26,7 @@ mlflow:
   gunicornWorkers: 2
   allowedHosts: "mlflow.ml-platform.svc*,localhost,10.*,172.*,192.168.*"
   artifactRoot: "mlflow-artifacts:/"
-  artifactDestination: s3://ml-platform-mlflow/artifacts
+  artifactDestination: s3://ml-platform-mlflow/ml-platform/mlflow/artifacts
   s3EndpointUrl: http://minio.ml-platform.svc:9000
   s3IgnoreTls: "true"
   backendStoreUri: postgresql://postgres:localdevpassword@postgresql.ml-platform.svc:5432/mlflow

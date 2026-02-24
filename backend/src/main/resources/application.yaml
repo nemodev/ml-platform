@@ -43,7 +43,7 @@ services:
   mlflow:
     url: http://mlflow.ml-platform.svc:5000
     tracking-url: http://mlflow.ml-platform.svc:5000
-    artifact-destination: s3://ml-platform-mlflow/artifacts
+    artifact-destination: s3://ml-platform-mlflow/ml-platform/mlflow/artifacts
   airflow:
     url: http://airflow-webserver.ml-platform.svc:8080
     username: admin
@@ -60,4 +60,5 @@ services:
     access-key: minioadmin
     secret-key: minioadmin
     pipelines-bucket: ml-platform-pipelines
+    pipelines-prefix: ml-platform/pipelines
     presign-expiry-seconds: 900

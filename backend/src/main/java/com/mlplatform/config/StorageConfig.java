@@ -31,6 +31,7 @@ public class StorageConfig {
         private String accessKey;
         private String secretKey;
         private String pipelinesBucket;
+        private String pipelinesPrefix = "ml-platform/pipelines";
         private int presignExpirySeconds = 900;
 
         public String getEndpoint() {
@@ -63,6 +64,14 @@ public class StorageConfig {
 
         public void setPipelinesBucket(String pipelinesBucket) {
             this.pipelinesBucket = pipelinesBucket;
+        }
+
+        public String getPipelinesPrefix() {
+            return pipelinesPrefix;
+        }
+
+        public void setPipelinesPrefix(String pipelinesPrefix) {
+            this.pipelinesPrefix = pipelinesPrefix;
         }
 
         public int getPresignExpirySeconds() {

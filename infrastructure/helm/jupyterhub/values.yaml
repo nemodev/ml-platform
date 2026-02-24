@@ -70,7 +70,7 @@ jupyterhub:
             server_name = spawner.name  # analysis UUID used as server name
             if server_name:
                 spawner.environment['ANALYSIS_ID'] = server_name
-                spawner.environment['ANALYSIS_S3_PATH'] = f's3://ml-platform-data/{username}/{server_name}/'
+                spawner.environment['ANALYSIS_S3_PATH'] = f's3://ml-platform-data/ml-platform/analysis/{username}/{server_name}/'
                 spawner.environment['MLFLOW_EXPERIMENT_PREFIX'] = f'{username}/{server_name}/'
 
         c.KubeSpawner.pre_spawn_hook = pre_spawn_hook
@@ -82,6 +82,7 @@ jupyterhub:
       pullPolicy: IfNotPresent
     extraEnv:
       MLFLOW_TRACKING_URI: http://mlflow.ml-platform.svc:5000
+      S3_PREFIX: ml-platform
       AWS_ENDPOINT_URL: "http://minio.ml-platform.svc:9000"
       AWS_ALLOW_HTTP: "true"
       AWS_ACCESS_KEY_ID:

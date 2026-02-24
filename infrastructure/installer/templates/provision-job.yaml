@@ -32,6 +32,8 @@ spec:
               value: "__S3_ALLOW_HTTP__"
             - name: S3_BUCKET
               value: __S3_BUCKET__
+            - name: S3_PREFIX
+              value: __S3_PREFIX__
           volumeMounts:
             - name: provision-script
               mountPath: /scripts

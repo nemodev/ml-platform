@@ -26,6 +26,7 @@ public class ModelRegistryService {
 
     private static final Logger log = LoggerFactory.getLogger(ModelRegistryService.class);
     private static final String MLFLOW_ARTIFACTS_SCHEME = "mlflow-artifacts:/";
+    private static final String DEV_MLFLOW_ARTIFACT_BASE = "s3://ml-platform-mlflow/ml-platform/mlflow/artifacts";
 
     public record RegisteredModel(
             String name,
@@ -100,8 +101,8 @@ public class ModelRegistryService {
     public List<ModelVersionDetail> getModelVersions(String username, String modelName) {
         if (isDevProfile()) {
             return List.of(
-                    new ModelVersionDetail(1, "READY", "Production", "s3://ml-platform-mlflow/artifacts/mock/model", "dev-run-1", Instant.now()),
-                    new ModelVersionDetail(2, "READY", "Staging", "s3://ml-platform-mlflow/artifacts/mock/model-v2", "dev-run-2", Instant.now().minusSeconds(120))
+                    new ModelVersionDetail(1, "READY", "Production", DEV_MLFLOW_ARTIFACT_BASE + "/mock/model", "dev-run-1", Instant.now()),
+                    new ModelVersionDetail(2, "READY", "Staging", DEV_MLFLOW_ARTIFACT_BASE + "/mock/model-v2", "dev-run-2", Instant.now().minusSeconds(120))
             );
         }
 
@@ -139,7 +140,7 @@ public class ModelRegistryService {
                     version,
                     "READY",
                     "Production",
-                    "s3://ml-platform-mlflow/artifacts/mock/model",
+                    DEV_MLFLOW_ARTIFACT_BASE + "/mock/model",
                     "dev-run-" + version,
                     Instant.now()
             );
@@ -160,7 +161,7 @@ public class ModelRegistryService {
      */
     public String resolveModelStorageUri(String username, String modelName, int version) {
         if (isDevProfile()) {
-            return "s3://ml-platform-mlflow/artifacts/mock/model";
+            return DEV_MLFLOW_ARTIFACT_BASE + "/mock/model";
         }
 
         String prefixedModelName = prefixModelName(username, modelName);

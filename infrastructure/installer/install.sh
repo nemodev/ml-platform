@@ -41,6 +41,14 @@ source "$CONFIG_FILE"
 
 # Map user-facing config names to internal template variables
 S3_ENDPOINT="${S3_INTERNAL_ENDPOINT}"
+S3_PREFIX="${S3_PREFIX:-ml-platform}"
+S3_PREFIX="${S3_PREFIX#/}"
+S3_PREFIX="${S3_PREFIX%/}"
+if [[ -z "${S3_PREFIX}" ]]; then
+  echo "ERROR: S3_PREFIX must not be empty"
+  exit 1
+fi
+S3_PIPELINES_PREFIX="${S3_PREFIX}/pipelines"
 KSERVE_VERSION="${KSERVE_VERSION:-v0.16.0}"
 KSERVE_RELEASE_URL="https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}"
 KSERVE_CRD_BASE_URL="https://raw.githubusercontent.com/kserve/kserve/${KSERVE_VERSION}/config/crd/full"
@@ -228,6 +236,8 @@ render() {
     -e "s|__S3_IGNORE_TLS__|${S3_IGNORE_TLS}|g" \
     -e "s|__S3A_SSL_ENABLED__|${S3A_SSL_ENABLED}|g" \
     -e "s|__S3_BUCKET__|${S3_BUCKET}|g" \
+    -e "s|__S3_PREFIX__|${S3_PREFIX}|g" \
+    -e "s|__S3_PIPELINES_PREFIX__|${S3_PIPELINES_PREFIX}|g" \
     -e "s|__POSTGRES_HOST__|${POSTGRES_HOST}|g" \
     -e "s|__POSTGRES_PORT__|${POSTGRES_PORT}|g" \
     -e "s|__POSTGRES_PASSWORD__|${POSTGRES_PASSWORD}|g" \

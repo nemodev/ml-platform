@@ -24,7 +24,8 @@ data:
 
     DATA_FILE = "/data/california-housing.parquet"
     BUCKET = os.environ.get("S3_BUCKET", "__S3_BUCKET__")
-    TABLE_PATH = f"s3://{BUCKET}/sample-data/california-housing"
+    PREFIX = os.environ.get("S3_PREFIX", "__S3_PREFIX__").strip("/") or "__S3_PREFIX__"
+    TABLE_PATH = f"s3://{BUCKET}/{PREFIX}/sample-data/california-housing"
 
     storage_options = {
         "AWS_ENDPOINT_URL": os.environ["AWS_ENDPOINT_URL"],

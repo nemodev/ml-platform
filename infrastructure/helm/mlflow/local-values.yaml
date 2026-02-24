@@ -12,7 +12,7 @@ minio:
   secretKey: minioadmin
 
 mlflow:
-  artifactRoot: s3://ml-platform-mlflow/artifacts
+  artifactRoot: s3://ml-platform-mlflow/ml-platform/mlflow/artifacts
   s3EndpointUrl: http://localhost:9000
   s3IgnoreTls: "true"
   backendStoreUri: postgresql://postgres:localdevpassword@localhost:5432/mlflow

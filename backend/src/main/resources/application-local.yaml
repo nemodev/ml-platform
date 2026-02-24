@@ -41,4 +41,5 @@ services:
     access-key: minioadmin
     secret-key: minioadmin
     pipelines-bucket: ml-platform-pipelines
+    pipelines-prefix: ml-platform/pipelines
     presign-expiry-seconds: 900

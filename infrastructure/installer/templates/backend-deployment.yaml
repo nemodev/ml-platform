@@ -52,7 +52,7 @@ spec:
             - name: SERVICES_MLFLOW_TRACKING_URL
               value: /mlflow
             - name: SERVICES_MLFLOW_ARTIFACT_DESTINATION
-              value: s3://__S3_BUCKET__/mlflow/artifacts
+              value: s3://__S3_BUCKET__/__S3_PREFIX__/mlflow/artifacts
             - name: SERVICES_AIRFLOW_URL
               value: http://airflow-webserver.__NAMESPACE__.svc:8080
             - name: SERVICES_MINIO_ENDPOINT
@@ -64,7 +64,7 @@ spec:
             - name: SERVICES_MINIO_PIPELINES_BUCKET
               value: __S3_BUCKET__
             - name: SERVICES_MINIO_PIPELINES_PREFIX
-              value: pipelines
+              value: __S3_PIPELINES_PREFIX__
             - name: SERVICES_KSERVE_NAMESPACE
               value: __NAMESPACE__
             - name: SERVICES_KSERVE_DEPLOYMENT_MODE

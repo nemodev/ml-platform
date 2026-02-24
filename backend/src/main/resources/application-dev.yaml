@@ -46,4 +46,5 @@ services:
     access-key: dev-access
     secret-key: dev-secret
     pipelines-bucket: ml-platform-pipelines
+    pipelines-prefix: ml-platform/pipelines
     presign-expiry-seconds: 900

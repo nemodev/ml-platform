@@ -42,7 +42,8 @@ data:
             "import pandas as pd\n",
             "\n",
             "sample_bucket = os.environ.get('S3_BUCKET', 'ml-platform-sample-data')\n",
-            "dt = DeltaTable(f\"s3://{sample_bucket}/sample-data/california-housing\")\n",
+            "s3_prefix = os.environ.get('S3_PREFIX', 'ml-platform').strip('/') or 'ml-platform'\n",
+            "dt = DeltaTable(f\"s3://{sample_bucket}/{s3_prefix}/sample-data/california-housing\")\n",
             "df = dt.to_pandas()\n",
             "print(f\"Shape: {df.shape}\")\n",
             "df.head()"

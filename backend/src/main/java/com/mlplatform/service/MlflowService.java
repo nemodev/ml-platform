@@ -23,6 +23,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class MlflowService {
 
+    private static final String DEV_MLFLOW_ARTIFACT_BASE = "s3://ml-platform-mlflow/ml-platform/mlflow/artifacts";
+
     public record MlflowExperiment(
             String experimentId,
             String name,
@@ -65,7 +67,7 @@ public class MlflowService {
             return new MlflowExperiment(
                     "dev-" + Instant.now().toEpochMilli(),
                     prefixedName,
-                    "s3://ml-platform-mlflow/artifacts/dev",
+                    DEV_MLFLOW_ARTIFACT_BASE + "/dev",
                     "active",
                     Instant.now().toEpochMilli(),
                     Instant.now().toEpochMilli()
@@ -87,7 +89,7 @@ public class MlflowService {
             experiments.add(new MlflowExperiment(
                     "101",
                     "dev-user/iris-classification",
-                    "s3://ml-platform-mlflow/artifacts/101",
+                    DEV_MLFLOW_ARTIFACT_BASE + "/101",
                     "active",
                     Instant.now().minusSeconds(3600).toEpochMilli(),
                     Instant.now().minusSeconds(600).toEpochMilli()
@@ -95,7 +97,7 @@ public class MlflowService {
             experiments.add(new MlflowExperiment(
                     "102",
                     "dev-user/churn-model",
-                    "s3://ml-platform-mlflow/artifacts/102",
+                    DEV_MLFLOW_ARTIFACT_BASE + "/102",
                     "active",
                     Instant.now().minusSeconds(1800).toEpochMilli(),
                     Instant.now().minusSeconds(120).toEpochMilli()
@@ -183,7 +185,7 @@ public class MlflowService {
                             Instant.now().minusSeconds(240).toEpochMilli(),
                             Map.of("n_estimators", "100"),
                             Map.of("accuracy", 0.95),
-                            "s3://ml-platform-mlflow/artifacts/" + experimentId + "/11111111"
+                            DEV_MLFLOW_ARTIFACT_BASE + "/" + experimentId + "/11111111"
                     ),
                     new MlflowRun(
                             "22222222-2222-2222-2222-222222222222",
@@ -193,7 +195,7 @@ public class MlflowService {
                             Instant.now().minusSeconds(160).toEpochMilli(),
                             Map.of("n_estimators", "200"),
                             Map.of("accuracy", 0.97),
-                            "s3://ml-platform-mlflow/artifacts/" + experimentId + "/22222222"
+                            DEV_MLFLOW_ARTIFACT_BASE + "/" + experimentId + "/22222222"
                     )
             );
         }

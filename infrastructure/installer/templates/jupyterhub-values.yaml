@@ -72,7 +72,7 @@ hub:
           server_name = spawner.name
           if server_name:
               spawner.environment['ANALYSIS_ID'] = server_name
-              spawner.environment['ANALYSIS_S3_PATH'] = f's3://__S3_BUCKET__/{username}/{server_name}/'
+              spawner.environment['ANALYSIS_S3_PATH'] = f's3://__S3_BUCKET__/__S3_PREFIX__/analysis/{username}/{server_name}/'
               spawner.environment['MLFLOW_EXPERIMENT_PREFIX'] = f'{username}/{server_name}/'
 
       c.KubeSpawner.pre_spawn_hook = pre_spawn_hook
@@ -88,6 +88,7 @@ singleuser:
     MLFLOW_TRACKING_URI: http://mlflow.__NAMESPACE__.svc:5000
     KSERVE_NAMESPACE: __NAMESPACE__
     S3_BUCKET: __S3_BUCKET__
+    S3_PREFIX: __S3_PREFIX__
     AWS_ENDPOINT_URL: __S3_ENDPOINT__
     AWS_ALLOW_HTTP: "__S3_ALLOW_HTTP__"
     AWS_ACCESS_KEY_ID:

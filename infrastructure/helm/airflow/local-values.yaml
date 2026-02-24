@@ -79,7 +79,7 @@ config:
     delete_worker_pods: "True"
   logging:
     remote_logging: "True"
-    remote_base_log_folder: s3://ml-platform-pipelines/airflow-logs
+    remote_base_log_folder: s3://ml-platform-pipelines/ml-platform/airflow-logs
     remote_log_conn_id: minio_default
 
 extraEnv: |

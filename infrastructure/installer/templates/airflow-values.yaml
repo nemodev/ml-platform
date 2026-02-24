@@ -79,7 +79,7 @@ config:
     delete_worker_pods: "True"
   logging:
     remote_logging: "True"
-    remote_base_log_folder: s3://__S3_BUCKET__/airflow-logs
+    remote_base_log_folder: s3://__S3_BUCKET__/__S3_PREFIX__/airflow-logs
     remote_log_conn_id: minio_default
 
 extraEnv: |

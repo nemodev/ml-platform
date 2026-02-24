@@ -105,8 +105,13 @@ public class NotebookStorageService {
     }
 
     private String buildObjectPath(String userId, UUID runId, String filename) {
+        String prefix = normalizePathPrefix(properties.getPipelinesPrefix());
         String safeUser = sanitizePathSegment(userId);
-        return safeUser + "/" + runId + "/" + filename;
+        String runPath = safeUser + "/" + runId + "/" + filename;
+        if (prefix.isEmpty()) {
+            return runPath;
+        }
+        return prefix + "/" + runPath;
     }
 
     private String sanitizePathSegment(String value) {
@@ -114,6 +119,14 @@ public class NotebookStorageService {
             return "unknown-user";
         }
         return value.replaceAll("[^a-zA-Z0-9._-]", "-");
+    }
+
+    private String normalizePathPrefix(String value) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = value.replaceAll("^/+", "").replaceAll("/+$", "");
+        return normalized.isBlank() ? "" : normalized;
     }
 
     private String toS3Uri(String bucket, String objectPath) {
