@@ -17,6 +17,11 @@ fi
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
 
+KSERVE_VERSION="${KSERVE_VERSION:-v0.16.0}"
+KSERVE_RELEASE_URL="https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}"
+KSERVE_SYSTEM_NAMESPACE="${KSERVE_SYSTEM_NAMESPACE:-kserve}"
+UNINSTALL_KSERVE_CLUSTER_RESOURCES="${UNINSTALL_KSERVE_CLUSTER_RESOURCES:-true}"
+
 echo "This will remove the ML Platform from namespace '${NAMESPACE}'."
 echo "Press Ctrl+C within 5 seconds to abort..."
 sleep 5
@@ -51,8 +56,22 @@ echo "[5/7] Removing MLflow..."
 helm uninstall mlflow -n "$NAMESPACE" 2>/dev/null || true
 
 echo "[6/7] Removing KServe resources..."
+kubectl -n "$NAMESPACE" delete inferenceservices.serving.kserve.io --all --ignore-not-found 2>/dev/null || true
 kubectl -n "$NAMESPACE" delete sa kserve-s3-sa --ignore-not-found
 kubectl -n "$NAMESPACE" delete secret kserve-s3-secret --ignore-not-found
+if [[ "${UNINSTALL_KSERVE_CLUSTER_RESOURCES}" == "true" ]]; then
+  echo "  Removing KServe controller, namespace, and CRDs..."
+  kubectl delete --ignore-not-found -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml" 2>/dev/null || true
+  kubectl delete --ignore-not-found -f "${KSERVE_RELEASE_URL}/kserve.yaml" 2>/dev/null || true
+  kubectl delete namespace "$KSERVE_SYSTEM_NAMESPACE" --ignore-not-found 2>/dev/null || true
+  KSERVE_CRDS="$(kubectl get crd -o name | grep 'serving.kserve.io' || true)"
+  if [[ -n "${KSERVE_CRDS}" ]]; then
+    # shellcheck disable=SC2086
+    kubectl delete --ignore-not-found ${KSERVE_CRDS} 2>/dev/null || true
+  fi
+else
+  echo "  Skipping cluster-scoped KServe uninstall (UNINSTALL_KSERVE_CLUSTER_RESOURCES=false)."
+fi
 
 echo "[7/7] Removing PostgreSQL..."
 if [[ "${DEPLOY_POSTGRESQL:-true}" == "true" ]]; then

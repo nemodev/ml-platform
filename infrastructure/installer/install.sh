@@ -44,6 +44,7 @@ S3_ENDPOINT="${S3_INTERNAL_ENDPOINT}"
 KSERVE_VERSION="${KSERVE_VERSION:-v0.16.0}"
 KSERVE_RELEASE_URL="https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}"
 KSERVE_DEFAULT_DEPLOYMENT_MODE="${KSERVE_DEFAULT_DEPLOYMENT_MODE:-Standard}"
+KSERVE_SYSTEM_NAMESPACE="${KSERVE_SYSTEM_NAMESPACE:-kserve}"
 
 # S3 endpoint without protocol (for KServe annotations, Airflow connection URI)
 S3_ENDPOINT_HOST="${S3_ENDPOINT#http://}"
@@ -498,17 +499,17 @@ echo "  Reconciling KServe release ${KSERVE_VERSION}..."
 k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml"
 k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml"
 echo "  Waiting for KServe controller rollout..."
-k -n kserve rollout status deployment/kserve-controller-manager --timeout=300s 2>/dev/null || true
+k -n "$KSERVE_SYSTEM_NAMESPACE" rollout status deployment/kserve-controller-manager --timeout=300s 2>/dev/null || true
 
-if k -n kserve get configmap inferenceservice-config >/dev/null 2>&1; then
+if k -n "$KSERVE_SYSTEM_NAMESPACE" get configmap inferenceservice-config >/dev/null 2>&1; then
   echo "  Configuring KServe default deployment mode: ${KSERVE_DEFAULT_DEPLOYMENT_MODE}"
   k patch configmap/inferenceservice-config \
-    -n kserve \
+    -n "$KSERVE_SYSTEM_NAMESPACE" \
     --type=merge \
     -p "{\"data\":{\"deploy\":\"{\\\"defaultDeploymentMode\\\":\\\"${KSERVE_DEFAULT_DEPLOYMENT_MODE}\\\"}\"}}"
   echo "  Restarting KServe controller to pick up deployment mode config..."
-  k -n kserve rollout restart deployment/kserve-controller-manager
-  k -n kserve rollout status deployment/kserve-controller-manager --timeout=120s 2>/dev/null || true
+  k -n "$KSERVE_SYSTEM_NAMESPACE" rollout restart deployment/kserve-controller-manager
+  k -n "$KSERVE_SYSTEM_NAMESPACE" rollout status deployment/kserve-controller-manager --timeout=120s 2>/dev/null || true
 fi
 
 k apply -f "$BUILD_DIR/kserve-s3-secret.yaml"

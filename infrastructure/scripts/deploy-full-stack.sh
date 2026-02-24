@@ -18,6 +18,7 @@ SERVING_NS="ml-platform-serving"
 KSERVE_VERSION="${KSERVE_VERSION:-v0.16.0}"
 KSERVE_RELEASE_URL="https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}"
 KSERVE_DEFAULT_DEPLOYMENT_MODE="${KSERVE_DEFAULT_DEPLOYMENT_MODE:-Standard}"
+KSERVE_SYSTEM_NAMESPACE="${KSERVE_SYSTEM_NAMESPACE:-kserve}"
 OVERLAY="local"
 if [[ "$CONTEXT" == "r1" ]]; then
   OVERLAY="r1"
@@ -176,14 +177,14 @@ k -n "$NS" wait --for=condition=complete job/provision-sample-data --timeout=20m
 echo "[${CONTEXT}] reconciling kserve ${KSERVE_VERSION}"
 k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml"
 k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml"
-k -n kserve rollout status deployment/kserve-controller-manager --timeout=300s
-if k -n kserve get configmap inferenceservice-config >/dev/null 2>&1; then
+k -n "$KSERVE_SYSTEM_NAMESPACE" rollout status deployment/kserve-controller-manager --timeout=300s
+if k -n "$KSERVE_SYSTEM_NAMESPACE" get configmap inferenceservice-config >/dev/null 2>&1; then
   k patch configmap/inferenceservice-config \
-    -n kserve \
+    -n "$KSERVE_SYSTEM_NAMESPACE" \
     --type=merge \
     -p "{\"data\":{\"deploy\":\"{\\\"defaultDeploymentMode\\\":\\\"${KSERVE_DEFAULT_DEPLOYMENT_MODE}\\\"}\"}}"
-  k -n kserve rollout restart deployment/kserve-controller-manager
-  k -n kserve rollout status deployment/kserve-controller-manager --timeout=300s
+  k -n "$KSERVE_SYSTEM_NAMESPACE" rollout restart deployment/kserve-controller-manager
+  k -n "$KSERVE_SYSTEM_NAMESPACE" rollout status deployment/kserve-controller-manager --timeout=300s
 fi
 # Keep existing endpoints aligned with the cluster default mode name.
 k -n "$SERVING_NS" annotate inferenceservices.serving.kserve.io \
