@@ -505,6 +505,9 @@ if k -n kserve get configmap inferenceservice-config >/dev/null 2>&1; then
     -n kserve \
     --type=merge \
     -p '{"data":{"deploy":"{\"defaultDeploymentMode\":\"RawDeployment\"}"}}'
+  echo "  Restarting KServe controller to pick up RawDeployment config..."
+  k -n kserve rollout restart deployment/kserve-controller-manager
+  k -n kserve rollout status deployment/kserve-controller-manager --timeout=120s 2>/dev/null || true
 fi
 
 k apply -f "$BUILD_DIR/kserve-s3-secret.yaml"
