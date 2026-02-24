@@ -102,7 +102,7 @@ data:
             "kserve_ns = os.environ.get('KSERVE_NAMESPACE', 'ml-platform-serving')\n",
             "inference_url = (\n",
             "    f\"http://{endpoint_name}-predictor\"\n",
-            "    f\".{kserve_ns}.svc.cluster.local\"\n",
+            "    f\".{kserve_ns}.svc\"\n",
             "    f\"/v2/models/{endpoint_name}/infer\"\n",
             ")\n",
             "\n",
