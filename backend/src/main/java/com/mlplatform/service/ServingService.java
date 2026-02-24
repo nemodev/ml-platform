@@ -136,9 +136,7 @@ public class ServingService {
 
         try {
             kServeService.deleteInferenceService(deployment.getEndpointName());
-            deployment.setStatus(DeploymentStatus.DELETED);
-            deployment.setDeletedAt(Instant.now());
-            modelDeploymentRepository.save(deployment);
+            refreshDeploymentStatus(deployment);
         } catch (RuntimeException ex) {
             deployment.setErrorMessage(trimError(ex.getMessage()));
             modelDeploymentRepository.save(deployment);
@@ -195,6 +193,25 @@ public class ServingService {
 
         InferenceServiceStatus status = kServeService.getInferenceServiceStatus(deployment.getEndpointName());
         String phase = normalizePhase(status.phase());
+
+        if (deployment.getStatus() == DeploymentStatus.DELETING) {
+            if ("DELETED".equals(phase)) {
+                deployment.setStatus(DeploymentStatus.DELETED);
+                deployment.setDeletedAt(Instant.now());
+                modelDeploymentRepository.save(deployment);
+                return;
+            }
+
+            deployment.setStatus(DeploymentStatus.DELETING);
+            deployment.setInferenceUrl(nonBlank(status.inferenceUrl(), deployment.getInferenceUrl()));
+            if ("FAILED".equals(phase)) {
+                deployment.setErrorMessage(trimError(nonBlank(status.errorMessage(), "Deletion failed")));
+            } else if (status.errorMessage() != null && !status.errorMessage().isBlank()) {
+                deployment.setErrorMessage(trimError(status.errorMessage()));
+            }
+            modelDeploymentRepository.save(deployment);
+            return;
+        }
 
         if ("DELETED".equals(phase)) {
             deployment.setStatus(DeploymentStatus.DELETED);
