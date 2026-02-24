@@ -22,13 +22,13 @@ spec:
               containerPort: 8080
           env:
             - name: API_UPSTREAM
-              value: http://backend.__NAMESPACE__.svc.cluster.local:8080
+              value: http://backend.__NAMESPACE__.svc.__CLUSTER_DOMAIN__:8080
             - name: MLFLOW_UPSTREAM
-              value: http://mlflow.__NAMESPACE__.svc.cluster.local:5000
+              value: http://mlflow.__NAMESPACE__.svc.__CLUSTER_DOMAIN__:5000
             - name: KEYCLOAK_UPSTREAM
               value: __KEYCLOAK_URL__
             - name: JUPYTERHUB_UPSTREAM
-              value: http://__NAMESPACE__-jupyterhub-proxy-public.__NAMESPACE__.svc.cluster.local:80
+              value: http://__NAMESPACE__-jupyterhub-proxy-public.__NAMESPACE__.svc.__CLUSTER_DOMAIN__:80
             - name: RUNTIME_API_URL
               value: /api/v1
             - name: RUNTIME_KEYCLOAK_URL

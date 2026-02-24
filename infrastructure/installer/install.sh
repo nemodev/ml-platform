@@ -72,7 +72,7 @@ fi
 
 # Keycloak
 if [[ "${DEPLOY_KEYCLOAK:-false}" == "true" ]]; then
-  KEYCLOAK_URL="${KEYCLOAK_URL:-http://keycloak.${NAMESPACE}.svc.cluster.local:8080}"
+  KEYCLOAK_URL="${KEYCLOAK_URL:-http://keycloak.${NAMESPACE}.svc.${CLUSTER_DOMAIN:-cluster.local}:8080}"
 fi
 : "${KEYCLOAK_ADMIN_PASSWORD:=admin}"
 
@@ -163,6 +163,7 @@ render() {
     -e "s|__POSTGRES_PORT__|${POSTGRES_PORT}|g" \
     -e "s|__POSTGRES_PASSWORD__|${POSTGRES_PASSWORD}|g" \
     -e "s|__DNS_RESOLVER__|${DNS_RESOLVER}|g" \
+    -e "s|__CLUSTER_DOMAIN__|${CLUSTER_DOMAIN:-cluster.local}|g" \
     -e "s|__OBC_STORAGE_CLASS__|${OBC_STORAGE_CLASS:-s3-buckets}|g" \
     "$input" > "$output"
 }
