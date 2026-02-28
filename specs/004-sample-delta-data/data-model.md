@@ -13,6 +13,7 @@ configuration required to serve it.
 **Location**: `s3://ml-platform-sample-data/california-housing/`
 **Format**: Delta Lake (Parquet + `_delta_log/` transaction log)
 **Access**: Read-only from notebook servers
+**Readers**: `deltalake` (pure Python) and `pyspark` with Spark 4.0.1 (both pre-installed)
 
 ### Schema
 
@@ -45,6 +46,7 @@ configuration required to serve it.
 |--------|---------|------------|
 | `ml-platform-mlflow` | MLflow artifacts (feature 003) | MinIO Helm |
 | `ml-platform-sample-data` | Sample Delta tables (this feature) | MinIO Helm |
+| `ml-platform-pipelines` | Pipeline notebooks with `ml-platform/pipelines/` prefix (feature 005) | MinIO Helm |
 
 Both buckets are created by the official MinIO Helm chart (`charts.min.io`)
 via the `buckets` list in values.yaml.

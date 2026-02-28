@@ -136,6 +136,22 @@ CREATE INDEX idx_image_builds_status ON image_builds(status);
 
 ---
 
+## Cross-Feature Migration: V010
+
+**File**: `V010__add_notebook_image_id_to_workspaces.sql`
+
+Adds a foreign key from `workspaces` to `notebook_images`, enabling
+workspaces to track which custom image was used at launch time.
+
+```sql
+ALTER TABLE workspaces ADD COLUMN notebook_image_id UUID REFERENCES notebook_images(id);
+```
+
+This migration bridges feature 002 (workspaces) and feature 008 (custom
+images). See the 002 data-model for the full workspace schema.
+
+---
+
 ## Configuration Model (application.yaml)
 
 Not a database entity. Externalized via Spring Boot `@ConfigurationProperties`.

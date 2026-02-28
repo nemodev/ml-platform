@@ -78,8 +78,13 @@ CREATE INDEX idx_users_oidc_subject ON users(oidc_subject);
 
 ## Relationships
 
-For feature 001, there are no inter-entity relationships. The `users`
-table is a standalone profile cache. Future features will add:
+The `users` table is the root entity referenced by all user-owned tables
+added in subsequent features:
 
-- `users` → `experiments` (feature 003)
-- `users` → `pipeline_jobs` (feature 005)
+- `users` → `analyses` (feature 002/007) — named project contexts
+- `users` → `workspaces` (feature 002) — notebook server lifecycle
+- `users` → `pipeline_runs` (feature 005) — notebook pipeline executions
+- `users` → `model_deployments` (feature 006) — KServe inference endpoints
+- `users` → `notebook_images` (feature 008) — custom notebook image definitions
+- `notebook_images` → `image_builds` (feature 008) — build attempt history
+- `workspaces.notebook_image_id` → `notebook_images` (feature 008, V010 migration)

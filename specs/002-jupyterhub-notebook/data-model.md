@@ -41,6 +41,7 @@ status changes.
 | status | String(20) | NOT NULL, default 'PENDING' | JupyterHub API |
 | pod_name | String(255) | Nullable | JupyterHub API |
 | jupyterhub_username | String(255) | NOT NULL | JWT preferred_username |
+| notebook_image_id | UUID | FK → notebook_images(id), Nullable | User selection (feature 008) |
 | started_at | Timestamp | Nullable | Backend |
 | last_activity | Timestamp | Nullable | JupyterHub API |
 | created_at | Timestamp | NOT NULL, default NOW | Backend |
@@ -177,6 +178,9 @@ CREATE INDEX idx_workspaces_analysis_id ON workspaces(analysis_id);
 CREATE INDEX idx_workspaces_status ON workspaces(status);
 CREATE UNIQUE INDEX ux_workspaces_analysis_active
     ON workspaces(analysis_id) WHERE status IN ('PENDING', 'RUNNING', 'IDLE');
+
+-- V010: Add custom notebook image support (feature 008)
+ALTER TABLE workspaces ADD COLUMN notebook_image_id UUID REFERENCES notebook_images(id);
 ```
 
 ## Relationships

@@ -29,12 +29,12 @@ Client-side only. Lives in the Angular component's memory during the iframe sess
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
-| bridgeInstance | object | Comlink proxy wrapping the iframe's JupyterLab command registry |
-| connectionState | enum | `connecting` / `ready` / `disconnected` |
+| bridgeInstance | object | `jupyter-iframe-commands-host` proxy wrapping the iframe's JupyterLab command registry |
+| connectionState | enum | `connecting` / `ready` / `idle` / `disconnected` |
 | availableCommands | string[] | List of JupyterLab command IDs (populated after `bridge.ready`) |
 | iframeElementId | string | DOM ID of the iframe element (e.g., `'jupyter-iframe'`) |
 
-**Lifecycle**: Created when iframe loads → `connecting` during handshake → `ready` when bridge resolves → `disconnected` on error or iframe unload. Destroyed on component teardown.
+**Lifecycle**: Created when iframe loads → `connecting` during handshake → `ready` when bridge resolves → `idle` when stable → `disconnected` on error or iframe unload. Destroyed on component teardown.
 
 ### Portal Notebook Toolbar State (Ephemeral — Browser)
 
@@ -44,8 +44,12 @@ Client-side only. Reactive state driving the Angular toolbar UI.
 |-----------|------|-------------|
 | sidebarVisible | boolean | Whether the JupyterLab file browser sidebar is shown (default: `false`) |
 | currentTheme | enum | `light` / `dark` (synced from portal's theme) |
-| kernelStatus | enum | `idle` / `busy` / `disconnected` / `unknown` |
+| kernelStatus | enum | `idle` / `busy` / `no_kernel` / `disconnected` / `unknown` |
 | bridgeConnected | boolean | Whether the command bridge is ready |
+| headerVisible | boolean | Whether the JupyterLab header is shown |
+| lineNumbersVisible | boolean | Whether line numbers are shown in cells |
+
+**Toolbar actions** (sent via bridge): toggle sidebar, theme switch, run all, save, interrupt kernel, restart kernel, clear outputs, insert cell, move cell up/down, undo, redo, toggle line numbers, toggle header, open command palette.
 
 **Lifecycle**: Initialized on component creation. Updated reactively via bridge callbacks and user interactions. Destroyed on component teardown.
 
@@ -73,9 +77,11 @@ Existing DTO returned by `GET /api/v1/analyses/{analysisId}/workspaces/url`. Ext
 
 ```
 unknown → idle → busy → idle → ... (repeats during execution)
-           ↓
-       disconnected → (kernel restart) → idle
+           ↓          ↓
+       no_kernel   disconnected → (kernel restart) → idle
 ```
+
+**Note**: `no_kernel` indicates no kernel is associated with the current notebook. JupyterHub 403 errors trigger automatic re-authentication handling.
 
 ## Database Impact
 

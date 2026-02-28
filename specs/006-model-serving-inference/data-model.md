@@ -49,7 +49,10 @@ READY → DELETING → DELETED
 ### Indexes
 
 - `idx_model_deployments_user_id` on `user_id`
-- `idx_model_deployments_endpoint_name` on `endpoint_name` (unique)
+- `ux_model_deployments_endpoint_name_active` — partial unique index on
+  `endpoint_name WHERE deleted_at IS NULL` (V007 migration replaced the
+  simple UNIQUE constraint to allow reuse of endpoint names after soft
+  delete)
 - `idx_model_deployments_status` on `status`
 
 ### SQL Migration (Flyway)
@@ -74,6 +77,14 @@ CREATE TABLE model_deployments (
 CREATE INDEX idx_model_deployments_user_id ON model_deployments(user_id);
 CREATE INDEX idx_model_deployments_endpoint_name ON model_deployments(endpoint_name);
 CREATE INDEX idx_model_deployments_status ON model_deployments(status);
+
+-- V007__adjust_model_deployment_endpoint_uniqueness.sql
+-- Replaces simple UNIQUE constraint with partial unique index to allow
+-- reuse of endpoint names after soft delete (deleted_at IS NOT NULL).
+ALTER TABLE model_deployments DROP CONSTRAINT IF EXISTS model_deployments_endpoint_name_key;
+DROP INDEX IF EXISTS idx_model_deployments_endpoint_name;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_model_deployments_endpoint_name_active
+    ON model_deployments(endpoint_name) WHERE deleted_at IS NULL;
 ```
 
 ## MLflow Model Registry (Managed by MLflow)
