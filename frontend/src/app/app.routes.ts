@@ -35,6 +35,16 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/pipelines/pipelines.component').then((m) => m.PipelinesComponent)
   },
+  {
+    path: 'notebook-images',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/notebook-images/notebook-images.component').then((m) => m.NotebookImagesComponent)
+  },
+  {
+    path: 'notebook-images/:imageId',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/notebook-images/build-detail/build-detail.component').then((m) => m.BuildDetailComponent)
+  },
   // Backward-compat redirects for old bookmarked URLs
   { path: 'notebooks', redirectTo: 'analyses', pathMatch: 'full' },
   { path: 'experiments', redirectTo: 'analyses', pathMatch: 'full' },

@@ -1,0 +1,58 @@
+.notification-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  position: fixed;
+  right: 1rem;
+  top: 4rem;
+  z-index: 50;
+  max-width: 400px;
+}
+
+.notification {
+  align-items: center;
+  border-radius: 0.4rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  display: flex;
+  font-size: 0.85rem;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+
+  &.success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+  }
+
+  &.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+  }
+}
+
+.message {
+  flex: 1;
+}
+
+.link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  opacity: 0.6;
+  padding: 0;
+
+  &:hover {
+    opacity: 1;
+  }
+}

@@ -4,9 +4,12 @@ import com.mlplatform.dto.ComputeProfileDto;
 import com.mlplatform.dto.WorkspaceStatusDto;
 import com.mlplatform.dto.WorkspaceUrlDto;
 import com.mlplatform.model.Analysis;
+import com.mlplatform.model.NotebookImage;
+import com.mlplatform.model.NotebookImageStatus;
 import com.mlplatform.model.User;
 import com.mlplatform.model.Workspace;
 import com.mlplatform.model.Workspace.WorkspaceStatus;
+import com.mlplatform.repository.NotebookImageRepository;
 import com.mlplatform.repository.WorkspaceRepository;
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class WorkspaceService {
 
     private final WorkspaceRepository workspaceRepository;
+    private final NotebookImageRepository notebookImageRepository;
     private final UserService userService;
     private final AnalysisService analysisService;
     private final JupyterHubService jupyterHubService;
@@ -33,12 +37,14 @@ public class WorkspaceService {
 
     public WorkspaceService(
             WorkspaceRepository workspaceRepository,
+            NotebookImageRepository notebookImageRepository,
             UserService userService,
             AnalysisService analysisService,
             JupyterHubService jupyterHubService,
             Environment environment
     ) {
         this.workspaceRepository = workspaceRepository;
+        this.notebookImageRepository = notebookImageRepository;
         this.userService = userService;
         this.analysisService = analysisService;
         this.jupyterHubService = jupyterHubService;
@@ -47,6 +53,11 @@ public class WorkspaceService {
 
     @Transactional
     public WorkspaceStatusDto launchWorkspace(Jwt jwt, UUID analysisId, String profile) {
+        return launchWorkspace(jwt, analysisId, profile, null);
+    }
+
+    @Transactional
+    public WorkspaceStatusDto launchWorkspace(Jwt jwt, UUID analysisId, String profile, UUID notebookImageId) {
         if (isDevProfile()) {
             return mockRunningStatus("exploratory", "Dev profile mock workspace");
         }
@@ -55,6 +66,17 @@ public class WorkspaceService {
         Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
         String username = resolveUsername(jwt, user);
         String serverName = toServerName(analysis);
+
+        // Resolve custom image reference if requested
+        String imageReference = null;
+        if (notebookImageId != null) {
+            NotebookImage notebookImage = notebookImageRepository.findByIdAndUserId(notebookImageId, user.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notebook image not found"));
+            if (notebookImage.getStatus() != NotebookImageStatus.READY) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Notebook image is not ready. Current status: " + notebookImage.getStatus());
+            }
+            imageReference = notebookImage.getImageReference();
+        }
 
         List<Workspace> active = workspaceRepository.findByAnalysisIdAndStatusIn(
                 analysis.getId(),
@@ -87,11 +109,12 @@ public class WorkspaceService {
         workspace.setProfile(normalizeProfile(profile));
         workspace.setStatus(WorkspaceStatus.PENDING);
         workspace.setJupyterhubUsername(username);
+        workspace.setNotebookImageId(notebookImageId);
         workspace = workspaceRepository.save(workspace);
 
         try {
             jupyterHubService.createUser(username);
-            jupyterHubService.spawnNamedServer(username, serverName);
+            jupyterHubService.spawnNamedServer(username, serverName, imageReference);
             return toDto(workspace, "Workspace launch initiated");
         } catch (JupyterHubUnavailableException ex) {
             workspace.setStatus(WorkspaceStatus.FAILED);
@@ -112,7 +135,7 @@ public class WorkspaceService {
                 .orElse(null);
 
         if (workspace == null) {
-            return new WorkspaceStatusDto(null, WorkspaceStatus.STOPPED.name(), "EXPLORATORY", null, null, "No workspace");
+            return new WorkspaceStatusDto(null, WorkspaceStatus.STOPPED.name(), "EXPLORATORY", null, null, "No workspace", null, null);
         }
 
         String serverName = toServerName(analysis);
@@ -213,13 +236,22 @@ public class WorkspaceService {
     }
 
     private WorkspaceStatusDto toDto(Workspace workspace, String message) {
+        UUID imageId = workspace.getNotebookImageId();
+        String imageName = null;
+        if (imageId != null) {
+            imageName = notebookImageRepository.findById(imageId)
+                    .map(img -> img.getName())
+                    .orElse(null);
+        }
         return new WorkspaceStatusDto(
                 workspace.getId(),
                 workspace.getStatus().name(),
                 workspace.getProfile(),
                 workspace.getStartedAt(),
                 workspace.getLastActivity(),
-                message
+                message,
+                imageId,
+                imageName
         );
     }
 
@@ -260,7 +292,9 @@ public class WorkspaceService {
                 profile.toUpperCase(),
                 Instant.now().minusSeconds(60),
                 Instant.now(),
-                message
+                message,
+                null,
+                null
         );
     }
 }

@@ -9,6 +9,8 @@ public record WorkspaceStatusDto(
         String profile,
         Instant startedAt,
         Instant lastActivity,
-        String message
+        String message,
+        UUID notebookImageId,
+        String notebookImageName
 ) {
 }

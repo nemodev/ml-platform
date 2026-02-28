@@ -1,6 +1,7 @@
 package com.mlplatform.config;
 
 import com.mlplatform.dto.ErrorResponse;
+import com.mlplatform.exception.ImageBuildUnavailableException;
 import com.mlplatform.service.AirflowUnavailableException;
 import com.mlplatform.service.JupyterHubUnavailableException;
 import com.mlplatform.service.KServeUnavailableException;
@@ -61,6 +62,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(KServeUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleKServeUnavailable(KServeUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse("ServiceUnavailable", ex.getMessage(), Instant.now()));
+    }
+
+    @ExceptionHandler(ImageBuildUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleImageBuildUnavailable(ImageBuildUnavailableException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new ErrorResponse("ServiceUnavailable", ex.getMessage(), Instant.now()));
     }

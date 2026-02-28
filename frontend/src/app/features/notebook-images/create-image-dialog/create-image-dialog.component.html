@@ -1,0 +1,44 @@
+<div class="dialog-backdrop" (click)="cancel()"></div>
+<section class="dialog-card" (click)="$event.stopPropagation()">
+  <header>
+    <h3>Create Custom Notebook Image</h3>
+    <button type="button" class="ghost" (click)="cancel()">Close</button>
+  </header>
+
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <div class="loading" *ngIf="loadingVersions">Loading Python versions...</div>
+
+  <div class="form-grid" *ngIf="!loadingVersions">
+    <label>
+      <span>Image Name</span>
+      <input type="text" [(ngModel)]="name" placeholder="e.g., my-ml-environment" />
+    </label>
+
+    <label>
+      <span>Python Version</span>
+      <select [(ngModel)]="pythonVersion">
+        <option *ngFor="let v of pythonVersions" [value]="v">Python {{ v }}</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Packages (requirements.txt format, one per line)</span>
+      <textarea [(ngModel)]="packages" rows="6"
+                placeholder="scikit-learn==1.4.0&#10;xgboost>=2.0&#10;lightgbm"></textarea>
+    </label>
+
+    <label>
+      <span>Extra Pip Index URL (optional)</span>
+      <input type="text" [(ngModel)]="extraPipIndexUrl"
+             placeholder="https://pypi.mycompany.com/simple/" />
+    </label>
+  </div>
+
+  <footer>
+    <button type="button" class="ghost" (click)="cancel()">Cancel</button>
+    <button type="button" (click)="submit()" [disabled]="submitting || loadingVersions">
+      {{ submitting ? 'Creating & Building...' : 'Create & Build' }}
+    </button>
+  </footer>
+</section>

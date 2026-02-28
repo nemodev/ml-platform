@@ -1,4 +1,5 @@
-FROM jupyter/scipy-notebook:python-3.11
+ARG PYTHON_VERSION=3.11
+FROM quay.io/jupyter/scipy-notebook:python-${PYTHON_VERSION}
 
 USER root
 
@@ -66,7 +67,7 @@ RUN cat > /opt/conda/bin/executor <<'EOF' \
 #!/usr/bin/env bash
 set -euo pipefail
 
-SPARK_HOME=${SPARK_HOME:-/opt/conda/lib/python3.11/site-packages/pyspark}
+SPARK_HOME=${SPARK_HOME:-$(python3 -c "import pyspark; print(pyspark.__path__[0])" 2>/dev/null || echo /opt/conda/lib/python3.11/site-packages/pyspark)}
 SPARK_CLASS_BIN="${SPARK_HOME}/bin/spark-class"
 
 # Spark on Kubernetes invokes executor containers with the "executor" command.

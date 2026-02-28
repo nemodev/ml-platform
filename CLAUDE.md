@@ -87,3 +87,10 @@ bash infrastructure/scripts/deploy-full-stack.sh
 | `r1` | Remote multi-node (amd64) | 172.16.100.10:30080 (NodePort) |
 
 On r1, images use `ttl.sh/<name>:24h` ephemeral registry.
+
+## Active Technologies
+- Java 21 (backend), TypeScript 5.4+ (frontend) + Spring Boot 3.5.x, Angular 17, Kubernetes Java Client (io.kubernetes.client), Kaniko (gcr.io/kaniko-project/executor), Docker Distribution (registry:2) (008-custom-notebook-images)
+- PostgreSQL (entities: notebook_images, image_builds), Container Registry (built images), MinIO (registry storage backend) (008-custom-notebook-images)
+
+## Recent Changes
+- 008-custom-notebook-images: Added Java 21 (backend), TypeScript 5.4+ (frontend) + Spring Boot 3.5.x, Angular 17, Kubernetes Java Client (io.kubernetes.client), Kaniko (gcr.io/kaniko-project/executor), Docker Distribution (registry:2)

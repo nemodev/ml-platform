@@ -1,0 +1,11 @@
+<div class="notification-container" *ngIf="notifications.length > 0">
+  <div
+    class="notification"
+    *ngFor="let n of notifications"
+    [class]="typeClass(n.type)"
+  >
+    <span class="message">{{ n.message }}</span>
+    <a [routerLink]="['/notebook-images', n.resourceId]" class="link">View</a>
+    <button type="button" class="close-btn" (click)="dismiss(n.id)">&times;</button>
+  </div>
+</div>

@@ -4,6 +4,17 @@
   <div class="launcher-card" *ngIf="status === 'STOPPED'">
     <h3>{{ profile?.name || 'Exploratory' }}</h3>
     <p>{{ profile?.description || 'Interactive data exploration and small experiments' }}</p>
+    <div class="image-selector">
+      <label>
+        <span>Notebook Image</span>
+        <select [ngModel]="selectedImageId" (ngModelChange)="onImageChange($event)">
+          <option value="">Default Platform Image</option>
+          <option *ngFor="let img of customImages" [value]="img.id">
+            {{ img.name }} (Python {{ img.pythonVersion }})
+          </option>
+        </select>
+      </label>
+    </div>
     <button type="button" (click)="launchWorkspace()">Launch Workspace</button>
   </div>
 
@@ -45,6 +56,19 @@
         </button>
       </div>
       <div class="toolbar-right">
+        <div class="toolbar-image-selector">
+          <span class="toolbar-label">Image:</span>
+          <select class="toolbar-image-select"
+                  [ngModel]="selectedImageId"
+                  (ngModelChange)="onImageChange($event)"
+                  [disabled]="switchingImage">
+            <option value="">Default Platform Image</option>
+            <option *ngFor="let img of customImages" [value]="img.id">
+              {{ img.name }} (Python {{ img.pythonVersion }})
+            </option>
+          </select>
+        </div>
+        <span class="toolbar-sep"></span>
         <span class="kernel-status" [class]="'kernel-' + kernelStatus">
           <span class="kernel-dot"></span> {{ kernelStatusLabel }}
         </span>

@@ -282,7 +282,7 @@ fi
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 STEP=0
-TOTAL_STEPS=11
+TOTAL_STEPS=12
 
 step() {
   STEP=$((STEP + 1))
@@ -588,7 +588,63 @@ k -n "$NAMESPACE" annotate inferenceservices.serving.kserve.io \
 echo "  KServe configured in ${NAMESPACE}"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP 9: Backend
+# STEP 9: Container Registry (Custom Notebook Images)
+# ══════════════════════════════════════════════════════════════════════════════
+step "Container Registry"
+
+REGISTRY_TYPE="${REGISTRY_TYPE:-builtin}"
+REGISTRY_ENDPOINT="${REGISTRY_ENDPOINT:-registry.${NAMESPACE}.svc:5000}"
+REGISTRY_USERNAME="${REGISTRY_USERNAME:-}"
+REGISTRY_PASSWORD="${REGISTRY_PASSWORD:-}"
+
+# Always deploy Kaniko RBAC (needed for both registry modes)
+k apply -f "${PROJECT_ROOT}/infrastructure/k8s/platform/base/kaniko-rbac.yaml"
+
+if [[ "$REGISTRY_TYPE" == "external" ]]; then
+  echo "  Using external container registry: ${REGISTRY_ENDPOINT}"
+  # Create registry-credentials Secret from external registry credentials
+  if [[ -n "$REGISTRY_USERNAME" ]] && [[ -n "$REGISTRY_PASSWORD" ]]; then
+    AUTH=$(echo -n "${REGISTRY_USERNAME}:${REGISTRY_PASSWORD}" | base64)
+  else
+    AUTH=$(echo -n ':' | base64)
+  fi
+  DOCKER_CONFIG_JSON=$(echo -n "{\"auths\":{\"${REGISTRY_ENDPOINT}\":{\"auth\":\"${AUTH}\"}}}" | base64)
+  cat <<EOFREG | k apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: registry-credentials
+  namespace: ${NAMESPACE}
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: ${DOCKER_CONFIG_JSON}
+EOFREG
+  echo "  External registry credentials configured"
+else
+  echo "  Deploying built-in container registry..."
+  k apply -f "${PROJECT_ROOT}/infrastructure/k8s/platform/base/registry-deployment.yaml"
+  k apply -f "${PROJECT_ROOT}/infrastructure/k8s/platform/base/registry-service.yaml"
+
+  # Create registry-credentials Secret for built-in registry (no auth)
+  DOCKER_CONFIG_JSON=$(echo -n "{\"auths\":{\"${REGISTRY_ENDPOINT}\":{\"auth\":\"$(echo -n ':' | base64)\"}}}" | base64)
+  cat <<EOFREG | k apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: registry-credentials
+  namespace: ${NAMESPACE}
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: ${DOCKER_CONFIG_JSON}
+EOFREG
+
+  echo "  Waiting for registry rollout..."
+  k -n "$NAMESPACE" rollout status deployment/registry --timeout=300s
+  echo "  Built-in registry deployed"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 10: Backend
 # ══════════════════════════════════════════════════════════════════════════════
 step "Backend"
 k apply -f "$BUILD_DIR/backend-serviceaccount.yaml"
@@ -600,7 +656,7 @@ echo "  Waiting for backend rollout..."
 k -n "$NAMESPACE" rollout status deployment/backend --timeout=20m
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP 10: Frontend
+# STEP 11: Frontend
 # ══════════════════════════════════════════════════════════════════════════════
 step "Frontend"
 

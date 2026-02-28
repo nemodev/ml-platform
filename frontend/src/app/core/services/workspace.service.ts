@@ -24,6 +24,8 @@ export interface WorkspaceStatus {
   startedAt?: string;
   lastActivity?: string;
   message?: string;
+  notebookImageId?: string;
+  notebookImageName?: string;
 }
 
 export interface WorkspaceUrl {
@@ -42,8 +44,12 @@ export class WorkspaceService {
     return this.http.get<ComputeProfile[]>(`${this.analysisWorkspacesUrl(analysisId)}/profiles`);
   }
 
-  launchWorkspace(analysisId: string, profile = 'exploratory'): Observable<WorkspaceStatus> {
-    return this.http.post<WorkspaceStatus>(this.analysisWorkspacesUrl(analysisId), { profile });
+  launchWorkspace(analysisId: string, profile = 'exploratory', notebookImageId?: string): Observable<WorkspaceStatus> {
+    const body: Record<string, string> = { profile };
+    if (notebookImageId) {
+      body['notebookImageId'] = notebookImageId;
+    }
+    return this.http.post<WorkspaceStatus>(this.analysisWorkspacesUrl(analysisId), body);
   }
 
   getStatus(analysisId: string): Observable<WorkspaceStatus> {

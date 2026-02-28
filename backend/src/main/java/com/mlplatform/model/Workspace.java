@@ -56,6 +56,9 @@ public class Workspace {
     @Column(name = "jupyterhub_username", nullable = false)
     private String jupyterhubUsername;
 
+    @Column(name = "notebook_image_id")
+    private UUID notebookImageId;
+
     @Column(name = "started_at")
     private Instant startedAt;
 
@@ -137,6 +140,14 @@ public class Workspace {
 
     public void setLastActivity(Instant lastActivity) {
         this.lastActivity = lastActivity;
+    }
+
+    public UUID getNotebookImageId() {
+        return notebookImageId;
+    }
+
+    public void setNotebookImageId(UUID notebookImageId) {
+        this.notebookImageId = notebookImageId;
     }
 
     public Instant getCreatedAt() {

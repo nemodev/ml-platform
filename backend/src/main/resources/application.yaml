@@ -62,3 +62,25 @@ services:
     pipelines-bucket: ml-platform-pipelines
     pipelines-prefix: ml-platform/pipelines
     presign-expiry-seconds: 900
+  notebook-images:
+    registry:
+      type: ${REGISTRY_TYPE:builtin}
+      endpoint: ${REGISTRY_ENDPOINT:registry.ml-platform.svc:5000}
+      username: ${REGISTRY_USERNAME:}
+      password: ${REGISTRY_PASSWORD:}
+      insecure: ${REGISTRY_INSECURE:true}
+    build:
+      namespace: ${NAMESPACE:ml-platform}
+      timeout-minutes: 60
+      max-concurrent-builds: 3
+      kaniko-image: gcr.io/kaniko-project/executor:latest
+      build-cpu-request: "1"
+      build-memory-request: 2Gi
+      build-cpu-limit: "2"
+      build-memory-limit: 4Gi
+    base-image-prefix: ${BASE_IMAGE_PREFIX:ml-platform/notebook-base}
+    base-image-registry: ${BASE_IMAGE_REGISTRY:}
+    python-versions:
+      - "3.10"
+      - "3.11"
+      - "3.12"

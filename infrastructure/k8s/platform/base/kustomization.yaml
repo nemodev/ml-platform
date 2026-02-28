@@ -9,3 +9,7 @@ resources:
   - frontend-nginx-template-configmap.yaml
   - frontend-deployment.yaml
   - frontend-service.yaml
+  - registry-deployment.yaml
+  - registry-service.yaml
+  - registry-credentials-secret.yaml
+  - kaniko-rbac.yaml

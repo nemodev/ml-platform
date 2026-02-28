@@ -34,6 +34,8 @@ PUSH=true
 ONLY=""
 REMOTE_HOST=""
 CONFIG_FILE="${SCRIPT_DIR}/config.env"
+BUILD_BASE_IMAGES=false
+PYTHON_VERSIONS=("3.10" "3.11" "3.12")
 
 # ── Parse arguments ─────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -42,6 +44,7 @@ while [[ $# -gt 0 ]]; do
     --no-push)   PUSH=false; shift ;;
     --only)      ONLY="$2"; shift 2 ;;
     --remote)    REMOTE_HOST="$2"; shift 2 ;;
+    --base-images) BUILD_BASE_IMAGES=true; shift ;;
     --help|-h)
       sed -n '2,/^# ─── Defaults/{ /^#/s/^# \?//p; }' "$0"
       exit 0
@@ -151,6 +154,26 @@ build_and_push() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Notebook Base Images (for custom notebook image builds)
+# ══════════════════════════════════════════════════════════════════════════════
+if [[ "$BUILD_BASE_IMAGES" == "true" ]]; then
+  step "Notebook Base Images"
+
+  NOTEBOOK_DIR="${PROJECT_ROOT}/infrastructure/docker/notebook-image"
+  BASE_IMAGE_PREFIX="${REGISTRY}/ml-platform/notebook-base"
+
+  for pyver in "${PYTHON_VERSIONS[@]}"; do
+    BASE_TAG="${BASE_IMAGE_PREFIX}:python-${pyver}"
+    echo ""
+    echo "  Building base image for Python ${pyver}: ${BASE_TAG}"
+    build_and_push "$BASE_TAG" "$NOTEBOOK_DIR" --build-arg "PYTHON_VERSION=${pyver}"
+  done
+
+  echo ""
+  echo "  Base images built for Python versions: ${PYTHON_VERSIONS[*]}"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Backend
 # ══════════════════════════════════════════════════════════════════════════════
 if should_build "backend"; then
@@ -201,6 +224,11 @@ echo "════════════════════════�
 echo "  Build complete!"
 echo "═══════════════════════════════════════════════════════════════"
 echo ""
+if [[ "$BUILD_BASE_IMAGES" == "true" ]]; then
+  for pyver in "${PYTHON_VERSIONS[@]}"; do
+    echo "  Base:     ${REGISTRY}/ml-platform/notebook-base:python-${pyver}"
+  done
+fi
 if should_build "backend";  then echo "  Backend:  $BACKEND_IMAGE"; fi
 if should_build "frontend"; then echo "  Frontend: $FRONTEND_IMAGE"; fi
 if should_build "notebook"; then echo "  Notebook: $NOTEBOOK_IMAGE"; fi

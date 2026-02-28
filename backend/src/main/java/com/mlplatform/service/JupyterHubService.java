@@ -79,7 +79,29 @@ public class JupyterHubService {
     }
 
     public void spawnNamedServer(String username, String serverName) {
-        executePost("/hub/api/users/{username}/servers/{serverName}", username, serverName);
+        spawnNamedServer(username, serverName, null);
+    }
+
+    public void spawnNamedServer(String username, String serverName, String imageReference) {
+        if (imageReference != null && !imageReference.isBlank()) {
+            try {
+                String body = objectMapper.writeValueAsString(java.util.Map.of("image", imageReference));
+                webClient.post()
+                        .uri("/hub/api/users/{username}/servers/{serverName}", username, serverName)
+                        .header("Authorization", "Bearer " + properties.getApiToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(body)
+                        .retrieve()
+                        .toBodilessEntity()
+                        .block();
+            } catch (WebClientRequestException ex) {
+                throw new JupyterHubUnavailableException("JupyterHub is unreachable", ex);
+            } catch (Exception ex) {
+                throw new JupyterHubUnavailableException("Failed to spawn server with custom image", ex);
+            }
+        } else {
+            executePost("/hub/api/users/{username}/servers/{serverName}", username, serverName);
+        }
     }
 
     public ServerStatus getServerStatus(String username) {

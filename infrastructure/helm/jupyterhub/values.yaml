@@ -73,6 +73,12 @@ jupyterhub:
                 spawner.environment['ANALYSIS_S3_PATH'] = f's3://ml-platform-data/ml-platform/analysis/{username}/{server_name}/'
                 spawner.environment['MLFLOW_EXPERIMENT_PREFIX'] = f'{username}/{server_name}/'
 
+            # Allow custom notebook image override via spawn options
+            user_options = spawner.user_options or {}
+            custom_image = user_options.get('image')
+            if custom_image:
+                spawner.image = custom_image
+
         c.KubeSpawner.pre_spawn_hook = pre_spawn_hook
 
   singleuser:
@@ -80,6 +86,8 @@ jupyterhub:
       name: ml-platform-notebook
       tag: latest
       pullPolicy: IfNotPresent
+    imagePullSecrets:
+      - name: registry-credentials
     extraEnv:
       MLFLOW_TRACKING_URI: http://mlflow.ml-platform.svc:5000
       S3_PREFIX: ml-platform

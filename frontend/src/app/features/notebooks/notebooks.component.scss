@@ -23,6 +23,30 @@
   padding: 0.45rem 0.8rem;
 }
 
+.image-selector {
+  margin: 0.5rem 0;
+
+  label {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  span {
+    color: #334155;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  select {
+    border: 1px solid #cbd5e1;
+    border-radius: 0.25rem;
+    font-family: inherit;
+    font-size: 0.85rem;
+    max-width: 320px;
+    padding: 0.4rem 0.5rem;
+  }
+}
+
 .pending-card {
   align-items: center;
   display: flex;
@@ -228,6 +252,29 @@
   padding: 0.75rem;
   font-size: 0.8rem;
   color: #6b7280;
+}
+
+// Toolbar image selector (running state)
+.toolbar-image-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.toolbar-image-select {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.25rem;
+  font-family: inherit;
+  font-size: 0.78rem;
+  max-width: 240px;
+  padding: 0.25rem 0.4rem;
+  background: #ffffff;
+  color: #374151;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 }
 
 // Kernel status indicator

@@ -1,0 +1,74 @@
+<section class="images-page">
+  <header class="page-header">
+    <div>
+      <h2>Custom Notebook Images</h2>
+      <p>Build and manage custom Python environments for your notebooks.</p>
+    </div>
+    <button type="button" (click)="openCreateDialog()">New Image</button>
+  </header>
+
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <section class="card">
+    <header class="card-header">
+      <h3>Your Images</h3>
+      <div class="card-header-right">
+        <span>{{ images.length }} total</span>
+        <button type="button" class="ghost" (click)="loadImages()" [disabled]="loading">
+          {{ loading ? 'Refreshing...' : 'Refresh' }}
+        </button>
+      </div>
+    </header>
+
+    <div class="loading" *ngIf="loading">Loading notebook images...</div>
+
+    <table *ngIf="!loading && images.length > 0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Python</th>
+          <th>Packages</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let image of images">
+          <td class="name">{{ image.name }}</td>
+          <td>{{ image.pythonVersion }}</td>
+          <td>{{ image.packageCount }}</td>
+          <td>
+            <span class="status-badge" [class]="statusClass(image.status)">
+              {{ image.status }}
+            </span>
+          </td>
+          <td>{{ image.createdAt | date: 'short' }}</td>
+          <td class="actions">
+            <a [routerLink]="['/notebook-images', image.id]">Details</a>
+            <button type="button" class="ghost small"
+                    (click)="rebuildImage(image)"
+                    [disabled]="image.status === 'BUILDING'">
+              Rebuild
+            </button>
+            <button type="button" class="danger small"
+                    (click)="deleteImage(image)"
+                    [disabled]="image.status === 'BUILDING'">
+              Delete
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="empty" *ngIf="!loading && images.length === 0">
+      No custom images yet. Click "New Image" to create your first custom notebook environment.
+    </p>
+  </section>
+</section>
+
+<app-create-image-dialog
+  *ngIf="showCreateDialog"
+  (close)="closeCreateDialog()"
+  (created)="onImageCreated()"
+></app-create-image-dialog>

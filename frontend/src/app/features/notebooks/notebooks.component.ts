@@ -1,5 +1,6 @@
 import { NgFor, NgIf } from '@angular/common';
-import { Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnDestroy, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Subscription, interval, of } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
@@ -9,18 +10,21 @@ import {
   WorkspaceState,
   WorkspaceStatus
 } from '../../core/services/workspace.service';
+import { NotebookImageDto, NotebookImageService } from '../../core/services/notebook-image.service';
 import { JupyterBridgeService } from '../../core/services/jupyter-bridge.service';
 
 @Component({
   selector: 'app-notebooks',
   standalone: true,
-  imports: [NgIf, NgFor],
+  imports: [NgIf, NgFor, FormsModule],
   templateUrl: './notebooks.component.html',
   styleUrl: './notebooks.component.scss'
 })
 export class NotebooksComponent implements OnInit, OnDestroy {
   private readonly workspaceService = inject(WorkspaceService);
+  private readonly notebookImageService = inject(NotebookImageService);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly cdr = inject(ChangeDetectorRef);
   readonly bridgeService = inject(JupyterBridgeService);
 
   @Input() analysisId!: string;
@@ -30,6 +34,13 @@ export class NotebooksComponent implements OnInit, OnDestroy {
   errorMessage: string | null = null;
   profile: ComputeProfile | null = null;
   iframeUrl: SafeResourceUrl | null = null;
+
+  // Custom image selection
+  customImages: NotebookImageDto[] = [];
+  selectedImageId = '';
+  activeImageId: string | null = null;
+  activeImageName: string | null = null;
+  switchingImage = false;
 
   // Bridge-driven toolbar state
   sidebarVisible = false;
@@ -72,6 +83,12 @@ export class NotebooksComponent implements OnInit, OnDestroy {
       this.profile = profiles[0] ?? null;
     });
 
+    this.notebookImageService.listImages().pipe(
+      catchError(() => of([] as NotebookImageDto[]))
+    ).subscribe((images) => {
+      this.customImages = images.filter((img) => img.status === 'READY');
+    });
+
     this.refreshStatus();
   }
 
@@ -85,7 +102,8 @@ export class NotebooksComponent implements OnInit, OnDestroy {
     this.errorMessage = null;
     this.status = 'PENDING';
     this.statusMessage = 'Starting notebook server...';
-    this.workspaceService.launchWorkspace(this.analysisId, this.profile?.id ?? 'exploratory').subscribe({
+    const imageId = this.selectedImageId || undefined;
+    this.workspaceService.launchWorkspace(this.analysisId, this.profile?.id ?? 'exploratory', imageId).subscribe({
       next: () => this.startPolling(),
       error: (error) => {
         this.status = 'FAILED';
@@ -112,6 +130,64 @@ export class NotebooksComponent implements OnInit, OnDestroy {
 
   retry(): void {
     this.launchWorkspace();
+  }
+
+  onImageChange(newImageId: string): void {
+    // If workspace is not running, just update the selection for next launch
+    if (this.status === 'STOPPED' || this.status === 'FAILED') {
+      this.selectedImageId = newImageId;
+      return;
+    }
+    // Workspace is running — confirm restart
+    const currentName = this.activeImageName || 'Default Platform Image';
+    const newName = this.resolveImageName(newImageId);
+    const confirmed = window.confirm(
+      `Switching from "${currentName}" to "${newName}" will restart your workspace.\n\n` +
+      `All your work is saved and will be available after restart.\n\nContinue?`
+    );
+    if (!confirmed) {
+      // Force revert: temporarily clear then restore to trigger Angular change detection
+      this.selectedImageId = '';
+      this.cdr.detectChanges();
+      this.selectedImageId = this.activeImageId ?? '';
+      return;
+    }
+    this.switchingImage = true;
+    this.selectedImageId = newImageId;
+    // Terminate then relaunch with new image
+    this.stopKernelPolling();
+    this.workspaceService.terminateWorkspace(this.analysisId).subscribe({
+      next: () => {
+        this.iframeUrl = null;
+        this.kernelStatus = 'unknown';
+        this.bridgeService.destroy();
+        this.status = 'PENDING';
+        this.statusMessage = 'Restarting workspace with new image...';
+        const imageId = this.selectedImageId || undefined;
+        this.workspaceService.launchWorkspace(this.analysisId, this.profile?.id ?? 'exploratory', imageId).subscribe({
+          next: () => {
+            this.switchingImage = false;
+            this.startPolling();
+          },
+          error: (error) => {
+            this.switchingImage = false;
+            this.status = 'FAILED';
+            this.errorMessage = error?.error?.message ?? 'Unable to relaunch workspace with new image.';
+          }
+        });
+      },
+      error: () => {
+        this.switchingImage = false;
+        this.selectedImageId = this.activeImageId ?? '';
+        this.errorMessage = 'Failed to terminate workspace for image switch.';
+      }
+    });
+  }
+
+  private resolveImageName(imageId: string): string {
+    if (!imageId) return 'Default Platform Image';
+    const img = this.customImages.find(i => i.id === imageId);
+    return img ? `${img.name} (Python ${img.pythonVersion})` : 'Custom Image';
   }
 
   // Bridge toolbar actions
@@ -328,6 +404,13 @@ export class NotebooksComponent implements OnInit, OnDestroy {
   private applyStatus(status: WorkspaceStatus): void {
     this.status = status.status;
     this.statusMessage = status.message ?? `Workspace status: ${status.status}`;
+    // Track active image from backend
+    this.activeImageId = status.notebookImageId ?? null;
+    this.activeImageName = status.notebookImageName ?? null;
+    // Sync selector to active image (unless user is mid-switch)
+    if (!this.switchingImage) {
+      this.selectedImageId = this.activeImageId ?? '';
+    }
     if (status.status === 'STOPPED') {
       this.iframeUrl = null;
       this.stopKernelPolling();

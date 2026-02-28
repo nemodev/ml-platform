@@ -1,0 +1,97 @@
+<section class="build-detail-page">
+  <header class="page-header">
+    <div>
+      <a routerLink="/notebook-images" class="back-link">&larr; Back to Images</a>
+      <h2 *ngIf="image">{{ image.name }}</h2>
+    </div>
+    <button type="button" *ngIf="image" (click)="triggerRebuild()" [disabled]="rebuildSubmitting">
+      {{ rebuildSubmitting ? 'Starting...' : 'Rebuild' }}
+    </button>
+  </header>
+
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <div class="loading-block" *ngIf="loading">Loading image details...</div>
+
+  <div class="detail-grid" *ngIf="image && !loading">
+    <section class="card image-info">
+      <h3>Image Details</h3>
+      <dl>
+        <dt>Python Version</dt>
+        <dd>{{ image.pythonVersion }}</dd>
+        <dt>Status</dt>
+        <dd>
+          <span class="status-badge" [class]="statusClass(image.status)">{{ image.status }}</span>
+        </dd>
+        <dt>Packages</dt>
+        <dd>{{ image.packageCount }} package(s)</dd>
+        <dt>Image Reference</dt>
+        <dd class="mono">{{ image.imageReference ?? 'Not built yet' }}</dd>
+        <dt>Created</dt>
+        <dd>{{ image.createdAt | date: 'medium' }}</dd>
+      </dl>
+      <div class="packages-block" *ngIf="image.packages">
+        <h4>Package List</h4>
+        <pre>{{ image.packages }}</pre>
+      </div>
+      <div class="error-block" *ngIf="image.errorMessage">
+        <h4>Error</h4>
+        <p>{{ image.errorMessage }}</p>
+      </div>
+    </section>
+
+    <section class="card builds-panel">
+      <header class="card-header">
+        <h3>Builds</h3>
+        <span>{{ builds.length }} total</span>
+      </header>
+
+      <div class="build-list">
+        <button
+          type="button"
+          class="build-item"
+          *ngFor="let build of builds"
+          [class.selected]="selectedBuild?.id === build.id"
+          (click)="selectBuild(build)"
+        >
+          <span class="status-badge small" [class]="statusClass(build.status)">{{ build.status }}</span>
+          <span class="build-date">{{ build.createdAt | date: 'short' }}</span>
+          <span class="build-stage" *ngIf="build.progressStage">{{ build.progressStage }}</span>
+        </button>
+        <p class="empty" *ngIf="builds.length === 0">No builds yet. Click "Rebuild" to start one.</p>
+      </div>
+
+      <div class="build-progress" *ngIf="selectedBuild && (selectedBuild.status === 'QUEUED' || selectedBuild.status === 'BUILDING' || selectedBuild.status === 'SUCCEEDED')">
+        <div class="progress-steps">
+          <div
+            class="step"
+            *ngFor="let stage of buildStages; let i = index"
+            [ngClass]="{
+              'complete': isStageComplete(i),
+              'active': isStageActive(i)
+            }"
+          >
+            <div class="step-dot">
+              <span *ngIf="isStageComplete(i)">&#10003;</span>
+              <span class="spinner-dot" *ngIf="isStageActive(i) && selectedBuild.status !== 'SUCCEEDED'"></span>
+            </div>
+            <span class="step-label">{{ stage }}</span>
+          </div>
+        </div>
+        <div class="elapsed" *ngIf="elapsedTime">
+          Elapsed: {{ elapsedTime }}
+        </div>
+      </div>
+
+      <div class="build-logs" *ngIf="selectedBuild">
+        <header class="logs-header">
+          <h4>Build Logs</h4>
+          <span class="build-stage-label" *ngIf="selectedBuild.progressStage">
+            Stage: {{ selectedBuild.progressStage }}
+          </span>
+        </header>
+        <div class="loading-block" *ngIf="loadingLogs">Loading logs...</div>
+        <pre class="logs-content" *ngIf="!loadingLogs">{{ buildLogs || 'No logs available.' }}</pre>
+      </div>
+    </section>
+  </div>
+</section>

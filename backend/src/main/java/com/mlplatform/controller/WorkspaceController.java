@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/analyses/{analysisId}/workspaces")
 public class WorkspaceController {
 
-    public record LaunchWorkspaceRequest(String profile) {}
+    public record LaunchWorkspaceRequest(String profile, UUID notebookImageId) {}
 
     private final WorkspaceService workspaceService;
 
@@ -43,7 +43,8 @@ public class WorkspaceController {
             @RequestBody(required = false) LaunchWorkspaceRequest request
     ) {
         String profile = request == null ? null : request.profile();
-        WorkspaceStatusDto response = workspaceService.launchWorkspace(jwt, analysisId, profile);
+        UUID notebookImageId = request == null ? null : request.notebookImageId();
+        WorkspaceStatusDto response = workspaceService.launchWorkspace(jwt, analysisId, profile, notebookImageId);
         return ResponseEntity.accepted().body(response);
     }
 

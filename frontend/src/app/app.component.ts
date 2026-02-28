@@ -1,9 +1,11 @@
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { filter, map, switchMap, take } from 'rxjs';
+import { Subscription, filter, map, switchMap, take, timer } from 'rxjs';
 import { AuthService } from './core/services/auth.service';
+import { NotificationService } from './core/services/notification.service';
+import { NotificationBannerComponent } from './shared/notification-banner/notification-banner.component';
 import { environment } from '../environments/environment';
 
 interface PortalSection {
@@ -17,13 +19,16 @@ interface PortalSection {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, AsyncPipe, NgFor, NgIf],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, AsyncPipe, NgFor, NgIf, NotificationBannerComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly http = inject(HttpClient);
+  private readonly notificationService = inject(NotificationService);
+
+  private notificationPollSub?: Subscription;
 
   readonly username$ = this.authService.username$;
   readonly initError$ = this.authService.initError$;
@@ -32,7 +37,8 @@ export class AppComponent implements OnInit {
     { id: 'dashboard', name: 'Dashboard', path: '/dashboard', enabled: true },
     { id: 'analyses', name: 'Analyses', path: '/analyses', enabled: true },
     { id: 'models', name: 'Models', path: '/models', enabled: true },
-    { id: 'pipelines', name: 'Pipelines', path: '/pipelines', enabled: true }
+    { id: 'pipelines', name: 'Pipelines', path: '/pipelines', enabled: true },
+    { id: 'notebook-images', name: 'Custom Images', path: '/notebook-images', enabled: true }
   ];
 
   ngOnInit(): void {
@@ -50,6 +56,15 @@ export class AppComponent implements OnInit {
         // Keep default static sections when backend is unavailable.
       }
     });
+
+    // Poll for build notifications (first after 5s, then every 30s)
+    this.notificationPollSub = timer(5000, 30000).subscribe(() => {
+      this.notificationService.pollNotifications();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.notificationPollSub?.unsubscribe();
   }
 
   logout(): void {

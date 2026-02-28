@@ -16,7 +16,8 @@ public class PortalController {
                 new PortalSectionResponse("dashboard", "Dashboard", "/dashboard", "home", true),
                 new PortalSectionResponse("analyses", "Analyses", "/analyses", "folder", true),
                 new PortalSectionResponse("models", "Models", "/models", "cpu", true),
-                new PortalSectionResponse("pipelines", "Pipelines", "/pipelines", "workflow", true)
+                new PortalSectionResponse("pipelines", "Pipelines", "/pipelines", "workflow", true),
+                new PortalSectionResponse("notebook-images", "Custom Images", "/notebook-images", "layers", true)
         );
     }
 }

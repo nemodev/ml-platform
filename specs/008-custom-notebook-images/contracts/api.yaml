@@ -1,0 +1,419 @@
+openapi: 3.1.0
+info:
+  title: Custom Notebook Images API
+  version: 1.0.0
+  description: >
+    API for managing custom notebook images in the ML Platform.
+    All endpoints require a valid Keycloak JWT in the Authorization header.
+
+servers:
+  - url: /api/v1
+
+paths:
+  /notebook-images:
+    get:
+      operationId: listNotebookImages
+      summary: List the authenticated user's custom notebook images
+      tags: [Notebook Images]
+      responses:
+        "200":
+          description: List of notebook images
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotebookImageDto"
+
+    post:
+      operationId: createNotebookImage
+      summary: Create a new custom notebook image definition
+      tags: [Notebook Images]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNotebookImageRequest"
+      responses:
+        "201":
+          description: Image definition created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotebookImageDto"
+        "400":
+          description: Invalid input (unsupported Python version, malformed package syntax)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Image with this name already exists for the user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /notebook-images/{imageId}:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+
+    get:
+      operationId: getNotebookImage
+      summary: Get a notebook image by ID with latest build info
+      tags: [Notebook Images]
+      responses:
+        "200":
+          description: Notebook image detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotebookImageDetailDto"
+        "404":
+          description: Image not found or not owned by user
+
+    put:
+      operationId: updateNotebookImage
+      summary: Update an image definition (name, packages, Python version, pip index URL)
+      tags: [Notebook Images]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNotebookImageRequest"
+      responses:
+        "200":
+          description: Image definition updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotebookImageDto"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Image not found or not owned by user
+
+    delete:
+      operationId: deleteNotebookImage
+      summary: Delete a notebook image and its builds
+      tags: [Notebook Images]
+      responses:
+        "204":
+          description: Image deleted
+        "404":
+          description: Image not found or not owned by user
+        "409":
+          description: Image is in use by an active workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /notebook-images/{imageId}/builds:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+
+    get:
+      operationId: listBuilds
+      summary: List build history for an image
+      tags: [Image Builds]
+      responses:
+        "200":
+          description: List of builds (most recent first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImageBuildDto"
+        "404":
+          description: Image not found or not owned by user
+
+    post:
+      operationId: triggerBuild
+      summary: Trigger a new build for the image definition
+      tags: [Image Builds]
+      responses:
+        "202":
+          description: Build queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageBuildDto"
+        "404":
+          description: Image not found or not owned by user
+        "409":
+          description: User already has an active build
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Cluster build capacity reached (3 concurrent builds)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /notebook-images/{imageId}/builds/{buildId}:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+      - $ref: "#/components/parameters/BuildId"
+
+    get:
+      operationId: getBuild
+      summary: Get build status, progress, and elapsed time
+      tags: [Image Builds]
+      responses:
+        "200":
+          description: Build detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageBuildDetailDto"
+        "404":
+          description: Build not found
+
+  /notebook-images/{imageId}/builds/{buildId}/logs:
+    parameters:
+      - $ref: "#/components/parameters/ImageId"
+      - $ref: "#/components/parameters/BuildId"
+
+    get:
+      operationId: getBuildLogs
+      summary: Get full build logs
+      tags: [Image Builds]
+      responses:
+        "200":
+          description: Build logs as plain text
+          content:
+            text/plain:
+              schema:
+                type: string
+        "404":
+          description: Build not found
+
+  /notebook-images/python-versions:
+    get:
+      operationId: listPythonVersions
+      summary: List supported Python versions for custom images
+      tags: [Notebook Images]
+      responses:
+        "200":
+          description: List of supported Python version strings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example: ["3.10", "3.11", "3.12"]
+
+  /notifications:
+    get:
+      operationId: getNotifications
+      summary: Poll for recent notification events (build completions, failures)
+      tags: [Notifications]
+      parameters:
+        - name: since
+          in: query
+          required: false
+          description: ISO-8601 timestamp. Returns events after this time. Defaults to 60 seconds ago.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Recent notification events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationDto"
+
+components:
+  parameters:
+    ImageId:
+      name: imageId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    BuildId:
+      name: buildId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    CreateNotebookImageRequest:
+      type: object
+      required: [name, pythonVersion]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: User-assigned image name
+          example: "my-ml-environment"
+        pythonVersion:
+          type: string
+          description: Python version (must be in supported list)
+          example: "3.11"
+        packages:
+          type: string
+          description: >
+            Newline-separated pip package specs (requirements.txt format).
+            Nullable for images with only the base platform tooling.
+          example: "scikit-learn==1.4.0\nxgboost>=2.0\nlightgbm"
+        extraPipIndexUrl:
+          type: string
+          description: Optional extra pip index URL for private packages
+          example: "https://pypi.mycompany.com/simple/"
+
+    UpdateNotebookImageRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        pythonVersion:
+          type: string
+        packages:
+          type: string
+        extraPipIndexUrl:
+          type: string
+          nullable: true
+
+    NotebookImageDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        pythonVersion:
+          type: string
+        packageCount:
+          type: integer
+          description: Number of packages in the definition
+        status:
+          type: string
+          enum: [PENDING, BUILDING, READY, FAILED]
+        imageReference:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    NotebookImageDetailDto:
+      allOf:
+        - $ref: "#/components/schemas/NotebookImageDto"
+        - type: object
+          properties:
+            packages:
+              type: string
+              description: Full package list
+            extraPipIndexUrl:
+              type: string
+              nullable: true
+            errorMessage:
+              type: string
+              nullable: true
+            latestBuild:
+              $ref: "#/components/schemas/ImageBuildDto"
+
+    ImageBuildDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [QUEUED, BUILDING, SUCCEEDED, FAILED, CANCELLED]
+        progressStage:
+          type: string
+          nullable: true
+        imageReference:
+          type: string
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ImageBuildDetailDto:
+      allOf:
+        - $ref: "#/components/schemas/ImageBuildDto"
+        - type: object
+          properties:
+            elapsedSeconds:
+              type: integer
+              description: Seconds since build started (or total duration if complete)
+            notebookImageId:
+              type: string
+              format: uuid
+            notebookImageName:
+              type: string
+
+    NotificationDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [BUILD_SUCCEEDED, BUILD_FAILED]
+        message:
+          type: string
+          description: Human-readable notification message
+        resourceId:
+          type: string
+          format: uuid
+          description: ID of the related resource (notebook image ID)
+        resourceName:
+          type: string
+          description: Name of the related resource (notebook image name)
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        title:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
