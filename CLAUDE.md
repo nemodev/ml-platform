@@ -1,6 +1,6 @@
 # ml-platform Development Guidelines
 
-Last updated: 2026-02-21
+Last updated: 2026-02-28
 
 ## Quick Reference
 
@@ -32,7 +32,7 @@ infrastructure/      # Helm charts, K8s manifests, Docker images, deploy scripts
   helm/              # jupyterhub/, mlflow/, minio/, airflow/
   k8s/               # keycloak/, airflow/, sample-data/, platform/
   scripts/           # deploy-full-stack.sh, port-forward.sh
-specs/               # Feature specifications (001-007, speckit format)
+specs/               # Feature specifications (001-008, speckit format)
 docs/                # ARCHITECTURE.md — detailed architecture reference
 ```
 
@@ -69,13 +69,14 @@ bash infrastructure/scripts/deploy-full-stack.sh
 | 005 | Airflow Pipelines | PipelineController, PipelineService | pipelines, trigger-dialog, run-detail |
 | 006 | Model Serving | ModelController, ServingController, ServingService | models, deploy-dialog, predict-dialog |
 | 007 | Notebook UI Customization | AnalysisController, AnalysisService | analyses, analysis-layout |
+| 008 | Custom Notebook Images | NotebookImageController, NotebookImageService, ImageBuildService | notebook-images, image-create, image-detail |
 
 ## Key Architecture Notes
 
 - All API endpoints use `/api/v1/` prefix
 - Workspaces and experiments are **analysis-scoped**: `/api/v1/analyses/{analysisId}/workspaces`, `/api/v1/analyses/{analysisId}/experiments`
 - Test users: `user1`/`password1`, `user2`/`password2`
-- Database: 5 PostgreSQL databases (keycloak, ml_platform, mlflow, airflow, jupyterhub), 8 Flyway migrations
+- Database: 5 PostgreSQL databases (keycloak, ml_platform, mlflow, airflow, jupyterhub), 10 Flyway migrations
 - KServe runs in Standard mode (non-Knative Kubernetes deployment mode) in `ml-platform-serving` namespace
 - Single notebook image used for: JupyterHub servers, Airflow pipeline workers, Spark executors, data provisioning
 

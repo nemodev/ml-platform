@@ -2,7 +2,7 @@
 
 > **Purpose**: Single source of truth for this project. Another Claude session reading only this file should understand the entire codebase, architecture, and current state.
 >
-> **Last updated**: 2026-02-21 | **All 7 features implemented and verified**
+> **Last updated**: 2026-02-28 | **All 8 features implemented and verified**
 
 ---
 
@@ -42,7 +42,7 @@ All components share Keycloak SSO. The Spring Boot backend orchestrates everythi
 
 ## 3. Feature Status
 
-All 7 features are **implemented** and verified end-to-end on the r1 cluster.
+All 8 features are **implemented** and verified end-to-end on the r1 cluster.
 
 | # | Feature | Key Entities | Key Backend | Key Frontend |
 |---|---------|-------------|-------------|-------------|
@@ -53,6 +53,7 @@ All 7 features are **implemented** and verified end-to-end on the r1 cluster.
 | 005 | Airflow Pipelines | PipelineRun | PipelineController, PipelineService, AirflowService, NotebookStorageService | pipelines, trigger-dialog, run-detail |
 | 006 | Model Serving | ModelDeployment | ModelController, ServingController, ServingService, KServeService | models, deploy-dialog, deployments, predict-dialog |
 | 007 | Notebook UI Customization | Analysis | AnalysisController, AnalysisService | analyses, analysis-layout, jupyter-bridge.service |
+| 008 | Custom Notebook Images | NotebookImage, ImageBuild | NotebookImageController, NotebookImageService, ImageBuildService | notebook-images, image-create, image-detail |
 
 ### Feature Dependency Chain
 
@@ -64,6 +65,7 @@ All 7 features are **implemented** and verified end-to-end on the r1 cluster.
               │                    └──► 006-Model Serving & Inference
               ├──► 004-Sample Delta Lake Data
               └──► 007-Notebook UI Customization (Analysis entity)
+                        └──► 008-Custom Notebook Images (workspace image selection)
 ```
 
 ---
@@ -142,12 +144,12 @@ All 7 features are **implemented** and verified end-to-end on the r1 cluster.
 | Database | Owner | Purpose |
 |----------|-------|---------|
 | `keycloak` | Keycloak | OIDC realm, users, clients, sessions |
-| `ml_platform` | Spring Boot | Application entities (users, analyses, workspaces, pipeline_runs, model_deployments) |
+| `ml_platform` | Spring Boot | Application entities (users, analyses, workspaces, pipeline_runs, model_deployments, notebook_images, image_builds) |
 | `mlflow` | MLflow | Experiment metadata, run metrics, model registry |
 | `airflow` | Airflow | DAG definitions, task instances, XCom |
 | `jupyterhub` | JupyterHub | Hub state, user servers, API tokens |
 
-### Application Tables (Flyway-managed, 8 migrations)
+### Application Tables (Flyway-managed, 10 migrations)
 
 ```sql
 -- V1: users
@@ -222,6 +224,41 @@ model_deployments (
 )
 -- Status values: DEPLOYING | READY | FAILED | DELETING | DELETED
 -- Constraint: UNIQUE(endpoint_name) WHERE deleted_at IS NULL
+
+-- V9: notebook_images
+notebook_images (
+    id              UUID PRIMARY KEY,
+    user_id         UUID NOT NULL → users(id),
+    name            VARCHAR(255) NOT NULL,
+    python_version  VARCHAR(10) NOT NULL,
+    packages        TEXT,
+    extra_pip_index_url VARCHAR(1024),
+    status          VARCHAR(20) DEFAULT 'PENDING',
+    image_reference VARCHAR(512),
+    error_message   VARCHAR(1000),
+    created_at      TIMESTAMPTZ NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL
+)
+-- Status values: PENDING | BUILDING | READY | FAILED
+-- Constraint: UNIQUE(user_id, name)
+
+-- V9: image_builds
+image_builds (
+    id                  UUID PRIMARY KEY,
+    notebook_image_id   UUID NOT NULL → notebook_images(id) ON DELETE CASCADE,
+    status              VARCHAR(20) DEFAULT 'QUEUED',
+    progress_stage      VARCHAR(100),
+    build_logs          TEXT,
+    image_reference     VARCHAR(512),
+    error_message       VARCHAR(1000),
+    k8s_job_name        VARCHAR(255),
+    started_at          TIMESTAMPTZ,
+    completed_at        TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ NOT NULL
+)
+-- Status values: QUEUED | BUILDING | SUCCEEDED | FAILED | CANCELLED
+
+-- V10: workspaces.notebook_image_id → notebook_images(id)
 ```
 
 ### Flyway Migrations
@@ -234,6 +271,8 @@ model_deployments (
 | `V006__create_model_deployments.sql` | Model deployments table |
 | `V007__adjust_model_deployment_endpoint_uniqueness.sql` | Partial unique index (active only) |
 | `V008__create_analyses_and_link_workspaces.sql` | Analyses table + workspace FK |
+| `V009__create_notebook_images_and_builds.sql` | Notebook images + image builds tables |
+| `V010__add_notebook_image_id_to_workspaces.sql` | Workspace → notebook_images FK |
 
 ### MinIO Buckets
 
@@ -326,6 +365,20 @@ GET    /v1/models                 → [{name, latestVersion, description}]
 GET    /v1/models/{name}/versions → [{version, status, stage, artifactUri}]
 ```
 
+### Notebook Images (Custom Images)
+
+```
+POST   /v1/notebook-images           → {id, name, pythonVersion, status}
+         Body: {name, pythonVersion, packages, extraPipIndexUrl}
+GET    /v1/notebook-images           → [{id, name, pythonVersion, status}]
+GET    /v1/notebook-images/{id}      → {id, name, pythonVersion, packages, status, builds[]}
+DELETE /v1/notebook-images/{id}      → 204
+POST   /v1/notebook-images/{id}/builds → {id, status}  (trigger rebuild)
+GET    /v1/notebook-images/{id}/builds → [{id, status, progressStage}]
+GET    /v1/notebook-images/{id}/builds/{buildId} → {id, status, buildLogs}
+GET    /v1/notebook-images/python-versions → ["3.10", "3.11", "3.12"]
+```
+
 ### Serving (KServe Deployments)
 
 ```
@@ -350,7 +403,7 @@ ml-platform/
 │   └── src/main/
 │       ├── java/com/mlplatform/
 │       │   ├── config/                         # SecurityConfig, CorsConfig, *Config (8 files)
-│       │   ├── controller/                     # 9 controllers (see API Reference)
+│       │   ├── controller/                     # 10 controllers (see API Reference)
 │       │   │   ├── AnalysisController.java     # /api/v1/analyses
 │       │   │   ├── AuthController.java         # /api/v1/auth
 │       │   │   ├── ExperimentController.java   # /api/v1/analyses/{id}/experiments + mlflow-proxy
@@ -361,13 +414,13 @@ ml-platform/
 │       │   │   ├── ServingController.java      # /api/v1/serving/deployments
 │       │   │   └── WorkspaceController.java    # /api/v1/analyses/{id}/workspaces
 │       │   ├── dto/                            # Java records (20+ DTOs)
-│       │   ├── model/                          # JPA entities: Analysis, ModelDeployment, PipelineRun, User, Workspace
+│       │   ├── model/                          # JPA entities: Analysis, ImageBuild, ModelDeployment, NotebookImage, PipelineRun, User, Workspace
 │       │   ├── repository/                     # Spring Data JPA interfaces
 │       │   └── service/                        # 11 services + 4 *UnavailableException
 │       └── resources/
 │           ├── application.yaml
 │           ├── application-dev.yaml
-│           └── db/migration/                   # V1, V2, V005, V006, V007, V008
+│           └── db/migration/                   # V1, V2, V005-V010
 │
 ├── frontend/
 │   └── src/app/
@@ -384,7 +437,8 @@ ml-platform/
 │           ├── models/                         # Registry + deployments + deploy/predict dialogs
 │           ├── notebooks/                      # Embedded via analysis-layout iframe
 │           ├── experiments/                    # Embedded via analysis-layout iframe
-│           └── pipelines/                      # Run list + trigger-dialog + run-detail
+│           ├── pipelines/                      # Run list + trigger-dialog + run-detail
+│           └── notebook-images/               # Image list + create + detail + build progress
 │
 ├── infrastructure/
 │   ├── docker/notebook-image/                  # scipy-notebook + Java + Spark + ML libs
@@ -412,7 +466,8 @@ ml-platform/
 │   ├── 004-sample-delta-data/
 │   ├── 005-airflow-notebook-pipeline/
 │   ├── 006-model-serving-inference/
-│   └── 007-notebook-ui-customization/
+│   ├── 007-notebook-ui-customization/
+│   └── 008-custom-notebook-images/
 │
 ├── docs/ARCHITECTURE.md                        # Detailed architecture reference
 ├── CLAUDE.md                                   # AI agent quick-reference instructions
@@ -619,6 +674,9 @@ bash infrastructure/scripts/deploy-full-stack.sh
 | `/analyses/:id/experiments` | AnalysisLayoutComponent | Embedded MLflow UI iframe |
 | `/models` | ModelsComponent | Model registry + deployments |
 | `/pipelines` | PipelinesComponent | Pipeline runs + trigger dialog |
+| `/notebook-images` | NotebookImagesComponent | Custom notebook image management |
+| `/notebook-images/new` | ImageCreateComponent | Create a new custom image |
+| `/notebook-images/:id` | ImageDetailComponent | Image detail + build history |
 | `/notebooks` | redirect → `/analyses` | Backward compat |
 | `/experiments` | redirect → `/analyses` | Backward compat |
 
