@@ -107,13 +107,15 @@ paths:
         '409':
           description: Analysis has an active workspace that must be stopped first
 
-  /workspaces/profiles:
+  /analyses/{analysisId}/workspaces/profiles:
     get:
       summary: List available compute profiles
       description: >
         Returns the list of compute profiles available for launching
         notebook servers. For MVP, only the "Exploratory" profile
-        is returned. Profiles are not analysis-specific.
+        is returned.
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
       operationId: getProfiles
       tags: [Workspace]
       responses:
@@ -213,11 +215,20 @@ paths:
         Returns the JupyterLab URL for the analysis's running workspace.
         The URL includes the named server path segment. Used by the
         frontend to populate the iframe src attribute. Returns 404 if
-        no workspace is running.
+        no workspace is running. When notebookPath is provided, returns
+        a single-document mode URL (feature 007).
       operationId: getWorkspaceUrl
       tags: [Workspace]
       parameters:
         - $ref: '#/components/parameters/analysisId'
+        - name: notebookPath
+          in: query
+          required: false
+          description: >
+            Relative path to a specific notebook file. When provided,
+            the returned URL opens JupyterLab in single-document mode.
+          schema:
+            type: string
       responses:
         '200':
           description: JupyterLab URL
@@ -233,6 +244,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /analyses/{analysisId}/workspaces/kernel-status:
+    get:
+      summary: Get kernel status for the running workspace
+      description: >
+        Returns the current Jupyter kernel status for the analysis's
+        running workspace. Used by the portal toolbar to display
+        kernel state (feature 007).
+      operationId: getKernelStatus
+      tags: [Workspace]
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
+      responses:
+        '200':
+          description: Kernel status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [idle, busy, no_kernel, unknown]
+                    example: idle
+        '401':
+          description: Invalid or missing token
+        '404':
+          description: No running workspace for this analysis
 
 components:
   securitySchemes:
@@ -323,6 +363,13 @@ components:
             Compute profile ID. Defaults to "exploratory" if not
             specified.
           example: exploratory
+        notebookImageId:
+          type: string
+          format: uuid
+          description: >
+            Optional custom notebook image ID (from feature 008).
+            When provided, the workspace uses this image instead of
+            the default platform image.
 
     WorkspaceStatus:
       type: object
@@ -344,6 +391,13 @@ components:
         lastActivity:
           type: string
           format: date-time
+        notebookImageId:
+          type: string
+          format: uuid
+          description: Custom notebook image ID if one was selected
+        notebookImageName:
+          type: string
+          description: Display name of the custom notebook image
         message:
           type: string
           description: >

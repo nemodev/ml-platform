@@ -144,24 +144,29 @@ components:
       properties:
         id:
           type: string
-          example: notebooks
+          example: dashboard
         name:
           type: string
-          example: Notebooks
+          example: Dashboard
         path:
           type: string
           description: Frontend route path
-          example: /notebooks
+          example: /dashboard
         icon:
           type: string
-          description: Icon identifier
-          example: terminal
+          description: Material icon identifier
+          example: home
         enabled:
           type: boolean
           description: >
-            Whether the section is active. Placeholder sections
-            return enabled=true but load placeholder content.
+            Whether the section is active.
           example: true
+      example:
+        - { id: dashboard, name: Dashboard, path: /dashboard, icon: home, enabled: true }
+        - { id: analyses, name: Analyses, path: /analyses, icon: folder, enabled: true }
+        - { id: models, name: Models, path: /models, icon: cpu, enabled: true }
+        - { id: pipelines, name: Pipelines, path: /pipelines, icon: workflow, enabled: true }
+        - { id: notebook-images, name: Custom Images, path: /notebook-images, icon: layers, enabled: true }
 
     ErrorResponse:
       type: object

@@ -79,17 +79,17 @@ CREATE INDEX idx_pipeline_runs_created_at ON pipeline_runs(created_at);
 
 ## Object Storage Layout
 
+Pipeline notebooks are stored in the `ml-platform-pipelines` bucket
+under the `ml-platform/pipelines` prefix (configured via
+`services.minio.pipelines-prefix` in `StorageConfig.java`).
+
 ```text
 s3://ml-platform-pipelines/
-├── {username}/
-│   └── {run-uuid}/
-│       ├── input.ipynb          # Snapshot of triggered notebook
-│       └── output.ipynb         # Executed notebook with cell outputs
-└── airflow-logs/
-    └── notebook_runner/
-        └── run_notebook/
-            └── {date}/
-                └── {attempt}.log  # Airflow task logs
+└── ml-platform/pipelines/
+    └── {username}/
+        └── {run-uuid}/
+            ├── input.ipynb          # Snapshot of triggered notebook
+            └── output.ipynb         # Executed notebook with cell outputs
 ```
 
 ## MinIO Buckets (Updated)

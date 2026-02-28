@@ -9,7 +9,7 @@ info:
   description: Extended workspace URL endpoint to support single-document mode via optional notebook path parameter.
 
 paths:
-  /api/v1/workspaces/url:
+  /api/v1/analyses/{analysisId}/workspaces/url:
     get:
       summary: Get workspace URL
       description: |
@@ -20,6 +20,13 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - name: analysisId
+          in: path
+          required: true
+          description: The UUID of the analysis
+          schema:
+            type: string
+            format: uuid
         - name: notebookPath
           in: query
           required: false

@@ -156,6 +156,45 @@ paths:
         '401':
           description: Invalid or missing token
 
+  /mlflow-proxy/{path}:
+    get:
+      summary: MLflow API reverse proxy
+      description: >
+        Proxies all requests to the MLflow tracking server, automatically
+        adding user-and-analysis-prefixed experiment name filtering.
+        This endpoint supports all MLflow REST API paths (GET/POST/etc.)
+        and is used by the embedded MLflow UI iframe. The proxy ensures
+        users only see their own experiments within the active analysis.
+      operationId: mlflowProxy
+      tags: [MLflow Proxy]
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: MLflow API path (e.g., api/2.0/mlflow/experiments/search)
+      responses:
+        '200':
+          description: Proxied MLflow response
+        '401':
+          description: Invalid or missing token
+    post:
+      summary: MLflow API reverse proxy (POST)
+      operationId: mlflowProxyPost
+      tags: [MLflow Proxy]
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Proxied MLflow response
+        '401':
+          description: Invalid or missing token
+
 components:
   securitySchemes:
     bearerAuth:
@@ -219,8 +258,18 @@ components:
           type: string
         name:
           type: string
+        artifactLocation:
+          type: string
+          description: S3 URI for experiment artifacts
+          example: s3://ml-platform-mlflow/artifacts/1
         lifecycleStage:
           type: string
+        creationTime:
+          type: string
+          format: date-time
+        lastUpdateTime:
+          type: string
+          format: date-time
         runs:
           type: array
           items:
