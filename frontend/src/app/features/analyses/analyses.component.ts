@@ -15,6 +15,8 @@ export class AnalysesComponent implements OnInit {
   private readonly analysisService = inject(AnalysisService);
   private readonly router = inject(Router);
 
+  private static readonly AUTO_OPEN_KEY = 'analyses.autoOpened';
+
   analyses: AnalysisInfo[] = [];
   loading = true;
   errorMessage: string | null = null;
@@ -88,8 +90,9 @@ export class AnalysesComponent implements OnInit {
       next: (analyses) => {
         this.analyses = analyses;
         this.loading = false;
-        // Auto-open if the user has exactly one analysis
-        if (analyses.length === 1) {
+        // Auto-open once per tab session when the user has exactly one analysis
+        if (analyses.length === 1 && !sessionStorage.getItem(AnalysesComponent.AUTO_OPEN_KEY)) {
+          sessionStorage.setItem(AnalysesComponent.AUTO_OPEN_KEY, '1');
           this.openAnalysis(analyses[0]);
         }
       },
