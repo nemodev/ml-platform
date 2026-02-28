@@ -2,10 +2,15 @@
 
 **Feature Branch**: `004-sample-delta-data`
 **Created**: 2026-02-16
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Sample Delta Lake Data"
 
 **Depends on**: `002-jupyterhub-notebook` (notebook environment for data access)
+
+**Note**: The notebook image includes both `deltalake` (pure Python) and
+`pyspark` with Spark 4.0.1 for Delta Lake access. The pure Python
+`deltalake` library is sufficient for sample data; Spark is available
+for larger-scale processing.
 
 ## Clarifications
 

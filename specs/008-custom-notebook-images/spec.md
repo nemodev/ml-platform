@@ -2,7 +2,7 @@
 
 **Feature Branch**: `008-custom-notebook-images`
 **Created**: 2026-02-27
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Custom notebook image builder feature. Users define a Python version and package list to build a custom notebook image from the platform's base image. The platform deploys a lightweight container registry by default but supports external registries via backend configuration. In-cluster image builds use an open-source builder with build progress monitoring and completion notifications."
 
 ## User Scenarios & Testing *(mandatory)*

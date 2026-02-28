@@ -2,7 +2,7 @@
 
 **Feature Branch**: `002-jupyterhub-notebook`
 **Created**: 2026-02-16
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "JupyterHub Notebook Embedding"
 
 **Depends on**: `001-keycloak-auth-portal` (authenticated portal shell)

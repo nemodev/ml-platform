@@ -2,12 +2,14 @@
 
 **Feature Branch**: `005-airflow-notebook-pipeline`
 **Created**: 2026-02-16
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Airflow Notebook Pipeline"
 
 **Depends on**: `001-keycloak-auth-portal` (portal shell),
 `002-jupyterhub-notebook` (notebook environment),
 `003-mlflow-experiment-tracking` (experiment logging from notebooks)
+
+**Runtime**: Apache Airflow 2.10.3, Apache Spark 4.0.1
 
 ## Clarifications
 

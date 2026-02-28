@@ -2,7 +2,7 @@
 
 **Feature Branch**: `007-notebook-ui-customization`
 **Created**: 2026-02-17
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Customize the embedded JupyterLab notebook UI to hide redundant chrome (menu bar, header, status bar, sidebar) and provide seamless visual integration within the Angular portal, using a tiered approach from configuration-only quick wins to a command bridge for dynamic iframe control."
 
 ## Clarifications
@@ -28,7 +28,7 @@ A data user navigates to the Notebooks section of the ML Platform portal and lau
 1. **Given** a user has a running workspace, **When** the JupyterLab iframe loads in the portal, **Then** the JupyterLab main menu bar (File, Edit, View, Run, etc.) is not visible.
 2. **Given** a user has a running workspace, **When** the JupyterLab iframe loads in the portal, **Then** the bottom status bar is not visible.
 3. **Given** a user has a running workspace, **When** the JupyterLab iframe loads in the portal, **Then** no announcement popups or update-check notifications appear.
-4. **Given** a user has a running workspace, **When** the JupyterLab iframe loads, **Then** the notebook cell toolbar (Run, Stop, Restart Kernel) remains visible and functional.
+4. **Given** a user has a running workspace, **When** the JupyterLab iframe loads, **Then** the in-notebook toolbar is hidden (the portal's own toolbar provides Run, Save, Restart Kernel, and other actions via the command bridge).
 5. **Given** a user accesses JupyterLab directly (not via the portal iframe), **When** JupyterLab loads, **Then** the same clean configuration applies (acceptable trade-off for embedded-first deployment).
 
 ---
@@ -83,12 +83,12 @@ A data user opens a specific notebook from a pipeline run detail page or from a 
 - **FR-001**: System MUST hide the JupyterLab main menu bar (File, Edit, View, Run, Kernel, Settings, Help) in the embedded notebook view. This removal is permanent (not toggleable) since the portal toolbar replaces its functionality.
 - **FR-002**: System MUST hide the JupyterLab bottom status bar in the embedded notebook view. This removal is permanent since kernel status is displayed in the portal toolbar.
 - **FR-003**: System MUST suppress JupyterLab announcement popups and update-check notifications in the embedded notebook view.
-- **FR-004**: System MUST preserve the notebook cell toolbar (Run, Stop, Restart Kernel buttons) so users can interact with cells. All JupyterLab keyboard shortcuts (e.g., Shift+Enter to run cell, Ctrl+S to save) MUST remain functional — menu bar removal is visual-only and MUST NOT disable the underlying shortcut system.
-- **FR-005**: System MUST provide a portal toolbar above the embedded iframe with controls for: toggling the file browser sidebar, switching theme (light/dark), running all cells, and saving the notebook.
+- **FR-004**: System MUST hide the in-notebook toolbar (`.jp-NotebookPanel-toolbar`) via CSS (`display:none!important`) since the portal toolbar replaces its functionality. All JupyterLab keyboard shortcuts (e.g., Shift+Enter to run cell, Ctrl+S to save) MUST remain functional — toolbar removal is visual-only and MUST NOT disable the underlying shortcut system.
+- **FR-005**: System MUST provide a portal toolbar above the embedded iframe with controls for: toggling the file browser sidebar, switching theme (light/dark), running all cells, saving the notebook, interrupting/restarting kernel, clearing outputs, inserting/moving cells, undo/redo, toggling line numbers/header, and opening the command palette.
 - **FR-012**: System MUST treat the file browser sidebar as a toggleable element (hidden by default on load, user can show/hide via portal toolbar) rather than permanently removed, since users require multi-file workflows.
 - **FR-006**: System MUST display the current kernel status (Idle, Busy, Disconnected) in the portal toolbar.
 - **FR-007**: System MUST support opening a specific notebook in single-document mode via a URL path, bypassing the full JupyterLab workspace view.
-- **FR-008**: System MUST establish a communication bridge between the Angular portal and the embedded JupyterLab instance for sending commands and receiving status events.
+- **FR-008**: System MUST establish a communication bridge (using the `jupyter-iframe-commands-host` library) between the Angular portal and the embedded JupyterLab instance for sending commands and receiving status events.
 - **FR-009**: System MUST gracefully degrade when the communication bridge is unavailable — the embedded notebook should remain usable without portal toolbar controls.
 - **FR-010**: System MUST ensure that the communication bridge validates message origins to prevent cross-origin security issues.
 - **FR-011**: System MUST auto-sync the portal's current theme (light/dark) to the embedded notebook when the iframe first loads. The portal theme is authoritative; the notebook does not maintain an independent theme preference.
@@ -103,7 +103,7 @@ A data user opens a specific notebook from a pipeline run detail page or from a 
 
 ### Measurable Outcomes
 
-- **SC-001**: Users see no duplicate navigation chrome (menu bars, status bars) when viewing an embedded notebook — the only visible toolbar is the portal's own toolbar and the notebook cell toolbar.
+- **SC-001**: Users see no duplicate navigation chrome (menu bars, status bars, in-notebook toolbar) when viewing an embedded notebook — the only visible toolbar is the portal's own toolbar.
 - **SC-002**: Portal toolbar commands (toggle sidebar, change theme, run all, save) execute successfully within 2 seconds of the user clicking the control.
 - **SC-003**: Kernel status indicator in the portal reflects actual kernel state changes within 3 seconds of the state transition.
 - **SC-004**: The embedded notebook remains fully functional (cell execution, editing, saving) even when the command bridge is unavailable.

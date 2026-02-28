@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-keycloak-auth-portal`
 **Created**: 2026-02-16
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Keycloak Auth and Portal Shell"
 
 ## User Scenarios & Testing *(mandatory)*
@@ -44,11 +44,10 @@ with the user's identity displayed.
 ### User Story 2 - Portal Dashboard with Navigation (Priority: P2)
 
 After logging in, the user sees a minimal portal dashboard with a
-navigation sidebar or header. The navigation contains placeholders for
-future sections: Notebooks, Experiments, and Pipelines. Each navigation
-item leads to a dedicated area within the portal. For this feature, the
-content areas display placeholder pages confirming the section is
-accessible.
+navigation sidebar or header. The navigation contains sections: Dashboard, Analyses, Models, Pipelines,
+and Custom Images. The Analyses section opens individual analysis
+pages with Notebooks and Experiments as scoped tabs. Each navigation
+item leads to a dedicated area within the portal.
 
 **Why this priority**: The portal shell provides the container into
 which all subsequent features (notebooks, MLflow, Airflow) will be
@@ -62,17 +61,17 @@ within the portal.
 **Acceptance Scenarios**:
 
 1. **Given** an authenticated user on the dashboard, **When** they view
-   the navigation, **Then** they see menu items for Notebooks,
-   Experiments, and Pipelines.
+   the navigation, **Then** they see menu items for Dashboard, Analyses,
+   Models, Pipelines, and Custom Images.
 2. **Given** the navigation is visible, **When** the user clicks
-   "Notebooks", **Then** a placeholder page for the Notebooks section
-   loads within the portal frame.
+   "Analyses", **Then** the analyses list page loads within the portal
+   frame.
 3. **Given** the navigation is visible, **When** the user clicks
-   "Experiments", **Then** a placeholder page for the Experiments
-   section loads.
+   "Models", **Then** the models page loads.
 4. **Given** the navigation is visible, **When** the user clicks
-   "Pipelines", **Then** a placeholder page for the Pipelines section
-   loads.
+   "Pipelines", **Then** the pipelines page loads.
+5. **Given** the navigation is visible, **When** the user clicks
+   "Custom Images", **Then** the custom notebook images page loads.
 
 ---
 
@@ -125,7 +124,9 @@ re-authentication.
   use locally cached identity provider public keys so that requests
   succeed even during brief identity provider outages.
 - **FR-004**: The frontend MUST display a portal shell with navigation
-  to Notebooks, Experiments, and Pipelines sections.
+  to Dashboard, Analyses, Models, Pipelines, and Custom Images sections.
+  Notebooks and Experiments are accessed as tabs within individual
+  analysis pages, not as top-level navigation items.
 - **FR-005**: The frontend MUST display the authenticated user's name
   or username in the portal header.
 - **FR-006**: The system MUST provide a logout action that terminates
@@ -146,9 +147,9 @@ re-authentication.
   state. Access token expires after 1 hour; refresh token expires after
   24 hours. Tokens are silently refreshed in the background. Users MUST
   re-login after the refresh token expires.
-- **Portal Section**: A named area in the navigation (Notebooks,
-  Experiments, Pipelines) that will host embedded tools in later
-  features.
+- **Portal Section**: A named area in the navigation (Dashboard,
+  Analyses, Models, Pipelines, Custom Images). Notebooks and Experiments
+  are analysis-scoped tabs, not top-level sections.
 
 ### Assumptions
 

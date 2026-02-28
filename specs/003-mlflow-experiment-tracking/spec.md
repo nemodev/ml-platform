@@ -2,11 +2,13 @@
 
 **Feature Branch**: `003-mlflow-experiment-tracking`
 **Created**: 2026-02-16
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "MLflow Experiment Tracking"
 
 **Depends on**: `001-keycloak-auth-portal` (portal shell),
 `002-jupyterhub-notebook` (notebook environment)
+
+**Runtime**: MLflow 3.10.0
 
 ## Clarifications
 
