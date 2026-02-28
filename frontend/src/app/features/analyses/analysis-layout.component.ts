@@ -11,12 +11,17 @@ import { ExperimentsComponent } from '../experiments/experiments.component';
   standalone: true,
   imports: [NgIf, RouterLink, RouterLinkActive, NotebooksComponent, ExperimentsComponent],
   template: `
-    <nav class="analysis-tabs">
-      <span class="analysis-label" *ngIf="analysisName">{{ analysisName }}</span>
-      <span class="tab-separator" *ngIf="analysisName"></span>
-      <a [routerLink]="['notebooks']" routerLinkActive="active">Notebooks</a>
-      <a [routerLink]="['experiments']" routerLinkActive="active">Experiments</a>
-    </nav>
+    <div class="analysis-header">
+      <nav class="breadcrumb">
+        <a routerLink="/analyses" class="breadcrumb-link">Analyses</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current" *ngIf="analysisName">{{ analysisName }}</span>
+      </nav>
+      <nav class="analysis-tabs">
+        <a [routerLink]="['notebooks']" routerLinkActive="active">Notebooks</a>
+        <a [routerLink]="['experiments']" routerLinkActive="active">Experiments</a>
+      </nav>
+    </div>
     <!-- Notebooks: always in DOM (hidden when inactive) to preserve JupyterLab iframe state -->
     <div [style.display]="activeTab === 'notebooks' ? '' : 'none'">
       <app-notebooks *ngIf="analysisId" [analysisId]="analysisId"></app-notebooks>
@@ -25,31 +30,47 @@ import { ExperimentsComponent } from '../experiments/experiments.component';
     <app-experiments *ngIf="activeTab === 'experiments' && analysisId" [analysisId]="analysisId"></app-experiments>
   `,
   styles: [`
-    .analysis-tabs {
-      display: flex;
-      align-items: center;
-      gap: 0;
+    .analysis-header {
       border-bottom: 2px solid #e5e7eb;
       margin-bottom: 1rem;
     }
 
-    .analysis-label {
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.2rem 0;
+      font-size: 0.82rem;
+    }
+
+    .breadcrumb-link {
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .breadcrumb-link:hover {
+      text-decoration: underline;
+    }
+
+    .breadcrumb-sep {
+      color: #9ca3af;
+    }
+
+    .breadcrumb-current {
       color: #111827;
-      font-size: 0.9rem;
       font-weight: 600;
-      padding: 0.55rem 0 0.55rem 0.2rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 260px;
+      max-width: 360px;
     }
 
-    .tab-separator {
-      width: 1px;
-      height: 1.1rem;
-      background: #d1d5db;
-      margin: 0 0.75rem;
-      flex-shrink: 0;
+    .analysis-tabs {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-top: 0.25rem;
     }
 
     .analysis-tabs a {

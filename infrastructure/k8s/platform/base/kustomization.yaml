@@ -13,3 +13,4 @@ resources:
   - registry-service.yaml
   - registry-credentials-secret.yaml
   - kaniko-rbac.yaml
+  - jupyterlab-config-configmap.yaml

@@ -66,6 +66,12 @@ export class AnalysesComponent implements OnInit {
 
   deleteAnalysis(analysis: AnalysisInfo, event: Event): void {
     event.stopPropagation();
+    const confirmed = window.confirm(
+      `Delete "${analysis.name}"?\n\nThis will permanently remove the analysis and all associated workspace records. Your saved notebooks will remain in storage.`
+    );
+    if (!confirmed) {
+      return;
+    }
     this.analysisService.deleteAnalysis(analysis.id).subscribe({
       next: () => {
         this.analyses = this.analyses.filter(a => a.id !== analysis.id);
@@ -82,6 +88,10 @@ export class AnalysesComponent implements OnInit {
       next: (analyses) => {
         this.analyses = analyses;
         this.loading = false;
+        // Auto-open if the user has exactly one analysis
+        if (analyses.length === 1) {
+          this.openAnalysis(analyses[0]);
+        }
       },
       error: () => {
         this.errorMessage = 'Unable to load analyses.';

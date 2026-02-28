@@ -127,6 +127,9 @@ jupyterhub:
         - name: batch-inference-notebook
           configMap:
             name: batch-inference-notebook
+        - name: jupyterlab-config
+          configMap:
+            name: jupyterlab-config
       extraVolumeMounts:
         - name: sample-notebook
           mountPath: /home/jovyan/examples/sample-delta-data.ipynb
@@ -135,6 +138,16 @@ jupyterhub:
         - name: batch-inference-notebook
           mountPath: /home/jovyan/examples/batch-inference.ipynb
           subPath: batch-inference.ipynb
+          readOnly: true
+        # JupyterLab UI restrictions — mounted from ConfigMap so they apply
+        # regardless of which notebook image the user selects (default or custom).
+        - name: jupyterlab-config
+          mountPath: /opt/conda/etc/jupyter/labconfig/page_config.json
+          subPath: page_config.json
+          readOnly: true
+        - name: jupyterlab-config
+          mountPath: /opt/conda/share/jupyter/lab/settings/overrides.json
+          subPath: overrides.json
           readOnly: true
 
   cull:

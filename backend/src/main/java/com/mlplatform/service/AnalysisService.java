@@ -118,9 +118,11 @@ public class AnalysisService {
                 List.of(WorkspaceStatus.PENDING, WorkspaceStatus.RUNNING, WorkspaceStatus.IDLE)
         );
         if (!active.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete analysis with an active workspace");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete analysis with an active workspace. Please terminate the workspace first.");
         }
 
+        // Remove stopped/failed workspace records before deleting the analysis
+        workspaceRepository.deleteByAnalysisId(analysis.getId());
         analysisRepository.delete(analysis);
     }
 
