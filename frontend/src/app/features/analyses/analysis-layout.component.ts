@@ -1,15 +1,17 @@
 import { NgIf } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AnalysisService } from '../../core/services/analysis.service';
+import { WorkspaceService } from '../../core/services/workspace.service';
 import { NotebooksComponent } from '../notebooks/notebooks.component';
 import { ExperimentsComponent } from '../experiments/experiments.component';
+import { VisualizationComponent } from '../visualization/visualization.component';
 
 @Component({
   selector: 'app-analysis-layout',
   standalone: true,
-  imports: [NgIf, RouterLink, RouterLinkActive, NotebooksComponent, ExperimentsComponent],
+  imports: [NgIf, RouterLink, RouterLinkActive, NotebooksComponent, ExperimentsComponent, VisualizationComponent],
   template: `
     <div class="analysis-header">
       <nav class="breadcrumb">
@@ -20,6 +22,7 @@ import { ExperimentsComponent } from '../experiments/experiments.component';
       <nav class="analysis-tabs">
         <a [routerLink]="['notebooks']" routerLinkActive="active">Notebooks</a>
         <a [routerLink]="['experiments']" routerLinkActive="active">Experiments</a>
+        <a [routerLink]="['visualization']" routerLinkActive="active">Visualization</a>
       </nav>
     </div>
     <!-- Notebooks: always in DOM (hidden when inactive) to preserve JupyterLab iframe state -->
@@ -28,6 +31,10 @@ import { ExperimentsComponent } from '../experiments/experiments.component';
     </div>
     <!-- Experiments: recreated on each visit for fresh MLflow data -->
     <app-experiments *ngIf="activeTab === 'experiments' && analysisId" [analysisId]="analysisId"></app-experiments>
+    <!-- Visualization: always in DOM (hidden when inactive) to preserve Streamlit iframe state -->
+    <div [style.display]="activeTab === 'visualization' ? '' : 'none'">
+      <app-visualization *ngIf="analysisId" [analysisId]="analysisId" [workspaceRunning]="workspaceRunning" #vizComponent></app-visualization>
+    </div>
   `,
   styles: [`
     .analysis-header {
@@ -99,25 +106,39 @@ export class AnalysisLayoutComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly analysisService = inject(AnalysisService);
+  private readonly workspaceService = inject(WorkspaceService);
+
+  @ViewChild('vizComponent') vizComponent?: VisualizationComponent;
 
   analysisName: string | null = null;
   analysisId: string | null = null;
-  activeTab: 'notebooks' | 'experiments' = 'notebooks';
+  activeTab: 'notebooks' | 'experiments' | 'visualization' = 'notebooks';
+  workspaceRunning = false;
 
   private routerSub?: Subscription;
+  private vizInitialized = false;
 
   ngOnInit(): void {
     this.analysisId = this.route.snapshot.params['analysisId'];
 
     // Determine initial active tab from current URL
-    this.activeTab = this.router.url.includes('/experiments') ? 'experiments' : 'notebooks';
+    this.activeTab = this.resolveTab(this.router.url);
 
     // Sync active tab on future navigations
     this.routerSub = this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd)
     ).subscribe((e) => {
-      this.activeTab = e.urlAfterRedirects.includes('/experiments') ? 'experiments' : 'notebooks';
+      const newTab = this.resolveTab(e.urlAfterRedirects);
+      this.activeTab = newTab;
+      if (newTab === 'visualization') {
+        this.initVisualization();
+      }
     });
+
+    // If landing directly on visualization tab
+    if (this.activeTab === 'visualization') {
+      this.initVisualization();
+    }
 
     // Load analysis name
     const cached = this.analysisService.selectedAnalysis;
@@ -139,5 +160,26 @@ export class AnalysisLayoutComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();
+  }
+
+  private resolveTab(url: string): 'notebooks' | 'experiments' | 'visualization' {
+    if (url.includes('/visualization')) return 'visualization';
+    if (url.includes('/experiments')) return 'experiments';
+    return 'notebooks';
+  }
+
+  private initVisualization(): void {
+    if (!this.analysisId) return;
+    this.workspaceService.getStatus(this.analysisId).subscribe({
+      next: (status) => {
+        this.workspaceRunning = status.status === 'RUNNING' || status.status === 'IDLE';
+        // Trigger the visualization component to check workspace & load files
+        setTimeout(() => this.vizComponent?.checkWorkspace(), 0);
+      },
+      error: () => {
+        this.workspaceRunning = false;
+        setTimeout(() => this.vizComponent?.checkWorkspace(), 0);
+      }
+    });
   }
 }

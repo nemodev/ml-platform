@@ -1,0 +1,82 @@
+<section class="visualization-page">
+  <div class="viz-header">
+    <h2>Visualization</h2>
+    <select
+      *ngIf="files.length > 1 && state !== 'workspace-stopped' && state !== 'no-files'"
+      class="file-selector"
+      [value]="selectedFile?.path"
+      (change)="onFileSelect($event)">
+      <option *ngFor="let file of files" [value]="file.path">{{ file.name }}</option>
+    </select>
+  </div>
+
+  <!-- Workspace not running -->
+  <div class="status-card" *ngIf="state === 'workspace-stopped'">
+    <div class="status-icon">&#9888;</div>
+    <h3>Workspace Not Running</h3>
+    <p>Start your workspace from the <strong>Notebooks</strong> tab to use Streamlit visualizations.</p>
+  </div>
+
+  <!-- Loading files -->
+  <div class="status-card" *ngIf="state === 'loading-files'">
+    <div class="spinner"></div>
+    <p>Scanning for Streamlit files...</p>
+  </div>
+
+  <!-- No files found — onboarding guide -->
+  <div class="guide-card" *ngIf="state === 'no-files'">
+    <h3>Streamlit Visualization</h3>
+    <p>Create interactive dashboards with Streamlit. Place your Python files in the <code>visualize/</code> folder of your workspace.</p>
+
+    <div class="guide-steps">
+      <h4>Quick Start</h4>
+      <ol>
+        <li>Open the <strong>Notebooks</strong> tab</li>
+        <li>Create a folder named <code>visualize</code> in your workspace root</li>
+        <li>Create a Python file (e.g., <code>visualize/dashboard.py</code>) with Streamlit code</li>
+        <li>Return to this tab to see your visualization</li>
+      </ol>
+    </div>
+
+    <div class="code-example">
+      <h4>Example: <code>visualize/dashboard.py</code></h4>
+      <pre><code>import streamlit as st
+import pandas as pd
+
+st.title("My Dashboard")
+
+data = pd.DataFrame(&#123;
+    "x": range(10),
+    "y": [i**2 for i in range(10)]
+&#125;)
+st.line_chart(data.set_index("x"))</code></pre>
+    </div>
+
+    <button class="btn-refresh" (click)="refreshFiles()">Refresh</button>
+  </div>
+
+  <!-- Starting -->
+  <div class="status-card" *ngIf="state === 'starting'">
+    <div class="spinner"></div>
+    <p>Starting Streamlit app<span *ngIf="selectedFile">: {{ selectedFile.name }}</span>...</p>
+  </div>
+
+  <!-- Error -->
+  <div class="error-card" *ngIf="state === 'errored'">
+    <div class="status-icon">&#9888;</div>
+    <h3 *ngIf="timedOut">Startup Timeout</h3>
+    <h3 *ngIf="!timedOut">Error</h3>
+    <p>{{ errorMessage }}</p>
+    <button class="btn-retry" (click)="retry()">Retry</button>
+  </div>
+
+  <!-- Running — iframe -->
+  <div class="iframe-shell" *ngIf="state === 'running' && streamlitUrl">
+    <iframe
+      id="streamlit-iframe"
+      [src]="streamlitUrl"
+      title="Streamlit Visualization"
+      allow="clipboard-read; clipboard-write">
+    </iframe>
+  </div>
+</section>

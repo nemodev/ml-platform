@@ -22,6 +22,7 @@ export const routes: Routes = [
       // persistence. These entries exist solely for routerLinkActive matching.
       { path: 'notebooks', children: [] },
       { path: 'experiments', children: [] },
+      { path: 'visualization', children: [] },
       { path: '', redirectTo: 'notebooks', pathMatch: 'full' }
     ]
   },
