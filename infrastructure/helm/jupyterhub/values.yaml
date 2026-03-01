@@ -86,8 +86,8 @@ jupyterhub:
       name: ml-platform-notebook
       tag: latest
       pullPolicy: IfNotPresent
-    imagePullSecrets:
-      - name: registry-credentials
+      pullSecrets:
+        - registry-credentials
     extraEnv:
       MLFLOW_TRACKING_URI: http://mlflow.ml-platform.svc:5000
       S3_PREFIX: ml-platform
@@ -130,6 +130,9 @@ jupyterhub:
         - name: jupyterlab-config
           configMap:
             name: jupyterlab-config
+        - name: sample-visualization
+          configMap:
+            name: sample-visualization
       extraVolumeMounts:
         - name: sample-notebook
           mountPath: /home/jovyan/examples/sample-delta-data.ipynb
@@ -138,6 +141,10 @@ jupyterhub:
         - name: batch-inference-notebook
           mountPath: /home/jovyan/examples/batch-inference.ipynb
           subPath: batch-inference.ipynb
+          readOnly: true
+        - name: sample-visualization
+          mountPath: /home/jovyan/visualize/sample_dashboard.py
+          subPath: sample_dashboard.py
           readOnly: true
         # JupyterLab UI restrictions — mounted from ConfigMap so they apply
         # regardless of which notebook image the user selects (default or custom).

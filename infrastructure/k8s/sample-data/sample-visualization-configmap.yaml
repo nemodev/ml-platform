@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-visualization
+  namespace: ml-platform
+  labels:
+    app.kubernetes.io/part-of: ml-platform
+    app.kubernetes.io/component: sample-data
+data:
+  sample_dashboard.py: |
+    """
+    Sample Streamlit Dashboard — California Housing Data
+    =====================================================
+    Interactive visualization of the California Housing dataset,
+    demonstrating Streamlit features available in the ML Platform.
+    """
+
+    import streamlit as st
+    import pandas as pd
+    import numpy as np
+
+    st.set_page_config(page_title="California Housing Dashboard", layout="wide")
+    st.title("California Housing Dashboard")
+    st.markdown("Explore the California Housing dataset with interactive filters and charts.")
+
+    # ---------------------------------------------------------------------------
+    # Load data
+    # ---------------------------------------------------------------------------
+    @st.cache_data
+    def load_data():
+        from sklearn.datasets import fetch_california_housing
+        data = fetch_california_housing(as_frame=True)
+        df = data.frame
+        df.columns = [
+            "MedInc", "HouseAge", "AveRooms", "AveBedrms",
+            "Population", "AveOccup", "Latitude", "Longitude", "MedHouseVal"
+        ]
+        return df
+
+    df = load_data()
+
+    # ---------------------------------------------------------------------------
+    # Sidebar filters
+    # ---------------------------------------------------------------------------
+    st.sidebar.header("Filters")
+
+    income_range = st.sidebar.slider(
+        "Median Income (x $10k)",
+        float(df["MedInc"].min()),
+        float(df["MedInc"].max()),
+        (float(df["MedInc"].min()), float(df["MedInc"].max())),
+    )
+
+    age_range = st.sidebar.slider(
+        "House Age (years)",
+        int(df["HouseAge"].min()),
+        int(df["HouseAge"].max()),
+        (int(df["HouseAge"].min()), int(df["HouseAge"].max())),
+    )
+
+    filtered = df[
+        (df["MedInc"] >= income_range[0])
+        & (df["MedInc"] <= income_range[1])
+        & (df["HouseAge"] >= age_range[0])
+        & (df["HouseAge"] <= age_range[1])
+    ]
+
+    st.sidebar.metric("Filtered Rows", f"{len(filtered):,}", f"{len(filtered) - len(df):+,}")
+
+    # ---------------------------------------------------------------------------
+    # Layout
+    # ---------------------------------------------------------------------------
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Feature Distribution")
+        feature = st.selectbox(
+            "Select feature",
+            ["MedInc", "HouseAge", "AveRooms", "AveBedrms", "Population", "AveOccup"],
+        )
+        st.bar_chart(
+            filtered[feature].value_counts().sort_index().head(40),
+            use_container_width=True,
+        )
+
+    with col2:
+        st.subheader("Median House Value vs Feature")
+        scatter_feature = st.selectbox(
+            "X-axis feature",
+            ["MedInc", "HouseAge", "AveRooms", "Population"],
+            key="scatter",
+        )
+        sample = filtered.sample(min(1000, len(filtered)), random_state=42)
+        st.scatter_chart(
+            sample,
+            x=scatter_feature,
+            y="MedHouseVal",
+            use_container_width=True,
+        )
+
+    # ---------------------------------------------------------------------------
+    # Correlation heatmap (text-based for simplicity)
+    # ---------------------------------------------------------------------------
+    st.subheader("Correlation Matrix")
+    numeric_cols = ["MedInc", "HouseAge", "AveRooms", "AveBedrms", "Population", "AveOccup", "MedHouseVal"]
+    corr = filtered[numeric_cols].corr().round(2)
+    st.dataframe(corr, use_container_width=True)
+
+    # ---------------------------------------------------------------------------
+    # Map
+    # ---------------------------------------------------------------------------
+    st.subheader("Geographic Distribution")
+    map_sample = filtered.sample(min(2000, len(filtered)), random_state=42)
+    st.map(map_sample.rename(columns={"Latitude": "latitude", "Longitude": "longitude"}))
+
+    # ---------------------------------------------------------------------------
+    # Raw data
+    # ---------------------------------------------------------------------------
+    with st.expander("View Raw Data"):
+        st.dataframe(filtered, use_container_width=True, height=300)
