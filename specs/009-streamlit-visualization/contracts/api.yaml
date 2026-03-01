@@ -1,0 +1,201 @@
+openapi: 3.0.3
+info:
+  title: Streamlit Visualization API
+  description: |
+    API for managing Streamlit visualization apps within analysis workspaces.
+    The backend proxies requests to a Jupyter server extension running inside the
+    notebook pod. All endpoints require the workspace to be running.
+  version: 1.0.0
+
+paths:
+  /api/v1/analyses/{analysisId}/visualizations/files:
+    get:
+      operationId: listStreamlitFiles
+      summary: List Streamlit files in the visualize/ directory
+      description: |
+        Scans the `visualize/` directory at the workspace root for Python files
+        containing Streamlit imports. Returns an empty list if the directory
+        does not exist or contains no Streamlit files. Requires a running workspace.
+      tags: [Visualization]
+      parameters:
+        - $ref: '#/components/parameters/AnalysisId'
+      responses:
+        '200':
+          description: List of detected Streamlit files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamlitFileList'
+        '409':
+          description: Workspace is not running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: WORKSPACE_NOT_RUNNING
+                message: "Workspace must be running to scan for Streamlit files."
+
+  /api/v1/analyses/{analysisId}/visualizations/start:
+    post:
+      operationId: startStreamlitApp
+      summary: Start a Streamlit app from a file in visualize/
+      description: |
+        Starts the specified Streamlit Python file as a running application.
+        If another Streamlit app is already running, it is stopped first
+        (one app at a time). Returns the proxy URL for iframe embedding.
+      tags: [Visualization]
+      parameters:
+        - $ref: '#/components/parameters/AnalysisId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartStreamlitRequest'
+      responses:
+        '200':
+          description: Streamlit app started (or already running for this file)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamlitStatus'
+        '400':
+          description: Invalid file path or file not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Workspace is not running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/analyses/{analysisId}/visualizations/stop:
+    post:
+      operationId: stopStreamlitApp
+      summary: Stop the currently running Streamlit app
+      description: |
+        Stops the currently running Streamlit process. No-op if no app is running.
+      tags: [Visualization]
+      parameters:
+        - $ref: '#/components/parameters/AnalysisId'
+      responses:
+        '200':
+          description: Streamlit app stopped (or was not running)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamlitStatus'
+        '409':
+          description: Workspace is not running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/analyses/{analysisId}/visualizations/status:
+    get:
+      operationId: getStreamlitStatus
+      summary: Get current Streamlit app status
+      description: |
+        Returns the status of the Streamlit process in this workspace,
+        including the proxy URL if running.
+      tags: [Visualization]
+      parameters:
+        - $ref: '#/components/parameters/AnalysisId'
+      responses:
+        '200':
+          description: Current Streamlit status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamlitStatus'
+        '409':
+          description: Workspace is not running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    AnalysisId:
+      name: analysisId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Analysis UUID
+
+  schemas:
+    StreamlitFileList:
+      type: object
+      required: [files]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/StreamlitFile'
+
+    StreamlitFile:
+      type: object
+      required: [name, path]
+      properties:
+        name:
+          type: string
+          description: Filename (e.g., "dashboard.py")
+          example: "sample_dashboard.py"
+        path:
+          type: string
+          description: Path relative to workspace root
+          example: "visualize/sample_dashboard.py"
+        lastModified:
+          type: string
+          format: date-time
+          description: Last modification time
+
+    StartStreamlitRequest:
+      type: object
+      required: [filePath]
+      properties:
+        filePath:
+          type: string
+          description: Path relative to workspace root (must be in visualize/)
+          example: "visualize/sample_dashboard.py"
+
+    StreamlitStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [stopped, starting, running, errored]
+          description: Current process status
+        filePath:
+          type: string
+          description: Active file path (null if stopped)
+          example: "visualize/sample_dashboard.py"
+        url:
+          type: string
+          description: |
+            Proxy URL for iframe embedding. Relative path through
+            jupyter-server-proxy. Null if not running.
+          example: "/user/user1/c8952520-fa4f-4a2e-96ec-c6ea0db11021/proxy/8501/"
+        errorMessage:
+          type: string
+          description: Error details if status is "errored"
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable message

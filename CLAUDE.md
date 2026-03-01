@@ -92,6 +92,8 @@ On r1, images use `ttl.sh/<name>:24h` ephemeral registry.
 ## Active Technologies
 - Java 21 (backend), TypeScript 5.4+ (frontend) + Spring Boot 3.5.x, Angular 17, Kubernetes Java Client (io.kubernetes.client), Kaniko (gcr.io/kaniko-project/executor), Docker Distribution (registry:2) (008-custom-notebook-images)
 - PostgreSQL (entities: notebook_images, image_builds), Container Registry (built images), MinIO (registry storage backend) (008-custom-notebook-images)
+- Java 21 (backend), TypeScript 5.4+ (frontend), Python 3.11 (Jupyter extension + Streamlit apps) + Spring Boot 3.5.x, Angular 17, Streamlit >=1.33.0, jupyter-server-proxy >=4.0.0 (009-streamlit-visualization)
+- None (no database tables; all state is ephemeral in-memory within notebook pods) (009-streamlit-visualization)
 
 ## Recent Changes
 - 008-custom-notebook-images: Added Java 21 (backend), TypeScript 5.4+ (frontend) + Spring Boot 3.5.x, Angular 17, Kubernetes Java Client (io.kubernetes.client), Kaniko (gcr.io/kaniko-project/executor), Docker Distribution (registry:2)
