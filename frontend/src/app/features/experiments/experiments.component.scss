@@ -4,15 +4,10 @@
 }
 
 .error-card,
-.loading-card,
-.experiments-layout {
+.loading-card {
   background: #ffffff;
   border: 1px solid #d1d5db;
   border-radius: 0.5rem;
-}
-
-.error-card,
-.loading-card {
   align-items: center;
   display: flex;
   gap: 0.75rem;
@@ -43,74 +38,11 @@
   width: 1.1rem;
 }
 
-.experiments-layout {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: 280px minmax(0, 1fr);
-  padding: 1rem;
-}
-
-.experiment-list h3 {
-  margin: 0 0 0.75rem;
-}
-
-.experiment-list ul {
-  display: grid;
-  gap: 0.45rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.experiment-list button {
-  align-items: flex-start;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.35rem;
-  cursor: pointer;
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.55rem 0.6rem;
-  text-align: left;
-  width: 100%;
-}
-
-.experiment-list button.active {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 1px #2563eb;
-}
-
-.experiment-list .name {
-  font-weight: 600;
-}
-
-.experiment-list .meta {
-  color: #64748b;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-}
-
-.empty-state,
-.loading-list {
-  color: #64748b;
-  font-size: 0.9rem;
-}
-
 .iframe-shell iframe {
   border: 1px solid #cbd5e1;
   border-radius: 0.35rem;
   height: calc(100vh - 220px);
   width: 100%;
-}
-
-@media (max-width: 1024px) {
-  .experiments-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .iframe-shell iframe {
-    height: calc(100vh - 300px);
-  }
 }
 
 @keyframes spin {

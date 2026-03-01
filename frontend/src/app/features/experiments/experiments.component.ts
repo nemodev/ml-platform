@@ -1,4 +1,4 @@
-import { NgFor, NgIf } from '@angular/common';
+import { NgIf } from '@angular/common';
 import { Component, Input, OnInit, inject } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { catchError, of } from 'rxjs';
@@ -7,7 +7,7 @@ import { ExperimentInfo, ExperimentService } from '../../core/services/experimen
 @Component({
   selector: 'app-experiments',
   standalone: true,
-  imports: [NgIf, NgFor],
+  imports: [NgIf],
   templateUrl: './experiments.component.html',
   styleUrl: './experiments.component.scss'
 })
@@ -18,11 +18,11 @@ export class ExperimentsComponent implements OnInit {
   @Input() analysisId!: string;
 
   loadingIframe = true;
-  loadingExperiments = true;
   errorMessage: string | null = null;
   iframeUrl: SafeResourceUrl | null = null;
-  experiments: ExperimentInfo[] = [];
-  selectedExperimentId: string | null = null;
+
+  private experiments: ExperimentInfo[] = [];
+  private selectedExperimentId: string | null = null;
 
   private trackingBaseUrl: string | null = null;
 
@@ -36,11 +36,6 @@ export class ExperimentsComponent implements OnInit {
     this.errorMessage = null;
     this.loadTrackingUrl();
     this.loadExperiments();
-  }
-
-  selectExperiment(experiment: ExperimentInfo): void {
-    this.selectedExperimentId = experiment.experimentId;
-    this.applyIframeUrl(experiment.experimentId);
   }
 
   onMlflowIframeLoad(): void {
@@ -66,16 +61,10 @@ export class ExperimentsComponent implements OnInit {
   }
 
   private loadExperiments(): void {
-    this.loadingExperiments = true;
     this.experimentService.listExperiments(this.analysisId).pipe(
-      catchError(() => {
-        this.errorMessage = 'Experiment list is unavailable.';
-        return of([] as ExperimentInfo[]);
-      })
+      catchError(() => of([] as ExperimentInfo[]))
     ).subscribe((experiments) => {
       this.experiments = experiments;
-      this.loadingExperiments = false;
-
       // Auto-select the first experiment if none selected
       if (!this.selectedExperimentId && experiments.length > 0) {
         this.selectedExperimentId = experiments[0].experimentId;
@@ -120,11 +109,13 @@ export class ExperimentsComponent implements OnInit {
     this.switchToModelTrainingIfNeeded(iframeId);
     this.forceLightTheme(iframeId);
     this.hideMlflowSidebar(iframeId);
+    this.hideMlflowHeader(iframeId);
     // Retry after a short delay in case the mode switch triggers a
     // React re-render that re-creates the sidebar or resets the theme
     setTimeout(() => {
       this.forceLightTheme(iframeId);
       this.hideMlflowSidebar(iframeId);
+      this.hideMlflowHeader(iframeId);
     }, 500);
   }
 
@@ -208,6 +199,60 @@ export class ExperimentsComponent implements OnInit {
         /* Expand main content to fill available width */
         main {
           margin-left: 0 !important;
+        }
+      `;
+      doc.head.appendChild(style);
+    } catch {
+      // Cross-origin or iframe not ready — ignore
+    }
+  }
+
+  /**
+   * Hide the MLflow header section (breadcrumbs, experiment title, action
+   * buttons) by injecting CSS into the same-origin iframe. This gives the
+   * embedded MLflow a clean, seamless appearance inside the platform.
+   */
+  private hideMlflowHeader(iframeId: string): void {
+    try {
+      const iframe = document.getElementById(iframeId) as HTMLIFrameElement | null;
+      const doc = iframe?.contentDocument;
+      if (!doc) {
+        return;
+      }
+      if (doc.getElementById('ml-platform-mlflow-hide-header')) {
+        return;
+      }
+      const style = doc.createElement('style');
+      style.id = 'ml-platform-mlflow-hide-header';
+      style.textContent = `
+        /* Hide breadcrumb navigation (du-bois design system) */
+        [class*="du-bois"][class*="breadcrumb"] {
+          display: none !important;
+        }
+        /* Hide the header area: breadcrumbs + Runs title + action buttons.
+           It is the first child of the main wrapper div. */
+        main > div > div:first-child {
+          display: none !important;
+        }
+        /* Hide the divider below the header */
+        main > div > div:nth-child(2):empty {
+          display: none !important;
+        }
+        /* Reclaim space: make content wrapper fill available height
+           and allow the runs table area to stretch and scroll */
+        main {
+          height: 100vh !important;
+          overflow: hidden !important;
+        }
+        main > div {
+          height: 100% !important;
+          display: flex !important;
+          flex-direction: column !important;
+        }
+        main > div > div:last-child {
+          flex: 1 1 auto !important;
+          min-height: 0 !important;
+          overflow: auto !important;
         }
       `;
       doc.head.appendChild(style);

@@ -11,38 +11,13 @@
     <p>Loading MLflow UI...</p>
   </div>
 
-  <div class="experiments-layout" *ngIf="!loadingIframe && iframeUrl">
-    <aside class="experiment-list">
-      <h3>Your Experiments</h3>
-
-      <div class="loading-list" *ngIf="loadingExperiments">Loading experiments...</div>
-
-      <ul *ngIf="!loadingExperiments && experiments.length > 0">
-        <li *ngFor="let experiment of experiments">
-          <button
-            type="button"
-            [class.active]="selectedExperimentId === experiment.experimentId"
-            (click)="selectExperiment(experiment)"
-          >
-            <span class="name">{{ experiment.name }}</span>
-            <span class="meta">{{ experiment.lifecycleStage }}</span>
-          </button>
-        </li>
-      </ul>
-
-      <p class="empty-state" *ngIf="!loadingExperiments && experiments.length === 0">
-        No experiments yet. Log a run from Notebooks to get started.
-      </p>
-    </aside>
-
-    <div class="iframe-shell">
-      <iframe
-        id="mlflow-experiments-iframe"
-        [src]="iframeUrl"
-        title="MLflow Tracking"
-        allow="clipboard-read; clipboard-write"
-        (load)="onMlflowIframeLoad()"
-      ></iframe>
-    </div>
+  <div class="iframe-shell" *ngIf="!loadingIframe && iframeUrl">
+    <iframe
+      id="mlflow-experiments-iframe"
+      [src]="iframeUrl"
+      title="MLflow Tracking"
+      allow="clipboard-read; clipboard-write"
+      (load)="onMlflowIframeLoad()"
+    ></iframe>
   </div>
 </section>
