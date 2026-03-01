@@ -1,3 +1,6 @@
+# ML Platform infrastructure packages — do not override in custom images.
+# This file is used as a pip constraint during custom image builds (Kaniko)
+# to prevent user packages from breaking platform functionality.
 numpy==1.26.4
 pandas==2.2.3
 scikit-learn==1.6.1

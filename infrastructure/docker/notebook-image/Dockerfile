@@ -43,6 +43,14 @@ USER jovyan
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+# Platform package constraints — protects platform packages from custom image overrides
+COPY platform-constraints.txt /opt/ml-platform/platform-constraints.txt
+
+# Streamlit Jupyter server extension for visualization process management
+COPY --chown=jovyan:users ml_platform_streamlit/ /tmp/ml_platform_streamlit/
+RUN pip install --no-cache-dir /tmp/ml_platform_streamlit/ && rm -rf /tmp/ml_platform_streamlit/ \
+    && jupyter server extension enable ml_platform_streamlit --py
+
 # Remove incompatible extensions from base image (not needed for embedded view)
 RUN pip uninstall -y jupyterlab-git nbdime jupyterlab-pygments 2>/dev/null || true
 
