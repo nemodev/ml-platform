@@ -31,8 +31,6 @@ spec:
             - name: AWS_ALLOW_HTTP
               value: "true"
             - name: S3_BUCKET
-              value: "ml-platform-sample-data"
-            - name: S3_PREFIX
               value: "ml-platform"
           volumeMounts:
             - name: provision-script

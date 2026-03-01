@@ -20,9 +20,8 @@ data:
     from sklearn.datasets import fetch_california_housing
     from deltalake import write_deltalake, DeltaTable
 
-    BUCKET = os.environ.get("S3_BUCKET", "ml-platform-sample-data")
-    PREFIX = os.environ.get("S3_PREFIX", "ml-platform").strip("/") or "ml-platform"
-    TABLE_PATH = f"s3://{BUCKET}/{PREFIX}/sample-data/california-housing"
+    BUCKET = os.environ.get("S3_BUCKET", "ml-platform")
+    TABLE_PATH = f"s3://{BUCKET}/sample-data/california-housing"
 
     # S3 storage options for MinIO
     storage_options = {
