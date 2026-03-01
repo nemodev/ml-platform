@@ -195,7 +195,8 @@ public class ImageBuildService {
         dockerfile.append("USER root\n");
         if (image.getPackages() != null && !image.getPackages().isBlank()) {
             dockerfile.append("COPY requirements.txt /tmp/custom-requirements.txt\n");
-            String pipCmd = "RUN pip install --no-cache-dir";
+            String pipCmd = "RUN pip install --no-cache-dir"
+                    + " --constraint /opt/ml-platform/platform-constraints.txt";
             if (image.getExtraPipIndexUrl() != null && !image.getExtraPipIndexUrl().isBlank()) {
                 pipCmd += " --extra-index-url " + image.getExtraPipIndexUrl();
             }
