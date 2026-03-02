@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.BASE_URL ?? 'http://172.16.100.10:30080';
+const baseURL = process.env.BASE_URL ?? 'https://172.16.100.10:30443';
 const headless = process.env.UI_TEST_HEADLESS !== 'false';
 
 export default defineConfig({
@@ -19,10 +19,26 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     baseURL,
     headless,
+    actionTimeout: 15_000,
+    navigationTimeout: 60_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     viewport: { width: 1440, height: 900 },
     ignoreHTTPSErrors: true
-  }
+  },
+  projects: [
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/
+    },
+    {
+      name: 'e2e',
+      testMatch: /platform-e2e\.spec\.ts/,
+      dependencies: ['setup'],
+      use: {
+        storageState: 'e2e/.auth/user1.json'
+      }
+    }
+  ]
 });
