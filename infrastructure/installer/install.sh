@@ -530,6 +530,7 @@ echo "  MLflow deployed"
 step "Sample data provisioning"
 
 echo "  Ensuring S3 bucket exists: ${S3_BUCKET}..."
+k -n "$NAMESPACE" delete pod ensure-bucket --ignore-not-found 2>/dev/null || true
 k -n "$NAMESPACE" run ensure-bucket --rm -i --restart=Never \
   --image="${NOTEBOOK_IMAGE}" \
   --env="AWS_ENDPOINT_URL=${S3_ENDPOINT}" \
@@ -596,6 +597,7 @@ k apply -f "$BUILD_DIR/airflow-dag-configmap.yaml"
 
 echo "  Running Airflow database migration..."
 AIRFLOW_DB_CONN="postgresql+psycopg2://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/airflow"
+k -n "$NAMESPACE" delete pod airflow-db-migrate --ignore-not-found 2>/dev/null || true
 k -n "$NAMESPACE" run airflow-db-migrate --rm -i --restart=Never \
   --image="apache/airflow:2.10.3-python3.11" \
   --env="AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW_DB_CONN}" \
