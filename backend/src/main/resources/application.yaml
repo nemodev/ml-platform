@@ -34,6 +34,31 @@ app:
 
 workspace:
   default-notebook: ${WORKSPACE_DEFAULT_NOTEBOOK:}
+  profiles:
+    - id: exploratory
+      name: Exploratory
+      description: Interactive data exploration and small experiments
+      default: true
+      cpu-request: "1"
+      cpu-limit: "2"
+      memory-request: "2G"
+      memory-limit: "4G"
+    - id: standard
+      name: Standard
+      description: Typical ML workflows and medium-sized datasets
+      default: false
+      cpu-request: "2"
+      cpu-limit: "4"
+      memory-request: "4G"
+      memory-limit: "8G"
+    - id: compute-intensive
+      name: Compute-Intensive
+      description: Large dataset processing and model training
+      default: false
+      cpu-request: "4"
+      cpu-limit: "8"
+      memory-request: "8G"
+      memory-limit: "16G"
 
 services:
   jupyterhub:

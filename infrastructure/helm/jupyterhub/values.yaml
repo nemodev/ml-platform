@@ -79,6 +79,20 @@ jupyterhub:
             if custom_image:
                 spawner.image = custom_image
 
+            # Feature 010: Resource profile override
+            cpu_guarantee = user_options.get('cpu_guarantee')
+            cpu_limit = user_options.get('cpu_limit')
+            mem_guarantee = user_options.get('mem_guarantee')
+            mem_limit = user_options.get('mem_limit')
+            if cpu_guarantee is not None:
+                spawner.cpu_guarantee = float(cpu_guarantee)
+            if cpu_limit is not None:
+                spawner.cpu_limit = float(cpu_limit)
+            if mem_guarantee is not None:
+                spawner.mem_guarantee = mem_guarantee
+            if mem_limit is not None:
+                spawner.mem_limit = mem_limit
+
         c.KubeSpawner.pre_spawn_hook = pre_spawn_hook
 
   singleuser:

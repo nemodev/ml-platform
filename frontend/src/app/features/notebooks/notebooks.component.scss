@@ -23,6 +23,36 @@
   padding: 0.45rem 0.8rem;
 }
 
+.profile-selector {
+  margin: 0.5rem 0;
+
+  label {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  span {
+    color: #334155;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  select {
+    border: 1px solid #cbd5e1;
+    border-radius: 0.25rem;
+    font-family: inherit;
+    font-size: 0.85rem;
+    max-width: 380px;
+    padding: 0.4rem 0.5rem;
+  }
+}
+
+.profile-description {
+  color: #6b7280;
+  font-size: 0.8rem;
+  margin: 0.25rem 0 0;
+}
+
 .image-selector {
   margin: 0.5rem 0;
 
@@ -254,6 +284,29 @@
   color: #6b7280;
 }
 
+// Toolbar profile selector (running state)
+.toolbar-profile-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.toolbar-profile-select {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.25rem;
+  font-family: inherit;
+  font-size: 0.78rem;
+  max-width: 280px;
+  padding: 0.25rem 0.4rem;
+  background: #ffffff;
+  color: #374151;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
 // Toolbar image selector (running state)
 .toolbar-image-selector {
   display: flex;
@@ -275,6 +328,22 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
+}
+
+// Metrics display
+.metrics-display {
+  font-size: 0.75rem;
+  color: #374151;
+  padding: 0.2rem 0.4rem;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 0.25rem;
+  white-space: nowrap;
+}
+
+.metrics-unavailable {
+  color: #9ca3af;
+  font-style: italic;
 }
 
 // Kernel status indicator

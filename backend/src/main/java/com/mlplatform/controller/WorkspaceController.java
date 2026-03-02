@@ -1,6 +1,7 @@
 package com.mlplatform.controller;
 
 import com.mlplatform.dto.ComputeProfileDto;
+import com.mlplatform.dto.WorkspaceMetricsDto;
 import com.mlplatform.dto.WorkspaceStatusDto;
 import com.mlplatform.dto.WorkspaceUrlDto;
 import com.mlplatform.service.WorkspaceService;
@@ -63,6 +64,14 @@ public class WorkspaceController {
     ) {
         workspaceService.terminateWorkspace(jwt, analysisId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/metrics")
+    public WorkspaceMetricsDto metrics(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID analysisId
+    ) {
+        return workspaceService.getWorkspaceMetrics(jwt, analysisId);
     }
 
     @GetMapping("/kernel-status")

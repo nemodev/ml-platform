@@ -8,6 +8,7 @@ public record ComputeProfileDto(
         String cpuLimit,
         String memoryRequest,
         String memoryLimit,
-        Integer gpuLimit
+        Integer gpuLimit,
+        boolean isDefault
 ) {
 }

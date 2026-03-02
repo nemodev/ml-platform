@@ -1,0 +1,266 @@
+openapi: 3.0.3
+info:
+  title: ML Platform - Notebook Resource Profiles API
+  description: |
+    API changes for Feature 010: Notebook Resource Profiles.
+    Covers modified endpoints and the new metrics endpoint.
+    Base path: /api/v1/analyses/{analysisId}/workspaces
+  version: "010"
+
+paths:
+  /api/v1/analyses/{analysisId}/workspaces/profiles:
+    get:
+      summary: List available resource profiles
+      description: |
+        Returns all resource profiles defined in the platform configuration.
+        **Existing endpoint — behavior change**: Previously returned a single
+        hardcoded "exploratory" profile. Now returns all profiles from
+        application.yaml configuration.
+      operationId: getProfiles
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
+      responses:
+        '200':
+          description: List of available resource profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ComputeProfileDto'
+              example:
+                - id: exploratory
+                  name: Exploratory
+                  description: Interactive data exploration and small experiments
+                  cpuRequest: "1"
+                  cpuLimit: "2"
+                  memoryRequest: "2G"
+                  memoryLimit: "4G"
+                  gpuLimit: 0
+                  default: true
+                - id: standard
+                  name: Standard
+                  description: Typical ML workflows and medium-sized datasets
+                  cpuRequest: "2"
+                  cpuLimit: "4"
+                  memoryRequest: "4G"
+                  memoryLimit: "8G"
+                  gpuLimit: 0
+                  default: false
+                - id: compute-intensive
+                  name: Compute-Intensive
+                  description: Large dataset processing and model training
+                  cpuRequest: "4"
+                  cpuLimit: "8"
+                  memoryRequest: "8G"
+                  memoryLimit: "16G"
+                  gpuLimit: 0
+                  default: false
+
+  /api/v1/analyses/{analysisId}/workspaces:
+    post:
+      summary: Launch workspace with selected profile
+      description: |
+        **Existing endpoint — behavior change**: Now resolves the profile's
+        resource limits from configuration and passes them to JupyterHub
+        as spawn options (cpu_guarantee, cpu_limit, mem_guarantee, mem_limit)
+        alongside the optional image reference.
+      operationId: launchWorkspace
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LaunchWorkspaceRequest'
+            example:
+              profile: standard
+              notebookImageId: null
+      responses:
+        '202':
+          description: Workspace launch initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceStatusDto'
+        '400':
+          description: Invalid profile ID or notebook image not ready
+        '409':
+          description: Analysis already has an active workspace
+
+    get:
+      summary: Get workspace status
+      description: |
+        **Existing endpoint — no change to contract**. Returns current
+        workspace status including the profile field (already present).
+      operationId: getWorkspaceStatus
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
+      responses:
+        '200':
+          description: Current workspace status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceStatusDto'
+
+  /api/v1/analyses/{analysisId}/workspaces/metrics:
+    get:
+      summary: Get workspace resource utilization (P3)
+      description: |
+        **New endpoint**. Returns current CPU and memory utilization for the
+        running workspace pod, alongside the profile's allocated limits.
+        Requires the workspace to be in RUNNING or IDLE state. Returns 404
+        if no active workspace exists. Returns partial data if metrics are
+        unavailable (e.g., metrics-server not deployed).
+      operationId: getWorkspaceMetrics
+      parameters:
+        - $ref: '#/components/parameters/analysisId'
+      responses:
+        '200':
+          description: Resource utilization metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMetricsDto'
+              example:
+                profileId: standard
+                profileName: Standard
+                cpuUsage: "1.2"
+                cpuLimit: "4"
+                memoryUsageBytes: 2254857728
+                memoryLimit: "8G"
+                metricsAvailable: true
+        '404':
+          description: No active workspace found
+
+components:
+  parameters:
+    analysisId:
+      name: analysisId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    ComputeProfileDto:
+      type: object
+      description: |
+        **Modified**: Added `default` field to indicate which profile
+        is the platform default.
+      properties:
+        id:
+          type: string
+          description: Profile slug identifier
+          example: exploratory
+        name:
+          type: string
+          description: Human-readable display name
+          example: Exploratory
+        description:
+          type: string
+          description: Brief description of intended use case
+          example: Interactive data exploration and small experiments
+        cpuRequest:
+          type: string
+          description: CPU guarantee (Kubernetes resource format)
+          example: "1"
+        cpuLimit:
+          type: string
+          description: CPU maximum (Kubernetes resource format)
+          example: "2"
+        memoryRequest:
+          type: string
+          description: Memory guarantee (Kubernetes resource format)
+          example: "2G"
+        memoryLimit:
+          type: string
+          description: Memory maximum (Kubernetes resource format)
+          example: "4G"
+        gpuLimit:
+          type: integer
+          description: GPU limit (0 for all current profiles)
+          example: 0
+        default:
+          type: boolean
+          description: Whether this is the platform default profile
+          example: true
+
+    LaunchWorkspaceRequest:
+      type: object
+      description: |
+        **No schema change**. The existing `profile` field now accepts
+        any configured profile ID (previously only "exploratory" was valid).
+      properties:
+        profile:
+          type: string
+          description: Profile ID from /profiles endpoint. Defaults to the default profile if omitted.
+          example: standard
+        notebookImageId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional custom notebook image UUID (Feature 008)
+
+    WorkspaceStatusDto:
+      type: object
+      description: |
+        **No schema change**. The `profile` field already exists and
+        returns the profile ID used at launch.
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, RUNNING, IDLE, STOPPED, FAILED]
+        profile:
+          type: string
+          description: Profile ID used at launch
+        startedAt:
+          type: string
+          format: date-time
+        lastActivity:
+          type: string
+          format: date-time
+        message:
+          type: string
+        notebookImageId:
+          type: string
+          format: uuid
+          nullable: true
+        notebookImageName:
+          type: string
+          nullable: true
+
+    WorkspaceMetricsDto:
+      type: object
+      description: "**New DTO**. Resource utilization for a running workspace."
+      properties:
+        profileId:
+          type: string
+          description: Active profile ID
+        profileName:
+          type: string
+          description: Active profile display name
+        cpuUsage:
+          type: string
+          nullable: true
+          description: Current CPU usage in cores (e.g., "1.2"). Null if metrics unavailable.
+        cpuLimit:
+          type: string
+          description: CPU limit from profile
+        memoryUsageBytes:
+          type: integer
+          format: int64
+          nullable: true
+          description: Current memory usage in bytes. Null if metrics unavailable.
+        memoryLimit:
+          type: string
+          description: Memory limit from profile
+        metricsAvailable:
+          type: boolean
+          description: Whether live metrics were successfully retrieved

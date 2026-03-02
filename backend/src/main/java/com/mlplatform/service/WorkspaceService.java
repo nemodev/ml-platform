@@ -1,6 +1,11 @@
 package com.mlplatform.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mlplatform.config.WorkspaceProfileProperties.ProfileConfig;
+import com.mlplatform.config.WorkspaceProfileProperties.WorkspaceProfiles;
 import com.mlplatform.dto.ComputeProfileDto;
+import com.mlplatform.dto.WorkspaceMetricsDto;
 import com.mlplatform.dto.WorkspaceStatusDto;
 import com.mlplatform.dto.WorkspaceUrlDto;
 import com.mlplatform.model.Analysis;
@@ -11,9 +16,16 @@ import com.mlplatform.model.Workspace;
 import com.mlplatform.model.Workspace.WorkspaceStatus;
 import com.mlplatform.repository.NotebookImageRepository;
 import com.mlplatform.repository.WorkspaceRepository;
+import io.kubernetes.client.openapi.ApiClient;
+import io.kubernetes.client.openapi.apis.CustomObjectsApi;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -25,12 +37,17 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class WorkspaceService {
 
+    private static final Logger log = LoggerFactory.getLogger(WorkspaceService.class);
+
     private final WorkspaceRepository workspaceRepository;
     private final NotebookImageRepository notebookImageRepository;
     private final UserService userService;
     private final AnalysisService analysisService;
     private final JupyterHubService jupyterHubService;
     private final Environment environment;
+    private final WorkspaceProfiles workspaceProfiles;
+    private final ApiClient apiClient;
+    private final ObjectMapper objectMapper;
 
     @Value("${workspace.default-notebook:}")
     private String defaultNotebook;
@@ -41,7 +58,10 @@ public class WorkspaceService {
             UserService userService,
             AnalysisService analysisService,
             JupyterHubService jupyterHubService,
-            Environment environment
+            Environment environment,
+            WorkspaceProfiles workspaceProfiles,
+            ApiClient apiClient,
+            ObjectMapper objectMapper
     ) {
         this.workspaceRepository = workspaceRepository;
         this.notebookImageRepository = notebookImageRepository;
@@ -49,6 +69,9 @@ public class WorkspaceService {
         this.analysisService = analysisService;
         this.jupyterHubService = jupyterHubService;
         this.environment = environment;
+        this.workspaceProfiles = workspaceProfiles;
+        this.apiClient = apiClient;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -103,18 +126,39 @@ public class WorkspaceService {
             }
         }
 
+        // Resolve profile configuration
+        String normalizedProfile = normalizeProfile(profile);
+        ProfileConfig profileConfig = workspaceProfiles.getById(normalizedProfile);
+        if (profileConfig == null) {
+            List<String> available = workspaceProfiles.getProfiles().stream()
+                    .map(ProfileConfig::getId)
+                    .collect(Collectors.toList());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Unknown profile '" + normalizedProfile + "'. Available: " + available);
+        }
+
         Workspace workspace = new Workspace();
         workspace.setUser(user);
         workspace.setAnalysis(analysis);
-        workspace.setProfile(normalizeProfile(profile));
+        workspace.setProfile(normalizedProfile);
         workspace.setStatus(WorkspaceStatus.PENDING);
         workspace.setJupyterhubUsername(username);
         workspace.setNotebookImageId(notebookImageId);
         workspace = workspaceRepository.save(workspace);
 
         try {
+            // Build spawn options map with image and resource limits
+            Map<String, Object> spawnOptions = new LinkedHashMap<>();
+            if (imageReference != null) {
+                spawnOptions.put("image", imageReference);
+            }
+            spawnOptions.put("cpu_guarantee", profileConfig.getCpuRequest());
+            spawnOptions.put("cpu_limit", profileConfig.getCpuLimit());
+            spawnOptions.put("mem_guarantee", profileConfig.getMemoryRequest());
+            spawnOptions.put("mem_limit", profileConfig.getMemoryLimit());
+
             jupyterHubService.createUser(username);
-            jupyterHubService.spawnNamedServer(username, serverName, imageReference);
+            jupyterHubService.spawnNamedServer(username, serverName, spawnOptions);
             return toDto(workspace, "Workspace launch initiated");
         } catch (JupyterHubUnavailableException ex) {
             workspace.setStatus(WorkspaceStatus.FAILED);
@@ -218,17 +262,105 @@ public class WorkspaceService {
         return jupyterHubService.getKernelStatus(workspace.getJupyterhubUsername(), serverName);
     }
 
+    public WorkspaceMetricsDto getWorkspaceMetrics(Jwt jwt, UUID analysisId) {
+        if (isDevProfile()) {
+            return new WorkspaceMetricsDto("exploratory", "Exploratory", "0.5", "2", 1073741824L, "4G", true);
+        }
+
+        userService.syncFromJwt(jwt);
+        Analysis analysis = analysisService.resolveAnalysis(jwt, analysisId);
+        Workspace workspace = workspaceRepository.findTopByAnalysisIdOrderByCreatedAtDesc(analysis.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No active workspace found"));
+
+        if (workspace.getStatus() != WorkspaceStatus.RUNNING && workspace.getStatus() != WorkspaceStatus.IDLE) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No running workspace found");
+        }
+
+        String profileId = workspace.getProfile();
+        ProfileConfig profileConfig = workspaceProfiles.getById(profileId);
+        String profileName = profileConfig != null ? profileConfig.getName() : profileId;
+        String cpuLimit = profileConfig != null ? profileConfig.getCpuLimit() : "unknown";
+        String memoryLimit = profileConfig != null ? profileConfig.getMemoryLimit() : "unknown";
+
+        String podName = workspace.getPodName();
+        if (podName == null || podName.isBlank()) {
+            return new WorkspaceMetricsDto(profileId, profileName, null, cpuLimit, null, memoryLimit, false);
+        }
+
+        try {
+            CustomObjectsApi customApi = new CustomObjectsApi(apiClient);
+            Object metricsObj = customApi.getNamespacedCustomObject(
+                    "metrics.k8s.io", "v1beta1", "ml-platform", "pods", podName);
+            JsonNode metricsNode = objectMapper.valueToTree(metricsObj);
+
+            JsonNode containers = metricsNode.path("containers");
+            if (!containers.isArray() || containers.isEmpty()) {
+                return new WorkspaceMetricsDto(profileId, profileName, null, cpuLimit, null, memoryLimit, false);
+            }
+
+            JsonNode container = containers.get(0);
+            String cpuRaw = container.path("usage").path("cpu").asText("");
+            String memoryRaw = container.path("usage").path("memory").asText("");
+
+            String cpuUsage = parseCpuToDecimal(cpuRaw);
+            Long memoryUsageBytes = parseMemoryToBytes(memoryRaw);
+
+            return new WorkspaceMetricsDto(profileId, profileName, cpuUsage, cpuLimit, memoryUsageBytes, memoryLimit, true);
+        } catch (Exception ex) {
+            log.warn("Failed to fetch pod metrics for {}: {}", podName, ex.getMessage());
+            return new WorkspaceMetricsDto(profileId, profileName, null, cpuLimit, null, memoryLimit, false);
+        }
+    }
+
+    private String parseCpuToDecimal(String cpuRaw) {
+        if (cpuRaw == null || cpuRaw.isBlank()) return null;
+        try {
+            if (cpuRaw.endsWith("n")) {
+                long nanocores = Long.parseLong(cpuRaw.substring(0, cpuRaw.length() - 1));
+                return String.format("%.1f", nanocores / 1_000_000_000.0);
+            }
+            if (cpuRaw.endsWith("m")) {
+                long millicores = Long.parseLong(cpuRaw.substring(0, cpuRaw.length() - 1));
+                return String.format("%.1f", millicores / 1000.0);
+            }
+            return cpuRaw;
+        } catch (NumberFormatException ex) {
+            return cpuRaw;
+        }
+    }
+
+    private Long parseMemoryToBytes(String memoryRaw) {
+        if (memoryRaw == null || memoryRaw.isBlank()) return null;
+        try {
+            if (memoryRaw.endsWith("Ki")) {
+                return Long.parseLong(memoryRaw.substring(0, memoryRaw.length() - 2)) * 1024;
+            }
+            if (memoryRaw.endsWith("Mi")) {
+                return Long.parseLong(memoryRaw.substring(0, memoryRaw.length() - 2)) * 1024 * 1024;
+            }
+            if (memoryRaw.endsWith("Gi")) {
+                return Long.parseLong(memoryRaw.substring(0, memoryRaw.length() - 2)) * 1024 * 1024 * 1024;
+            }
+            return Long.parseLong(memoryRaw);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
     public List<ComputeProfileDto> getProfiles() {
-        return List.of(new ComputeProfileDto(
-                "exploratory",
-                "Exploratory",
-                "Interactive data exploration and small experiments",
-                "1",
-                "2",
-                "2Gi",
-                "4Gi",
-                0
-        ));
+        return workspaceProfiles.getProfiles().stream()
+                .map(p -> new ComputeProfileDto(
+                        p.getId(),
+                        p.getName(),
+                        p.getDescription(),
+                        p.getCpuRequest(),
+                        p.getCpuLimit(),
+                        p.getMemoryRequest(),
+                        p.getMemoryLimit(),
+                        0,
+                        p.isDefault()
+                ))
+                .collect(Collectors.toList());
     }
 
     private String toServerName(Analysis analysis) {
@@ -276,9 +408,10 @@ public class WorkspaceService {
 
     private String normalizeProfile(String profile) {
         if (profile == null || profile.isBlank()) {
-            return "EXPLORATORY";
+            ProfileConfig defaultProfile = workspaceProfiles.getDefault();
+            return defaultProfile != null ? defaultProfile.getId() : "exploratory";
         }
-        return profile.toUpperCase();
+        return profile.toLowerCase();
     }
 
     private boolean isDevProfile() {
@@ -289,7 +422,7 @@ public class WorkspaceService {
         return new WorkspaceStatusDto(
                 UUID.nameUUIDFromBytes("dev-workspace".getBytes()),
                 WorkspaceStatus.RUNNING.name(),
-                profile.toUpperCase(),
+                profile,
                 Instant.now().minusSeconds(60),
                 Instant.now(),
                 message,

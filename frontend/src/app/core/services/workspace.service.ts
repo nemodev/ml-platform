@@ -15,6 +15,7 @@ export interface ComputeProfile {
   memoryRequest: string;
   memoryLimit: string;
   gpuLimit?: number;
+  isDefault?: boolean;
 }
 
 export interface WorkspaceStatus {
@@ -26,6 +27,16 @@ export interface WorkspaceStatus {
   message?: string;
   notebookImageId?: string;
   notebookImageName?: string;
+}
+
+export interface WorkspaceMetrics {
+  profileId: string;
+  profileName: string;
+  cpuUsage: string | null;
+  cpuLimit: string;
+  memoryUsageBytes: number | null;
+  memoryLimit: string;
+  metricsAvailable: boolean;
 }
 
 export interface WorkspaceUrl {
@@ -66,6 +77,10 @@ export class WorkspaceService {
       return this.http.get<WorkspaceUrl>(`${base}?notebookPath=${encodeURIComponent(notebookPath)}`);
     }
     return this.http.get<WorkspaceUrl>(base);
+  }
+
+  getMetrics(analysisId: string): Observable<WorkspaceMetrics> {
+    return this.http.get<WorkspaceMetrics>(`${this.analysisWorkspacesUrl(analysisId)}/metrics`);
   }
 
   getKernelStatus(analysisId: string): Observable<string> {

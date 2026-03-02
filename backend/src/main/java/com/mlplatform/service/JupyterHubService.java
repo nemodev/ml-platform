@@ -79,13 +79,20 @@ public class JupyterHubService {
     }
 
     public void spawnNamedServer(String username, String serverName) {
-        spawnNamedServer(username, serverName, null);
+        spawnNamedServer(username, serverName, java.util.Map.of());
     }
 
-    public void spawnNamedServer(String username, String serverName, String imageReference) {
-        if (imageReference != null && !imageReference.isBlank()) {
+    public void spawnNamedServer(String username, String serverName, java.util.Map<String, Object> spawnOptions) {
+        if (spawnOptions != null && !spawnOptions.isEmpty()) {
             try {
-                String body = objectMapper.writeValueAsString(java.util.Map.of("image", imageReference));
+                // Build JSON body from all non-null entries in spawnOptions
+                java.util.Map<String, Object> filtered = new java.util.LinkedHashMap<>();
+                for (var entry : spawnOptions.entrySet()) {
+                    if (entry.getValue() != null) {
+                        filtered.put(entry.getKey(), entry.getValue());
+                    }
+                }
+                String body = objectMapper.writeValueAsString(filtered);
                 webClient.post()
                         .uri("/hub/api/users/{username}/servers/{serverName}", username, serverName)
                         .header("Authorization", "Bearer " + properties.getApiToken())
@@ -97,7 +104,7 @@ public class JupyterHubService {
             } catch (WebClientRequestException ex) {
                 throw new JupyterHubUnavailableException("JupyterHub is unreachable", ex);
             } catch (Exception ex) {
-                throw new JupyterHubUnavailableException("Failed to spawn server with custom image", ex);
+                throw new JupyterHubUnavailableException("Failed to spawn server with options", ex);
             }
         } else {
             executePost("/hub/api/users/{username}/servers/{serverName}", username, serverName);

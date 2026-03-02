@@ -2,8 +2,17 @@
   <h2>Notebooks</h2>
 
   <div class="launcher-card" *ngIf="status === 'STOPPED'">
-    <h3>{{ profile?.name || 'Exploratory' }}</h3>
-    <p>{{ profile?.description || 'Interactive data exploration and small experiments' }}</p>
+    <div class="profile-selector">
+      <label>
+        <span>Resource Profile</span>
+        <select [ngModel]="selectedProfileId" (ngModelChange)="onProfileChange($event)">
+          <option *ngFor="let p of profiles" [value]="p.id">
+            {{ p.name }} — {{ p.cpuLimit }} CPU, {{ p.memoryLimit }} RAM
+          </option>
+        </select>
+      </label>
+      <p class="profile-description">{{ selectedProfile?.description }}</p>
+    </div>
     <div class="image-selector">
       <label>
         <span>Notebook Image</span>
@@ -56,6 +65,18 @@
         </button>
       </div>
       <div class="toolbar-right">
+        <div class="toolbar-profile-selector">
+          <span class="toolbar-label">Profile:</span>
+          <select class="toolbar-profile-select"
+                  [ngModel]="selectedProfileId"
+                  (ngModelChange)="onProfileChange($event)"
+                  [disabled]="switchingProfile">
+            <option *ngFor="let p of profiles" [value]="p.id">
+              {{ p.name }} — {{ p.cpuLimit }} CPU, {{ p.memoryLimit }} RAM
+            </option>
+          </select>
+        </div>
+        <span class="toolbar-sep"></span>
         <div class="toolbar-image-selector">
           <span class="toolbar-label">Image:</span>
           <select class="toolbar-image-select"
@@ -68,6 +89,14 @@
             </option>
           </select>
         </div>
+        <span class="toolbar-sep"></span>
+        <span class="metrics-display" *ngIf="metrics">
+          <span *ngIf="metrics.metricsAvailable">
+            {{ metrics.cpuUsage || '?' }} / {{ metrics.cpuLimit }} CPU,
+            {{ formatMemoryGB(metrics.memoryUsageBytes) }} / {{ metrics.memoryLimit }} RAM
+          </span>
+          <span *ngIf="!metrics.metricsAvailable" class="metrics-unavailable">Usage unavailable</span>
+        </span>
         <span class="toolbar-sep"></span>
         <span class="kernel-status" [class]="'kernel-' + kernelStatus">
           <span class="kernel-dot"></span> {{ kernelStatusLabel }}

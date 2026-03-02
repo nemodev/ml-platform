@@ -70,6 +70,7 @@ bash infrastructure/scripts/deploy-full-stack.sh
 | 006 | Model Serving | ModelController, ServingController, ServingService | models, deploy-dialog, predict-dialog |
 | 007 | Notebook UI Customization | AnalysisController, AnalysisService | analyses, analysis-layout |
 | 008 | Custom Notebook Images | NotebookImageController, NotebookImageService, ImageBuildService | notebook-images, image-create, image-detail |
+| 010 | Notebook Resource Profiles | WorkspaceProfileProperties, WorkspaceService | notebooks.component, workspace.service |
 
 ## Key Architecture Notes
 
@@ -94,6 +95,8 @@ On r1, images use `ttl.sh/<name>:24h` ephemeral registry.
 - PostgreSQL (entities: notebook_images, image_builds), Container Registry (built images), MinIO (registry storage backend) (008-custom-notebook-images)
 - Java 21 (backend), TypeScript 5.4+ (frontend), Python 3.11 (Jupyter extension + Streamlit apps) + Spring Boot 3.5.x, Angular 17, Streamlit >=1.33.0, jupyter-server-proxy >=4.0.0 (009-streamlit-visualization)
 - None (no database tables; all state is ephemeral in-memory within notebook pods) (009-streamlit-visualization)
+- Java 21 (backend), TypeScript 5.4+ (frontend), Python 3.11 (JupyterHub hook) + Spring Boot 3.5.x, Angular 17, Kubernetes Java Client (`io.kubernetes:client-java`) (010-notebook-resource-profiles)
+- PostgreSQL (existing `workspaces.profile` column — no migration needed), application.yaml (profile definitions) (010-notebook-resource-profiles)
 
 ## Recent Changes
 - 008-custom-notebook-images: Added Java 21 (backend), TypeScript 5.4+ (frontend) + Spring Boot 3.5.x, Angular 17, Kubernetes Java Client (io.kubernetes.client), Kaniko (gcr.io/kaniko-project/executor), Docker Distribution (registry:2)

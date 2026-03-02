@@ -6,6 +6,7 @@ import { Subscription, interval, of } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 import {
   ComputeProfile,
+  WorkspaceMetrics,
   WorkspaceService,
   WorkspaceState,
   WorkspaceStatus
@@ -32,8 +33,17 @@ export class NotebooksComponent implements OnInit, OnDestroy {
   status: WorkspaceState = 'STOPPED';
   statusMessage = 'Workspace is stopped.';
   errorMessage: string | null = null;
-  profile: ComputeProfile | null = null;
   iframeUrl: SafeResourceUrl | null = null;
+
+  // Profile selection
+  profiles: ComputeProfile[] = [];
+  selectedProfileId = '';
+  activeProfileId: string | null = null;
+  switchingProfile = false;
+
+  get selectedProfile(): ComputeProfile | null {
+    return this.profiles.find(p => p.id === this.selectedProfileId) ?? null;
+  }
 
   // Custom image selection
   customImages: NotebookImageDto[] = [];
@@ -49,6 +59,9 @@ export class NotebooksComponent implements OnInit, OnDestroy {
   kernelStatus: 'idle' | 'busy' | 'disconnected' | 'unknown' | 'no_kernel' = 'unknown';
   lineNumbersVisible = true;
 
+  // Resource metrics
+  metrics: WorkspaceMetrics | null = null;
+
   // Command palette state
   commandPaletteOpen = false;
   allCommands: string[] = [];
@@ -59,6 +72,7 @@ export class NotebooksComponent implements OnInit, OnDestroy {
 
   private pollSub?: Subscription;
   private kernelPollSub?: Subscription;
+  private metricsPollSub?: Subscription;
   private originalWorkspaceUrl: string | null = null;
   private reauthAttempted = false;
 
@@ -80,7 +94,11 @@ export class NotebooksComponent implements OnInit, OnDestroy {
     this.workspaceService.getProfiles(this.analysisId).pipe(
       catchError(() => of([] as ComputeProfile[]))
     ).subscribe((profiles) => {
-      this.profile = profiles[0] ?? null;
+      this.profiles = profiles;
+      const defaultProfile = profiles.find(p => p.isDefault) ?? profiles[0];
+      if (defaultProfile) {
+        this.selectedProfileId = defaultProfile.id;
+      }
     });
 
     this.notebookImageService.listImages().pipe(
@@ -95,6 +113,7 @@ export class NotebooksComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
     this.kernelPollSub?.unsubscribe();
+    this.metricsPollSub?.unsubscribe();
     this.bridgeService.destroy();
   }
 
@@ -103,7 +122,7 @@ export class NotebooksComponent implements OnInit, OnDestroy {
     this.status = 'PENDING';
     this.statusMessage = 'Starting notebook server...';
     const imageId = this.selectedImageId || undefined;
-    this.workspaceService.launchWorkspace(this.analysisId, this.profile?.id ?? 'exploratory', imageId).subscribe({
+    this.workspaceService.launchWorkspace(this.analysisId, this.selectedProfileId || 'exploratory', imageId).subscribe({
       next: () => this.startPolling(),
       error: (error) => {
         this.status = 'FAILED';
@@ -130,6 +149,59 @@ export class NotebooksComponent implements OnInit, OnDestroy {
 
   retry(): void {
     this.launchWorkspace();
+  }
+
+  onProfileChange(newProfileId: string): void {
+    if (this.status === 'STOPPED' || this.status === 'FAILED') {
+      this.selectedProfileId = newProfileId;
+      return;
+    }
+    // Running state — handled in US2 (T010)
+    if (newProfileId === this.activeProfileId) {
+      return;
+    }
+    const currentProfile = this.profiles.find(p => p.id === this.activeProfileId);
+    const newProfile = this.profiles.find(p => p.id === newProfileId);
+    const confirmed = window.confirm(
+      `Switching from "${currentProfile?.name || 'Current'}" to "${newProfile?.name || 'New'}" will restart your workspace.\n\n` +
+      `All running kernels will be interrupted and in-memory state will be lost.\n` +
+      `Your saved notebooks and files will be preserved.\n\nContinue?`
+    );
+    if (!confirmed) {
+      this.selectedProfileId = '';
+      this.cdr.detectChanges();
+      this.selectedProfileId = this.activeProfileId ?? '';
+      return;
+    }
+    this.switchingProfile = true;
+    this.selectedProfileId = newProfileId;
+    this.stopKernelPolling();
+    this.workspaceService.terminateWorkspace(this.analysisId).subscribe({
+      next: () => {
+        this.iframeUrl = null;
+        this.kernelStatus = 'unknown';
+        this.bridgeService.destroy();
+        this.status = 'PENDING';
+        this.statusMessage = 'Restarting workspace with new resource profile...';
+        const imageId = this.selectedImageId || undefined;
+        this.workspaceService.launchWorkspace(this.analysisId, this.selectedProfileId || 'exploratory', imageId).subscribe({
+          next: () => {
+            this.switchingProfile = false;
+            this.startPolling();
+          },
+          error: (error) => {
+            this.switchingProfile = false;
+            this.status = 'FAILED';
+            this.errorMessage = error?.error?.message ?? 'Unable to relaunch workspace with new profile.';
+          }
+        });
+      },
+      error: () => {
+        this.switchingProfile = false;
+        this.selectedProfileId = this.activeProfileId ?? '';
+        this.errorMessage = 'Failed to terminate workspace for profile switch.';
+      }
+    });
   }
 
   onImageChange(newImageId: string): void {
@@ -164,7 +236,7 @@ export class NotebooksComponent implements OnInit, OnDestroy {
         this.status = 'PENDING';
         this.statusMessage = 'Restarting workspace with new image...';
         const imageId = this.selectedImageId || undefined;
-        this.workspaceService.launchWorkspace(this.analysisId, this.profile?.id ?? 'exploratory', imageId).subscribe({
+        this.workspaceService.launchWorkspace(this.analysisId, this.selectedProfileId || 'exploratory', imageId).subscribe({
           next: () => {
             this.switchingImage = false;
             this.startPolling();
@@ -375,6 +447,7 @@ export class NotebooksComponent implements OnInit, OnDestroy {
         this.reauthAttempted = false;
         this.iframeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(response.url);
         this.startKernelPolling();
+        this.startMetricsPolling();
       },
       error: () => {
         this.status = 'FAILED';
@@ -401,9 +474,36 @@ export class NotebooksComponent implements OnInit, OnDestroy {
     this.kernelPollSub = undefined;
   }
 
+  private startMetricsPolling(): void {
+    this.stopMetricsPolling();
+    this.metricsPollSub = interval(15000).pipe(
+      switchMap(() => this.workspaceService.getMetrics(this.analysisId).pipe(
+        catchError(() => of(null as WorkspaceMetrics | null))
+      ))
+    ).subscribe((metrics) => {
+      this.metrics = metrics;
+    });
+  }
+
+  private stopMetricsPolling(): void {
+    this.metricsPollSub?.unsubscribe();
+    this.metricsPollSub = undefined;
+    this.metrics = null;
+  }
+
+  formatMemoryGB(bytes: number | null): string {
+    if (bytes == null) return '?';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1);
+  }
+
   private applyStatus(status: WorkspaceStatus): void {
     this.status = status.status;
     this.statusMessage = status.message ?? `Workspace status: ${status.status}`;
+    // Track active profile from backend
+    this.activeProfileId = status.profile ?? null;
+    if (!this.switchingProfile && this.activeProfileId) {
+      this.selectedProfileId = this.activeProfileId;
+    }
     // Track active image from backend
     this.activeImageId = status.notebookImageId ?? null;
     this.activeImageName = status.notebookImageName ?? null;
@@ -414,6 +514,7 @@ export class NotebooksComponent implements OnInit, OnDestroy {
     if (status.status === 'STOPPED') {
       this.iframeUrl = null;
       this.stopKernelPolling();
+      this.stopMetricsPolling();
     }
   }
 }
