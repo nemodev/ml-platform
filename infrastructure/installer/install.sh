@@ -646,7 +646,8 @@ REGISTRY_USERNAME="${REGISTRY_USERNAME:-}"
 REGISTRY_PASSWORD="${REGISTRY_PASSWORD:-}"
 
 # Always deploy Kaniko RBAC (needed for both registry modes)
-k apply -f "${PROJECT_ROOT}/infrastructure/k8s/platform/base/kaniko-rbac.yaml"
+sed "s|namespace: ml-platform|namespace: ${NAMESPACE}|g" \
+  "${PROJECT_ROOT}/infrastructure/k8s/platform/base/kaniko-rbac.yaml" | k apply -f -
 
 if [[ "$REGISTRY_TYPE" == "external" ]]; then
   echo "  Using external container registry: ${REGISTRY_ENDPOINT}"
@@ -670,8 +671,10 @@ EOFREG
   echo "  External registry credentials configured"
 else
   echo "  Deploying built-in container registry..."
-  k apply -f "${PROJECT_ROOT}/infrastructure/k8s/platform/base/registry-deployment.yaml"
-  k apply -f "${PROJECT_ROOT}/infrastructure/k8s/platform/base/registry-service.yaml"
+  sed "s|namespace: ml-platform|namespace: ${NAMESPACE}|g" \
+    "${PROJECT_ROOT}/infrastructure/k8s/platform/base/registry-deployment.yaml" | k apply -f -
+  sed "s|namespace: ml-platform|namespace: ${NAMESPACE}|g" \
+    "${PROJECT_ROOT}/infrastructure/k8s/platform/base/registry-service.yaml" | k apply -f -
 
   # Create registry-credentials Secret for built-in registry (no auth)
   DOCKER_CONFIG_JSON=$(echo -n "{\"auths\":{\"${REGISTRY_ENDPOINT}\":{\"auth\":\"$(echo -n ':' | base64)\"}}}" | base64)
