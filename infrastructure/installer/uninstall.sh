@@ -208,7 +208,26 @@ if namespace_exists; then
 
   STEP=$((STEP + 1))
   echo "[${STEP}/${TOTAL}] Removing KServe resources in app namespace..."
-  kubectl -n "$NAMESPACE" delete inferenceservices.serving.kserve.io --all --ignore-not-found 2>/dev/null || true
+  # Remove webhooks early so the API server stops routing to the (possibly
+  # unhealthy) KServe controller — this unblocks finalizer-stuck deletions.
+  kubectl delete mutatingwebhookconfiguration inferenceservice.serving.kserve.io --ignore-not-found 2>/dev/null || true
+  for vwc in clusterservingruntime inferencegraph inferenceservice servingruntime trainedmodel; do
+    kubectl delete validatingwebhookconfiguration "${vwc}.serving.kserve.io" --ignore-not-found 2>/dev/null || true
+  done
+  # Attempt graceful deletion first (timeout 30s), then force-patch finalizers
+  ISVC_NAMES="$(kubectl -n "$NAMESPACE" get inferenceservices.serving.kserve.io -o name 2>/dev/null || true)"
+  if [[ -n "$ISVC_NAMES" ]]; then
+    echo "  Deleting InferenceServices (30s timeout)..."
+    if ! timeout 30 kubectl -n "$NAMESPACE" delete inferenceservices.serving.kserve.io --all --ignore-not-found 2>/dev/null; then
+      echo "  Graceful delete timed out — clearing finalizers to force removal..."
+      while IFS= read -r isvc; do
+        [[ -n "$isvc" ]] || continue
+        kubectl -n "$NAMESPACE" patch "$isvc" --type=merge -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+      done <<< "$ISVC_NAMES"
+      # Retry delete after finalizers are cleared
+      kubectl -n "$NAMESPACE" delete inferenceservices.serving.kserve.io --all --ignore-not-found 2>/dev/null || true
+    fi
+  fi
   kubectl -n "$NAMESPACE" delete sa kserve-s3-sa --ignore-not-found
   kubectl -n "$NAMESPACE" delete secret kserve-s3-secret --ignore-not-found
 
@@ -290,7 +309,7 @@ fi
 
 if [[ "${UNINSTALL_KSERVE_CLUSTER_RESOURCES}" == "true" ]]; then
   echo "Removing cluster-scoped KServe resources..."
-  # Remove webhook configurations first to prevent finalizer deadlocks
+  # Remove webhook configurations (may already be gone from namespace cleanup step)
   kubectl delete mutatingwebhookconfiguration inferenceservice.serving.kserve.io --ignore-not-found 2>/dev/null || true
   for vwc in clusterservingruntime inferencegraph inferenceservice servingruntime trainedmodel; do
     kubectl delete validatingwebhookconfiguration "${vwc}.serving.kserve.io" --ignore-not-found 2>/dev/null || true
