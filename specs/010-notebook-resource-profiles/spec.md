@@ -2,7 +2,7 @@
 
 **Feature Branch**: `010-notebook-resource-profiles`  
 **Created**: 2026-03-01  
-**Status**: Draft  
+**Status**: Implemented  
 **Input**: User description: "allow user to select predefined resource profiles when starting notebook, or switching when working on."
 
 ## User Scenarios & Testing *(mandatory)*

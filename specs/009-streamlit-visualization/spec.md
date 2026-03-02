@@ -2,7 +2,7 @@
 
 **Feature Branch**: `009-streamlit-visualization`
 **Created**: 2026-02-28
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "I need a new feature that visualizes ML related data using Streamlit integration. If user has one or more Streamlit Python files in the workspace of notebook, a new tab 'Visualization' next to Experiments tab will be enabled. If no Streamlit usage found, the tab will still be opened but showing a guide message that it supports Streamlit. Also need to support multiple Streamlit files like having dropdown or sub tabs. Include sample, yet realistic example in the default notebook."
 
 ## Clarifications
