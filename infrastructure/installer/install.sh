@@ -562,6 +562,7 @@ k -n "$NAMESPACE" create configmap california-housing-data \
 k apply -f "$BUILD_DIR/provision-script-configmap.yaml"
 k apply -f "$BUILD_DIR/sample-notebook-configmap.yaml"
 k apply -f "$BUILD_DIR/batch-inference-notebook-configmap.yaml"
+k apply -f "$BUILD_DIR/sample-visualization-configmap.yaml"
 
 if [[ "${PROVISION_SAMPLE_DATA:-true}" == "true" ]]; then
   echo "  Running provision job..."
@@ -578,6 +579,7 @@ fi
 # STEP 6: JupyterHub
 # ══════════════════════════════════════════════════════════════════════════════
 step "JupyterHub"
+k apply -f "$BUILD_DIR/jupyterlab-config-configmap.yaml"
 h upgrade --install jupyterhub jupyterhub/jupyterhub \
   -n "$NAMESPACE" \
   --version 4.1.0 \

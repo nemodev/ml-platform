@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jupyterlab-config
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: ml-platform
+    app.kubernetes.io/component: notebook-config
+data:
+  # Disable extensions that are not appropriate for embedded portal view:
+  # - mainmenu: portal provides its own toolbar via bridge
+  # - terminal: security restriction — no shell access in notebooks
+  # - extensionmanager: prevent users from installing arbitrary extensions
+  # - running: sidebar panel not needed in embedded view
+  # - announcements: suppress JupyterLab update popups
+  page_config.json: |
+    {
+      "disabledExtensions": {
+        "@jupyterlab/mainmenu-extension": true,
+        "@jupyterlab/apputils-extension:announcements": true,
+        "@jupyterlab/terminal-extension": true,
+        "@jupyterlab/extensionmanager-extension": true,
+        "@jupyterlab/running-extension": true
+      }
+    }
+  overrides.json: |
+    {
+      "@jupyterlab/apputils-extension:announcements": {
+        "checkForUpdates": false,
+        "fetchNews": "false"
+      }
+    }

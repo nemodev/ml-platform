@@ -75,13 +75,41 @@ hub:
               spawner.environment['ANALYSIS_S3_PATH'] = f's3://__S3_BUCKET__/__S3_PREFIX__/analysis/{username}/{server_name}/'
               spawner.environment['MLFLOW_EXPERIMENT_PREFIX'] = f'{username}/{server_name}/'
 
+          # Feature 008: Custom image override
+          user_options = spawner.user_options or {}
+          custom_image = user_options.get('image')
+          if custom_image:
+              spawner.image = custom_image
+
+          # Feature 010: Resource profile override
+          cpu_guarantee = user_options.get('cpu_guarantee')
+          cpu_limit = user_options.get('cpu_limit')
+          mem_guarantee = user_options.get('mem_guarantee')
+          mem_limit = user_options.get('mem_limit')
+          if cpu_guarantee is not None:
+              spawner.cpu_guarantee = float(cpu_guarantee)
+          if cpu_limit is not None:
+              spawner.cpu_limit = float(cpu_limit)
+          if mem_guarantee is not None:
+              spawner.mem_guarantee = mem_guarantee
+          if mem_limit is not None:
+              spawner.mem_limit = mem_limit
+
       c.KubeSpawner.pre_spawn_hook = pre_spawn_hook
 
 singleuser:
+  cpu:
+    guarantee: 1
+    limit: 2
+  memory:
+    guarantee: 2G
+    limit: 4G
   image:
     name: __NOTEBOOK_IMAGE_NAME__
     tag: __NOTEBOOK_IMAGE_TAG__
     pullPolicy: IfNotPresent
+    pullSecrets:
+      - registry-credentials
   networkPolicy:
     enabled: false
   extraEnv:
@@ -106,11 +134,6 @@ singleuser:
       description: Interactive data exploration and small experiments
       slug: exploratory
       default: true
-      kubespawner_override:
-        cpu_guarantee: 1
-        cpu_limit: 2
-        mem_guarantee: 2G
-        mem_limit: 4G
   storage:
     type: dynamic
     capacity: 10Gi
@@ -122,6 +145,12 @@ singleuser:
       - name: batch-inference-notebook
         configMap:
           name: batch-inference-notebook
+      - name: jupyterlab-config
+        configMap:
+          name: jupyterlab-config
+      - name: sample-visualization
+        configMap:
+          name: sample-visualization
     extraVolumeMounts:
       - name: sample-notebook
         mountPath: /home/jovyan/examples/sample-delta-data.ipynb
@@ -130,6 +159,18 @@ singleuser:
       - name: batch-inference-notebook
         mountPath: /home/jovyan/examples/batch-inference.ipynb
         subPath: batch-inference.ipynb
+        readOnly: true
+      - name: sample-visualization
+        mountPath: /home/jovyan/visualize/sample_dashboard.py
+        subPath: sample_dashboard.py
+        readOnly: true
+      - name: jupyterlab-config
+        mountPath: /opt/conda/etc/jupyter/labconfig/page_config.json
+        subPath: page_config.json
+        readOnly: true
+      - name: jupyterlab-config
+        mountPath: /opt/conda/share/jupyter/lab/settings/overrides.json
+        subPath: overrides.json
         readOnly: true
 
 proxy:
