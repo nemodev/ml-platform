@@ -76,11 +76,13 @@ S3_ENDPOINT_HOST="${S3_ENDPOINT_HOST#https://}"
 # S3 flags
 if [[ "$S3_ENDPOINT" == https://* ]]; then
   S3_USE_HTTPS=1
+  S3_SECURE=true
   S3_ALLOW_HTTP=false
   S3_IGNORE_TLS=false
   S3A_SSL_ENABLED=true
 else
   S3_USE_HTTPS=0
+  S3_SECURE=false
   S3_ALLOW_HTTP=true
   S3_IGNORE_TLS=true
   S3A_SSL_ENABLED=false
@@ -235,6 +237,7 @@ render() {
     -e "s|__S3_ALLOW_HTTP__|${S3_ALLOW_HTTP}|g" \
     -e "s|__S3_IGNORE_TLS__|${S3_IGNORE_TLS}|g" \
     -e "s|__S3A_SSL_ENABLED__|${S3A_SSL_ENABLED}|g" \
+    -e "s|__S3_SECURE__|${S3_SECURE}|g" \
     -e "s|__S3_BUCKET__|${S3_BUCKET}|g" \
     -e "s|__S3_PREFIX__|${S3_PREFIX}|g" \
     -e "s|__S3_PIPELINES_PREFIX__|${S3_PIPELINES_PREFIX}|g" \
@@ -673,10 +676,8 @@ EOFREG
   echo "  External registry credentials configured"
 else
   echo "  Deploying built-in container registry..."
-  sed "s|namespace: ml-platform|namespace: ${NAMESPACE}|g" \
-    "${PROJECT_ROOT}/infrastructure/k8s/platform/base/registry-deployment.yaml" | k apply -f -
-  sed "s|namespace: ml-platform|namespace: ${NAMESPACE}|g" \
-    "${PROJECT_ROOT}/infrastructure/k8s/platform/base/registry-service.yaml" | k apply -f -
+  k apply -f "$BUILD_DIR/registry-deployment.yaml"
+  k apply -f "$BUILD_DIR/registry-service.yaml"
 
   # Create registry-credentials Secret for built-in registry (no auth)
   DOCKER_CONFIG_JSON=$(echo -n "{\"auths\":{\"${REGISTRY_ENDPOINT}\":{\"auth\":\"$(echo -n ':' | base64)\"}}}" | base64)
