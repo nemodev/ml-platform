@@ -105,24 +105,36 @@ PY
     --command -- python -c "$purge_script"
 }
 
+capture_all_pvs() {
+  kubectl get pv \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.claimRef.namespace}{"\t"}{.spec.claimRef.name}{"\n"}{end}' 2>/dev/null \
+    | awk -v ns="$NAMESPACE" '$2 == ns {print $1}'
+}
+
 echo "This will remove the ML Platform from namespace '${NAMESPACE}'."
 echo "  - Delete namespace: ${UNINSTALL_DELETE_NAMESPACE}"
-echo "  - Delete PostgreSQL PVC(s): ${UNINSTALL_PURGE_PVC}"
-echo "  - Delete retained PV(s): ${UNINSTALL_PURGE_PV}"
+echo "  - Purge all PVCs: ${UNINSTALL_PURGE_PVC}"
+echo "  - Delete retained PVs: ${UNINSTALL_PURGE_PV}"
 echo "  - Purge S3 data: ${UNINSTALL_PURGE_S3_DATA} (prefix='${UNINSTALL_S3_PREFIX}')"
 echo "  - Remove cluster-scoped KServe resources: ${UNINSTALL_KSERVE_CLUSTER_RESOURCES}"
 echo "Press Ctrl+C within 5 seconds to abort..."
 sleep 5
 
 POSTGRES_BOUND_PVS=""
+ALL_BOUND_PVS=""
 if [[ "${UNINSTALL_PURGE_PV}" == "true" ]]; then
   POSTGRES_BOUND_PVS="$(capture_postgres_pvs || true)"
+  ALL_BOUND_PVS="$(capture_all_pvs || true)"
 fi
 
 purge_s3_data
 
+TOTAL=11
+STEP=0
+
 if namespace_exists; then
-  echo "[1/8] Removing backend & frontend..."
+  STEP=$((STEP + 1))
+  echo "[${STEP}/${TOTAL}] Removing backend & frontend..."
   kubectl -n "$NAMESPACE" delete deploy backend frontend --ignore-not-found
   kubectl -n "$NAMESPACE" delete svc backend frontend --ignore-not-found
   kubectl -n "$NAMESPACE" delete configmap frontend-nginx-template --ignore-not-found
@@ -133,30 +145,106 @@ if namespace_exists; then
   kubectl -n "$NAMESPACE" delete role backend-kserve-manager --ignore-not-found
   kubectl -n "$NAMESPACE" delete rolebinding backend-kserve-manager --ignore-not-found
 
-  echo "[2/8] Removing Airflow..."
+  STEP=$((STEP + 1))
+  echo "[${STEP}/${TOTAL}] Removing Airflow..."
   helm uninstall airflow -n "$NAMESPACE" 2>/dev/null || true
   kubectl -n "$NAMESPACE" delete configmap airflow-notebook-runner-dag --ignore-not-found
   kubectl -n "$NAMESPACE" delete sa airflow-spark-sa --ignore-not-found
   kubectl -n "$NAMESPACE" delete role airflow-spark-role --ignore-not-found
   kubectl -n "$NAMESPACE" delete rolebinding airflow-spark-rolebinding --ignore-not-found
+  kubectl -n "$NAMESPACE" delete secret airflow-broker-url airflow-fernet-key --ignore-not-found
+  # Clean up orphaned Airflow PVCs (e.g. triggerer logs)
+  AIRFLOW_PVCS="$(kubectl -n "$NAMESPACE" get pvc -o name 2>/dev/null \
+    | sed -n 's|^persistentvolumeclaim/||p' \
+    | grep -E '^(logs-airflow-|redis-db-airflow-)' || true)"
+  if [[ -n "$AIRFLOW_PVCS" ]]; then
+    echo "  Deleting orphaned Airflow PVCs..."
+    echo "$AIRFLOW_PVCS" | xargs -r kubectl -n "$NAMESPACE" delete pvc --ignore-not-found
+  fi
 
-  echo "[3/8] Removing JupyterHub..."
+  STEP=$((STEP + 1))
+  echo "[${STEP}/${TOTAL}] Removing JupyterHub..."
   helm uninstall jupyterhub -n "$NAMESPACE" 2>/dev/null || true
+  # Delete JupyterHub configmaps left behind by helm uninstall
+  kubectl -n "$NAMESPACE" delete configmap jupyterlab-config sample-visualization --ignore-not-found
+  # Delete lingering user notebook pods left behind by helm uninstall
+  JHUB_PODS="$(kubectl -n "$NAMESPACE" get pods -o name 2>/dev/null \
+    | grep -E '^pod/jupyter-' || true)"
+  if [[ -n "$JHUB_PODS" ]]; then
+    echo "  Deleting JupyterHub user pods..."
+    echo "$JHUB_PODS" | xargs -r kubectl -n "$NAMESPACE" delete --ignore-not-found --grace-period=0 --force 2>/dev/null || true
+  fi
+  # Delete JupyterHub user PVCs (claim-*)
+  JHUB_PVCS="$(kubectl -n "$NAMESPACE" get pvc -o name 2>/dev/null \
+    | sed -n 's|^persistentvolumeclaim/||p' \
+    | grep '^claim-' || true)"
+  if [[ -n "$JHUB_PVCS" ]]; then
+    echo "  Deleting JupyterHub user PVCs..."
+    echo "$JHUB_PVCS" | xargs -r kubectl -n "$NAMESPACE" delete pvc --ignore-not-found
+  fi
+  # Delete orphaned Kaniko build jobs and pods
+  KANIKO_JOBS="$(kubectl -n "$NAMESPACE" get jobs -o name 2>/dev/null \
+    | grep -E '^job.batch/kaniko-build-' || true)"
+  if [[ -n "$KANIKO_JOBS" ]]; then
+    echo "  Deleting Kaniko build jobs..."
+    echo "$KANIKO_JOBS" | xargs -r kubectl -n "$NAMESPACE" delete --ignore-not-found
+  fi
+  KANIKO_PODS="$(kubectl -n "$NAMESPACE" get pods -o name 2>/dev/null \
+    | grep -E '^pod/kaniko-build-' || true)"
+  if [[ -n "$KANIKO_PODS" ]]; then
+    echo "  Deleting Kaniko build pods..."
+    echo "$KANIKO_PODS" | xargs -r kubectl -n "$NAMESPACE" delete --ignore-not-found
+  fi
 
-  echo "[4/8] Removing sample data..."
+  STEP=$((STEP + 1))
+  echo "[${STEP}/${TOTAL}] Removing sample data..."
   kubectl -n "$NAMESPACE" delete job provision-sample-data --ignore-not-found
-  kubectl -n "$NAMESPACE" delete configmap provision-sample-data-script sample-notebook batch-inference-notebook --ignore-not-found
-  kubectl -n "$NAMESPACE" delete secret sample-data-readonly-credentials s3-credentials --ignore-not-found
+  kubectl -n "$NAMESPACE" delete configmap provision-sample-data-script sample-notebook \
+    batch-inference-notebook california-housing-data --ignore-not-found
 
-  echo "[5/8] Removing MLflow..."
+  STEP=$((STEP + 1))
+  echo "[${STEP}/${TOTAL}] Removing MLflow..."
   helm uninstall mlflow -n "$NAMESPACE" 2>/dev/null || true
 
-  echo "[6/8] Removing KServe resources in app namespace..."
+  STEP=$((STEP + 1))
+  echo "[${STEP}/${TOTAL}] Removing KServe resources in app namespace..."
   kubectl -n "$NAMESPACE" delete inferenceservices.serving.kserve.io --all --ignore-not-found 2>/dev/null || true
   kubectl -n "$NAMESPACE" delete sa kserve-s3-sa --ignore-not-found
   kubectl -n "$NAMESPACE" delete secret kserve-s3-secret --ignore-not-found
 
-  echo "[7/8] Removing PostgreSQL..."
+  STEP=$((STEP + 1))
+  echo "[${STEP}/${TOTAL}] Removing Container Registry & Kaniko..."
+  kubectl -n "$NAMESPACE" delete deploy registry --ignore-not-found
+  kubectl -n "$NAMESPACE" delete svc registry --ignore-not-found
+  kubectl -n "$NAMESPACE" delete secret registry-credentials --ignore-not-found
+  # Kaniko RBAC
+  kubectl -n "$NAMESPACE" delete sa kaniko-builder --ignore-not-found
+  kubectl -n "$NAMESPACE" delete role kaniko-builder --ignore-not-found
+  kubectl -n "$NAMESPACE" delete rolebinding kaniko-builder --ignore-not-found
+
+  STEP=$((STEP + 1))
+  echo "[${STEP}/${TOTAL}] Removing Keycloak..."
+  if [[ "${DEPLOY_KEYCLOAK:-false}" == "true" ]]; then
+    kubectl -n "$NAMESPACE" delete deploy keycloak --ignore-not-found
+    kubectl -n "$NAMESPACE" delete svc keycloak --ignore-not-found
+    kubectl -n "$NAMESPACE" delete configmap keycloak-realm-config --ignore-not-found
+  else
+    echo "  External Keycloak in use; skipping."
+  fi
+
+  STEP=$((STEP + 1))
+  echo "[${STEP}/${TOTAL}] Removing S3 credentials & services..."
+  kubectl -n "$NAMESPACE" delete secret sample-data-readonly-credentials s3-credentials --ignore-not-found
+  # Remove ExternalName service for S3 (minio)
+  kubectl -n "$NAMESPACE" delete svc minio --ignore-not-found
+  if [[ "${DEPLOY_OBC:-false}" == "true" ]]; then
+    echo "  Removing ObjectBucketClaim..."
+    kubectl -n "$NAMESPACE" delete objectbucketclaim "${S3_BUCKET}" \
+      --ignore-not-found 2>/dev/null || true
+  fi
+
+  STEP=$((STEP + 1))
+  echo "[${STEP}/${TOTAL}] Removing PostgreSQL..."
   if [[ "${DEPLOY_POSTGRESQL:-true}" == "true" ]]; then
     kubectl -n "$NAMESPACE" delete statefulset postgresql --ignore-not-found
     kubectl -n "$NAMESPACE" delete svc postgresql --ignore-not-found
@@ -174,39 +262,39 @@ if namespace_exists; then
         kubectl -n "$NAMESPACE" delete pvc "${POSTGRES_PVCS[@]}" --ignore-not-found
       fi
     else
-      echo "  Skipping PVC deletion (UNINSTALL_PURGE_PVC=false)."
+      echo "  Skipping PostgreSQL PVC deletion (UNINSTALL_PURGE_PVC=false)."
     fi
   else
     echo "  External PostgreSQL in use; no in-cluster PostgreSQL resources removed."
   fi
 
-  if [[ "${DEPLOY_OBC:-false}" == "true" ]]; then
-    echo "  Removing ObjectBucketClaim..."
-    kubectl -n "$NAMESPACE" delete objectbucketclaim "${S3_BUCKET}" \
-      --ignore-not-found 2>/dev/null || true
-  fi
-
+  STEP=$((STEP + 1))
   if [[ "${UNINSTALL_DELETE_NAMESPACE}" == "true" ]]; then
-    echo "[8/8] Deleting namespace '${NAMESPACE}'..."
+    echo "[${STEP}/${TOTAL}] Deleting namespace '${NAMESPACE}'..."
     kubectl delete namespace "$NAMESPACE" --ignore-not-found
     kubectl wait --for=delete namespace/"$NAMESPACE" --timeout=300s 2>/dev/null || true
   else
-    echo "[8/8] Skipping namespace deletion (UNINSTALL_DELETE_NAMESPACE=false)."
+    echo "[${STEP}/${TOTAL}] Skipping namespace deletion (UNINSTALL_DELETE_NAMESPACE=false)."
   fi
 else
   echo "Namespace '${NAMESPACE}' does not exist. Skipping namespaced resource cleanup."
 fi
 
-if [[ "${UNINSTALL_PURGE_PV}" == "true" ]] && [[ -n "${POSTGRES_BOUND_PVS}" ]]; then
-  echo "Removing retained PostgreSQL PV(s)..."
+if [[ "${UNINSTALL_PURGE_PV}" == "true" ]] && [[ -n "${ALL_BOUND_PVS}" ]]; then
+  echo "Removing retained PVs bound to namespace '${NAMESPACE}'..."
   while IFS= read -r pv; do
     [[ -n "$pv" ]] || continue
     kubectl delete pv "$pv" --ignore-not-found
-  done <<< "${POSTGRES_BOUND_PVS}"
+  done <<< "${ALL_BOUND_PVS}"
 fi
 
 if [[ "${UNINSTALL_KSERVE_CLUSTER_RESOURCES}" == "true" ]]; then
   echo "Removing cluster-scoped KServe resources..."
+  # Remove webhook configurations first to prevent finalizer deadlocks
+  kubectl delete mutatingwebhookconfiguration inferenceservice.serving.kserve.io --ignore-not-found 2>/dev/null || true
+  for vwc in clusterservingruntime inferencegraph inferenceservice servingruntime trainedmodel; do
+    kubectl delete validatingwebhookconfiguration "${vwc}.serving.kserve.io" --ignore-not-found 2>/dev/null || true
+  done
   kubectl delete --ignore-not-found -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml" 2>/dev/null || true
   kubectl delete --ignore-not-found -f "${KSERVE_RELEASE_URL}/kserve.yaml" 2>/dev/null || true
 

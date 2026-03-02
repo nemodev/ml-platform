@@ -18,7 +18,7 @@ spec:
       containers:
         - name: backend
           image: __BACKEND_IMAGE__
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8080

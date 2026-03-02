@@ -341,6 +341,12 @@ reconcile_kserve_release() {
 
   # Apply controller/resources only after CRDs are established.
   k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve.yaml"
+
+  # Wait for controller to be ready before applying cluster-resources (which
+  # trigger webhook validation that requires the controller to be serving).
+  echo "  Waiting for KServe controller to be ready..."
+  k -n "$KSERVE_SYSTEM_NAMESPACE" rollout status deployment/kserve-controller-manager --timeout=300s
+
   k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml"
 }
 
@@ -426,6 +432,46 @@ if [[ "${DEPLOY_KEYCLOAK:-false}" == "true" ]]; then
   echo "  Waiting for Keycloak rollout..."
   k -n "$NAMESPACE" rollout status deployment/keycloak --timeout=15m
   echo "  Keycloak deployed"
+
+  # Sync client redirect URIs via admin API (--import-realm skips existing realms)
+  echo "  Syncing Keycloak client redirect URIs..."
+  KC_ADMIN_TOKEN=""
+  for _try in $(seq 1 12); do
+    KC_ADMIN_TOKEN="$(kubectl -n "$NAMESPACE" exec deployment/keycloak -- \
+      bash -c "curl -sf -X POST http://localhost:8080/realms/master/protocol/openid-connect/token \
+        -d client_id=admin-cli -d username=admin -d password=${KEYCLOAK_ADMIN_PASSWORD:-admin} \
+        -d grant_type=password" 2>/dev/null \
+      | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])' 2>/dev/null)" && break
+    sleep 5
+  done
+  if [[ -n "$KC_ADMIN_TOKEN" ]]; then
+    # Update portal client
+    PORTAL_UUID="$(kubectl -n "$NAMESPACE" exec deployment/keycloak -- \
+      bash -c "curl -sf -H 'Authorization: Bearer $KC_ADMIN_TOKEN' \
+        'http://localhost:8080/admin/realms/${KEYCLOAK_REALM}/clients?clientId=${KEYCLOAK_PORTAL_CLIENT_ID}'" 2>/dev/null \
+      | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["id"])' 2>/dev/null)" || true
+    if [[ -n "$PORTAL_UUID" ]]; then
+      kubectl -n "$NAMESPACE" exec deployment/keycloak -- \
+        bash -c "curl -sf -X PUT -H 'Authorization: Bearer $KC_ADMIN_TOKEN' -H 'Content-Type: application/json' \
+          'http://localhost:8080/admin/realms/${KEYCLOAK_REALM}/clients/${PORTAL_UUID}' \
+          -d '{\"clientId\":\"${KEYCLOAK_PORTAL_CLIENT_ID}\",\"redirectUris\":[\"${PLATFORM_URL}/*\",\"http://localhost:4200/*\",\"http://localhost:8080/*\",\"http://localhost:30080/*\"],\"webOrigins\":[\"${PLATFORM_URL}\",\"http://localhost:4200\",\"http://localhost:8080\",\"http://localhost:30080\"]}'" >/dev/null 2>&1
+      echo "    Portal client redirect URIs synced"
+    fi
+    # Update JupyterHub client
+    JHUB_UUID="$(kubectl -n "$NAMESPACE" exec deployment/keycloak -- \
+      bash -c "curl -sf -H 'Authorization: Bearer $KC_ADMIN_TOKEN' \
+        'http://localhost:8080/admin/realms/${KEYCLOAK_REALM}/clients?clientId=${KEYCLOAK_JUPYTERHUB_CLIENT_ID}'" 2>/dev/null \
+      | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["id"])' 2>/dev/null)" || true
+    if [[ -n "$JHUB_UUID" ]]; then
+      kubectl -n "$NAMESPACE" exec deployment/keycloak -- \
+        bash -c "curl -sf -X PUT -H 'Authorization: Bearer $KC_ADMIN_TOKEN' -H 'Content-Type: application/json' \
+          'http://localhost:8080/admin/realms/${KEYCLOAK_REALM}/clients/${JHUB_UUID}' \
+          -d '{\"clientId\":\"${KEYCLOAK_JUPYTERHUB_CLIENT_ID}\",\"redirectUris\":[\"${PLATFORM_URL}/hub/oauth_callback\",\"http://localhost:8181/hub/oauth_callback\",\"http://localhost:30080/hub/oauth_callback\"],\"webOrigins\":[\"${PLATFORM_URL}\",\"http://localhost:8181\",\"http://localhost:30080\"]}'" >/dev/null 2>&1
+      echo "    JupyterHub client redirect URIs synced"
+    fi
+  else
+    echo "  WARNING: Could not obtain Keycloak admin token. Client redirect URIs may be stale."
+  fi
 else
   echo "  Using external Keycloak at ${KEYCLOAK_URL}"
 fi
