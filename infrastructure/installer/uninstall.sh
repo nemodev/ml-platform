@@ -303,7 +303,11 @@ if [[ "${UNINSTALL_PURGE_PV}" == "true" ]] && [[ -n "${ALL_BOUND_PVS}" ]]; then
   echo "Removing retained PVs bound to namespace '${NAMESPACE}'..."
   while IFS= read -r pv; do
     [[ -n "$pv" ]] || continue
-    kubectl delete pv "$pv" --ignore-not-found
+    if ! timeout 10 kubectl delete pv "$pv" --ignore-not-found 2>/dev/null; then
+      echo "  PV ${pv} stuck — clearing finalizers to force removal..."
+      kubectl patch pv "$pv" --type=merge -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+      kubectl delete pv "$pv" --ignore-not-found 2>/dev/null || true
+    fi
   done <<< "${ALL_BOUND_PVS}"
 fi
 
