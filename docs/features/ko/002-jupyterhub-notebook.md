@@ -11,18 +11,20 @@
 ```
 Angular Portal
     ↓ (iframe: /user/{username}/{serverName}/lab)
+nginx reverse proxy
+    ↓ (proxy_hide_header CSP + frame-ancestors 'self')
 JupyterHub Proxy (Z2JH Helm)
     ↓
 KubeSpawner → Named Server Pod (per analysis)
-    ↓
-ml-platform-notebook:latest image
-    (Python 3.11, ML libs, Java 17, Spark 4.0.1)
+    ├── main: ml-platform-notebook:latest (Python 3.11, ML libs, Java 17, Spark 4.0.1)
+    └── sidecar: s3fs-fuse (analysis S3 prefix → /home/jovyan/work 마운트)
 ```
 
 **주요 설계 결정:**
 
 - **Z2JH Helm chart** — 공식 Zero to JupyterHub Helm chart는 KubeSpawner, idle culler, 설정 가능한 proxy를 번들링한다. 커스텀 K8s 매니페스트 대신 선택한 이유는, 멀티 유저 노트북 관리의 복잡성을 처리해 주기 때문이다.
 - **Analysis별 named server** — 각 analysis UUID가 JupyterHub server name(`/user/{username}/{analysisId}`)이 된다. 사용자는 독립된 파일 시스템과 커널 상태를 가진 여러 analysis를 동시에 실행할 수 있다.
+- **s3fs-fuse 사이드카를 통한 S3 기반 workspace 스토리지** — 각 analysis가 고유한 S3 prefix(`analysis/{username}/{analysisId}/`)를 가지며, s3fs-fuse 사이드카 컨테이너를 통해 `/home/jovyan/work`에 POSIX 파일시스템으로 마운트된다. 이는 기존의 PVC 기반 스토리지를 대체하여, analysis별 파일 격리와 pod 생명주기와 무관한 영속성을 제공한다. 사이드카는 mount propagation(`Bidirectional` 사이드카, `HostToContainer` 메인 컨테이너)이 있는 `emptyDir`을 사용하고, Jupyter 시작 전에 ready sentinel(`/mnt/ready/.done`)을 생성한다. 기본 노트북은 analysis 생성 시 `WorkspaceContentSeeder`에 의해 S3에 시딩된다.
 - **Workspace 생명주기 상태 머신** — Backend가 매 요청마다 JupyterHub API와 조정되는 `Workspace` 엔티티 status를 유지한다. 상태: PENDING (생성 중), RUNNING (준비됨, 활성), IDLE (준비됨, 비활성), STOPPED (종료됨), FAILED (오류). 실행 시, 클러스터 재시작으로 인한 오래된 DB 레코드를 감지하여 새 spawn 전에 STOPPED로 표시한다.
 - **GenericOAuthenticator + auto_login** — JupyterHub가 Keycloak OIDC를 통해 인증한다. `auto_login: true`는 활성 Keycloak 세션이 있는 사용자가 JupyterHub 로그인 페이지를 완전히 건너뛸 수 있음을 의미한다.
 - **단일 노트북 이미지** — 하나의 Docker 이미지(`ml-platform-notebook:latest`)가 JupyterHub 사용자 서버, Airflow 파이프라인 워커, Spark executor, 데이터 프로비저닝 Job으로 사용된다. 이로써 플랫폼 전체에서 환경 동일성을 보장한다.
@@ -38,8 +40,11 @@ ml-platform-notebook:latest image
 | Backend | `model/Workspace.java` | WorkspaceStatus enum을 가진 JPA 엔티티 |
 | Frontend | `features/notebooks/notebooks.component.ts` | Iframe 로딩, bridge 초기화, 폴링, profile/image 전환 |
 | Frontend | `core/services/workspace.service.ts` | `watchStatusUntilStable()` 폴링을 포함한 HTTP 클라이언트 |
-| Infra | `helm/jupyterhub/values.yaml` | Z2JH 설정: OAuth, CSP, idle culler, named servers |
+| Backend | `service/WorkspaceContentSeeder.java` | Analysis 생성 시 기본 노트북을 S3에 시딩 |
+| Infra | `helm/jupyterhub/values.yaml` | Z2JH 설정: OAuth, idle culler, named servers, s3fs 사이드카 |
 | Infra | `docker/notebook-image/Dockerfile` | scipy-notebook + Java + Spark + ML libs + JupyterLab 커스터마이징 |
+| Infra | `docker/s3fs-sidecar/Dockerfile` | Alpine 기반 s3fs-fuse 사이드카 이미지 |
+| Infra | `nginx/nginx.conf.template` | iframe 임베딩을 위한 CSP 오버라이드 (`frame-ancestors 'self'`) |
 
 **실행 시 상태 조정:** 새 workspace를 생성하기 전에, `WorkspaceService.launchWorkspace()`가 각 "활성" DB 레코드에 대해 JupyterHub를 조회한다. JupyterHub가 서버를 중지됨으로 보고하면 (예: 모든 사용자 pod를 종료한 Helm 업그레이드 이후), DB 레코드를 STOPPED로 표시한다. 이로써 오래된 상태로 인한 CONFLICT 오류를 방지하고 클러스터 재시작에 대해 시스템이 자체 복구되도록 한다.
 
@@ -50,16 +55,18 @@ ml-platform-notebook:latest image
 ## 과제 및 해결
 
 - **클러스터 재시작 후 오래된 workspace 레코드** — JupyterHub pod가 종료되었지만 DB에는 여전히 RUNNING으로 표시된다. 해결: 매 실행 시도마다 DB를 JupyterHub API와 조정하고, 고아 레코드를 자동으로 STOPPED로 표시.
-- **iframe 임베딩을 위한 CSP** — JupyterHub의 기본 CSP가 프레이밍을 차단한다. 해결: Helm values에서 포털의 origin(localhost:4200, 프로덕션 도메인 등)을 허용하도록 `frame-ancestors` 설정.
+- **iframe 임베딩을 위한 CSP** — JupyterHub의 singleuser OAuth 프록시가 리다이렉트 응답에서 `Content-Security-Policy: frame-ancestors 'none'`을 전송하여, hub 자체의 CSP가 올바르더라도 iframe 로딩을 차단한다. 해결: `/user/` 프록시 location에서 nginx 수준의 오버라이드(`proxy_hide_header Content-Security-Policy` + `add_header "frame-ancestors 'self'" always`). 3개 파일에 적용: `frontend/nginx/nginx.conf.template`, k8s base ConfigMap, installer 템플릿.
+- **s3fs-fuse 사이드카 마운트 타이밍** — FUSE 마운트가 Jupyter 시작 전에 완료되어야 하며, 그렇지 않으면 파일 브라우저가 빈 디렉토리를 표시한다. 해결: 사이드카가 성공적인 마운트 후 sentinel 파일(`/mnt/ready/.done`)을 생성하고, 메인 컨테이너의 `spawner.cmd`가 `jupyterhub-singleuser` 실행 전에 이 sentinel을 대기한다.
+- **Alpine에서의 s3fs-fuse와 MinIO** — MinIO 호환성을 위해 여러 s3fs 옵션이 필요하다: `use_path_request_style` (경로 스타일 S3 접근), `compat_dir` (가상 S3 prefix가 오브젝트로 존재하지 않음), `uid=1000,gid=100,umask=0022` (FUSE 마운트는 기본적으로 root 소유; 노트북은 jovyan uid 1000으로 실행). `use_http`와 `nocheckbucket` 옵션은 Alpine s3fs v1.94에서 지원되지 않는다.
 - **하드코딩된 Keycloak authorize URL** — JupyterHub의 `authorize_url`은 브라우저 접근 가능해야 한다 (in-cluster DNS 아님). 현재 r1 클러스터 IP `172.16.100.10:30080`으로 하드코딩됨. Token/userdata URL은 서버 간 통신이므로 in-cluster DNS를 올바르게 사용한다.
 - **JupyterHubService의 Thread.sleep** — `fetchContents()`가 일시적 실패 시 `Thread.sleep(200)`으로 재시도한다. 이는 executor 스레드를 차단한다; reactive retry가 더 나을 것이다.
 
 ## 제한 사항
 
 - **리소스 핫 리사이징 불가** — compute profile 변경은 workspace 재시작이 필요하다. JupyterHub의 KubeSpawner는 라이브 리소스 변경을 지원하지 않는다.
-- **사용자당 10Gi 스토리지** — 동적 PVC 프로비저닝이 고정 10Gi를 할당한다. Analysis별 스토리지 쿼터 없음.
+- **s3fs 지연** — S3 FUSE 마운트는 작은 랜덤 읽기에서 로컬 디스크보다 높은 지연이 있다. 노트북 워크플로우에는 허용 가능하지만 대량 I/O 워크로드에는 이상적이지 않다.
+- **권한 있는 사이드카** — s3fs 사이드카가 FUSE를 위해 `securityContext: {privileged: true}`를 요구한다. 사이드카가 메인 컨테이너에서 셸 접근이 없는 최소한의 Alpine 이미지를 실행함으로써 완화되는 보안 트레이드오프이다.
 - **Helm values에 하드코딩된 Keycloak URL** — authorize URL이 특정 IP를 사용하여, 배포 컨텍스트 간 이식성을 깨뜨린다.
-- **디스크 사용량 경고 없음** — PVC가 가득 차도, 플랫폼에서 사전 경고를 제공하지 않는다.
 - **커널 상태가 폴링 방식** — 프론트엔드가 5초마다 폴링한다. WebSocket 기반 커널 상태가 더 반응적이겠지만 복잡성이 추가된다.
 
 ## 검토한 대안
@@ -76,6 +83,7 @@ ml-platform-notebook:latest image
 
 - **WebSocket 커널 상태** — 5초 폴링을 JupyterHub의 WebSocket API로 대체하여 실시간 커널 상태 변경 감지.
 - **Keycloak URL 파라미터화** — 멀티 환경 배포 지원을 위해 authorize URL에 Helm values 또는 환경 변수 사용.
-- **스토리지 쿼터 및 알림** — PVC 사용량을 모니터링하고 10Gi 한도에 접근하는 사용자에게 경고.
+- **S3 스토리지 쿼터** — Analysis별 S3 prefix 크기를 모니터링하고 사용자 또는 analysis별 스토리지 한도 적용.
 - **사전 생성된 서버 풀** — 할당 대기 중인 idle 노트북 pod 풀을 유지하여 cold-start 시간 단축.
 - **우아한 세션 핸드오프** — 403 감지 + 리다이렉트 대신, JupyterHub의 세션 관리를 사용하여 사용자 전환을 깔끔하게 처리.
+- **S3 CSI 드라이버** — 권한 있는 s3fs 사이드카를 S3 CSI 드라이버(예: `mountpoint-s3-csi-driver`)로 대체하여 Kubernetes 네이티브, 비권한 마운트 접근 방식 적용.
