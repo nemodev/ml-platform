@@ -97,6 +97,8 @@ On r1, images use `ttl.sh/<name>:24h` ephemeral registry.
 - None (no database tables; all state is ephemeral in-memory within notebook pods) (009-streamlit-visualization)
 - Java 21 (backend), TypeScript 5.4+ (frontend), Python 3.11 (JupyterHub hook) + Spring Boot 3.5.x, Angular 17, Kubernetes Java Client (`io.kubernetes:client-java`) (010-notebook-resource-profiles)
 - PostgreSQL (existing `workspaces.profile` column — no migration needed), application.yaml (profile definitions) (010-notebook-resource-profiles)
+- Java 21 (backend), TypeScript 5.4+ (frontend), Python 3.11 (notebooks) + Spring Boot 3.5.x, Angular 17, MinIO Java SDK (io.minio:minio:8.5.17), Apache Parquet Java (parquet-hadoop 1.14.x), s3fs-fuse (011-shared-s3-libraries)
+- MinIO (S3-compatible) — no database entities; all metadata read from S3 (011-shared-s3-libraries)
 
 ## Recent Changes
 - 008-custom-notebook-images: Added Java 21 (backend), TypeScript 5.4+ (frontend) + Spring Boot 3.5.x, Angular 17, Kubernetes Java Client (io.kubernetes.client), Kaniko (gcr.io/kaniko-project/executor), Docker Distribution (registry:2)

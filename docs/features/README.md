@@ -1,6 +1,6 @@
 # Feature Documentation
 
-Developer-friendly summaries of the ML Platform PoC's 10 features. Each document covers architecture decisions, key implementation details, challenges, limitations, and what to invest in for a production version.
+Developer-friendly summaries of the ML Platform PoC's 11 features. Each document covers architecture decisions, key implementation details, challenges, limitations, and what to invest in for a production version.
 
 These are **not** specs. For user stories and acceptance criteria, see `specs/NNN-*/spec.md`.
 
@@ -20,6 +20,8 @@ These are **not** specs. For user stories and acceptance criteria, see `specs/NN
 006 Model Serving                           010 Resource       │
                                                 Profiles       │
                                                                │
+011 Shared S3 Libraries (depends on 002 s3fs sidecar infra)   │
+                                                               │
 All features depend on ────────────────────────────────────────┘
 ```
 
@@ -37,6 +39,7 @@ All features depend on ───────────────────
 | 008 | [Custom Notebook Images](008-custom-notebook-images.md) | Kaniko in-cluster builds, Docker Distribution registry, build queue | Depends on 002 |
 | 009 | [Streamlit Visualization](009-streamlit-visualization.md) | jupyter-server-proxy, custom extension, polling startup detection | Depends on 007 |
 | 010 | [Resource Profiles](010-notebook-resource-profiles.md) | Config-based CPU/memory profiles, K8s Metrics API, profile switching | Depends on 002, 008 |
+| 011 | [Shared S3 Libraries](011-shared-s3-libraries.md) | Shared S3 file browser, REST API, Parquet preview, s3fs runtime mount | Depends on 002 |
 
 ## Cross-Cutting Patterns
 
@@ -56,6 +59,8 @@ These patterns repeat across features. Each is introduced once and referenced fr
 **Workspace lifecycle state machine** (introduced in [002](002-jupyterhub-notebook.md)) — PENDING → RUNNING → IDLE → STOPPED/FAILED. Extended by custom images ([008](008-custom-notebook-images.md)), Streamlit process lifecycle ([009](009-streamlit-visualization.md)), and profile switching ([010](010-notebook-resource-profiles.md)).
 
 **Single notebook image** (introduced in [002](002-jupyterhub-notebook.md)) — One Docker image serves as JupyterHub server, Airflow pipeline worker, Spark executor, and data provisioning container. Custom images ([008](008-custom-notebook-images.md)) extend this base.
+
+**s3fs-fuse sidecar pattern** (introduced in [002](002-jupyterhub-notebook.md), extended by [011](011-shared-s3-libraries.md)) — A lightweight Alpine-based sidecar container runs `s3fs` to mount S3 prefixes as POSIX filesystems via `emptyDir` volumes with mount propagation. Used for per-analysis workspace storage (read-write) and shared libraries (read-only). Requires `privileged: true` for FUSE, `compat_dir` for MinIO virtual prefixes, and `uid=1000,gid=100` for jovyan user compatibility.
 
 ## Key References
 
