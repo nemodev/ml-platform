@@ -114,5 +114,9 @@ server {
     proxy_set_header Connection "upgrade";
     proxy_buffering off;
     proxy_read_timeout 86400;
+    # Override singleuser OAuth proxy CSP (sends frame-ancestors 'none')
+    # to allow embedding in the platform iframe
+    proxy_hide_header Content-Security-Policy;
+    add_header Content-Security-Policy "frame-ancestors 'self'" always;
   }
 }
