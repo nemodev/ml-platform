@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 import tornado.web
 
 HOME_DIR = "/home/jovyan"
-VISUALIZE_DIR = os.path.join(HOME_DIR, "visualize")
+WORK_DIR = os.path.join(HOME_DIR, "work")
+VISUALIZE_DIR = os.path.join(WORK_DIR, "visualize")
 BASE_PORT = 8501
 
 # Module-level state for the single managed Streamlit process
@@ -133,7 +134,7 @@ class StreamlitFilesHandler(tornado.web.RequestHandler):
                     full_path = os.path.join(root, fname)
                     if not _has_streamlit_import(full_path):
                         continue
-                    rel_path = os.path.relpath(full_path, HOME_DIR)
+                    rel_path = os.path.relpath(full_path, WORK_DIR)
                     stat = os.stat(full_path)
                     last_modified = datetime.fromtimestamp(
                         stat.st_mtime, tz=timezone.utc
@@ -169,7 +170,7 @@ class StreamlitStartHandler(tornado.web.RequestHandler):
             self.finish(json.dumps({"error": error}))
             return
 
-        abs_path = os.path.join(HOME_DIR, file_path)
+        abs_path = os.path.join(WORK_DIR, file_path)
         if not os.path.isfile(abs_path):
             self.set_status(404)
             self.finish(json.dumps({"error": f"File not found: {file_path}"}))
@@ -210,7 +211,7 @@ class StreamlitStartHandler(tornado.web.RequestHandler):
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                cwd=HOME_DIR,
+                cwd=WORK_DIR,
             )
         except Exception as e:
             self.set_status(500)
