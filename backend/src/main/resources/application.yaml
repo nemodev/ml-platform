@@ -87,6 +87,8 @@ services:
     pipelines-bucket: ml-platform-pipelines
     pipelines-prefix: ml-platform/pipelines
     presign-expiry-seconds: 900
+    analysis-bucket: ml-platform
+    analysis-prefix: analysis
   notebook-images:
     registry:
       type: ${REGISTRY_TYPE:builtin}

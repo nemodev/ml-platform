@@ -24,17 +24,20 @@ public class AnalysisService {
     private final WorkspaceRepository workspaceRepository;
     private final UserService userService;
     private final Environment environment;
+    private final WorkspaceContentSeeder workspaceContentSeeder;
 
     public AnalysisService(
             AnalysisRepository analysisRepository,
             WorkspaceRepository workspaceRepository,
             UserService userService,
-            Environment environment
+            Environment environment,
+            WorkspaceContentSeeder workspaceContentSeeder
     ) {
         this.analysisRepository = analysisRepository;
         this.workspaceRepository = workspaceRepository;
         this.userService = userService;
         this.environment = environment;
+        this.workspaceContentSeeder = workspaceContentSeeder;
     }
 
     @Transactional
@@ -55,6 +58,8 @@ public class AnalysisService {
         analysis.setName(name);
         analysis.setDescription(request.description());
         analysis = analysisRepository.save(analysis);
+
+        workspaceContentSeeder.seedAnalysisWorkspace(user.getUsername(), analysis.getId());
 
         return toDto(analysis);
     }
@@ -120,6 +125,8 @@ public class AnalysisService {
         if (!active.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete analysis with an active workspace. Please terminate the workspace first.");
         }
+
+        workspaceContentSeeder.deleteAnalysisWorkspace(user.getUsername(), analysis.getId());
 
         // Remove stopped/failed workspace records before deleting the analysis
         workspaceRepository.deleteByAnalysisId(analysis.getId());

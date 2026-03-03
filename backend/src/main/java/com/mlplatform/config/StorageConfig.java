@@ -33,6 +33,8 @@ public class StorageConfig {
         private String pipelinesBucket;
         private String pipelinesPrefix = "ml-platform/pipelines";
         private int presignExpirySeconds = 900;
+        private String analysisBucket;
+        private String analysisPrefix = "analysis";
 
         public String getEndpoint() {
             return endpoint;
@@ -80,6 +82,22 @@ public class StorageConfig {
 
         public void setPresignExpirySeconds(int presignExpirySeconds) {
             this.presignExpirySeconds = presignExpirySeconds;
+        }
+
+        public String getAnalysisBucket() {
+            return analysisBucket;
+        }
+
+        public void setAnalysisBucket(String analysisBucket) {
+            this.analysisBucket = analysisBucket;
+        }
+
+        public String getAnalysisPrefix() {
+            return analysisPrefix;
+        }
+
+        public void setAnalysisPrefix(String analysisPrefix) {
+            this.analysisPrefix = analysisPrefix;
         }
     }
 }
