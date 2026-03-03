@@ -670,10 +670,10 @@ if [[ "$REGISTRY_TYPE" == "external" ]]; then
   # Create registry-credentials Secret from external registry credentials
   if [[ -n "$REGISTRY_USERNAME" ]] && [[ -n "$REGISTRY_PASSWORD" ]]; then
     AUTH=$(echo -n "${REGISTRY_USERNAME}:${REGISTRY_PASSWORD}" | base64)
+    DOCKER_CONFIG_JSON=$(echo -n "{\"auths\":{\"${REGISTRY_ENDPOINT}\":{\"auth\":\"${AUTH}\"}}}" | base64)
   else
-    AUTH=$(echo -n ':' | base64)
+    DOCKER_CONFIG_JSON=$(echo -n "{\"auths\":{\"${REGISTRY_ENDPOINT}\":{}}}" | base64)
   fi
-  DOCKER_CONFIG_JSON=$(echo -n "{\"auths\":{\"${REGISTRY_ENDPOINT}\":{\"auth\":\"${AUTH}\"}}}" | base64)
   cat <<EOFREG | k apply -f -
 apiVersion: v1
 kind: Secret
@@ -691,7 +691,7 @@ else
   k apply -f "$BUILD_DIR/registry-service.yaml"
 
   # Create registry-credentials Secret for built-in registry (no auth)
-  DOCKER_CONFIG_JSON=$(echo -n "{\"auths\":{\"${REGISTRY_ENDPOINT}\":{\"auth\":\"$(echo -n ':' | base64)\"}}}" | base64)
+  DOCKER_CONFIG_JSON=$(echo -n "{\"auths\":{\"${REGISTRY_ENDPOINT}\":{}}}" | base64)
   cat <<EOFREG | k apply -f -
 apiVersion: v1
 kind: Secret

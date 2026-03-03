@@ -100,7 +100,7 @@ services:
       namespace: ${NAMESPACE:ml-platform}
       timeout-minutes: 60
       max-concurrent-builds: 3
-      kaniko-image: gcr.io/kaniko-project/executor:latest
+      kaniko-image: gcr.io/kaniko-project/executor:v1.23.2
       build-cpu-request: "1"
       build-memory-request: 2Gi
       build-cpu-limit: "2"
