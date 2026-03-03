@@ -243,6 +243,27 @@ test.describe.serial('ML Platform E2E', () => {
     await expect(page.getByRole('button', { name: 'Terminate' })).toBeVisible();
   });
 
+  test('@full Notebooks — S3 workspace files', async ({ page }) => {
+    if (!analysisUrl) {
+      test.skip(true, 'No analysisUrl available');
+    }
+
+    await page.goto(`${analysisUrl}/notebooks`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.workspace-page')).toBeVisible({ timeout: 30_000 });
+
+    // Wait for running state
+    await waitForWorkspaceRunning(page, 210_000);
+
+    // Access JupyterLab file browser via frameLocator, scoped to the sidebar
+    const jupyterFrame = page.frameLocator('iframe[title="JupyterLab"]');
+    const fileBrowser = jupyterFrame.getByLabel('File Browser Section');
+
+    // Wait for JupyterLab file browser to render — seeded files should appear
+    await expect(fileBrowser.getByText('sample-delta-data.ipynb', { exact: true })).toBeVisible({ timeout: 90_000 });
+    await expect(fileBrowser.getByText('batch-inference.ipynb', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(fileBrowser.getByText('visualize', { exact: true })).toBeVisible({ timeout: 10_000 });
+  });
+
   test('@full Experiments — MLflow iframe', async ({ page }) => {
     if (!analysisUrl) {
       test.skip(true, 'No analysisUrl available');
