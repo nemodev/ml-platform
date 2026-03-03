@@ -72,7 +72,7 @@ hub:
           server_name = spawner.name
           if server_name:
               spawner.environment['ANALYSIS_ID'] = server_name
-              spawner.environment['ANALYSIS_S3_PATH'] = f's3://__S3_BUCKET__/__S3_PREFIX__/analysis/{username}/{server_name}/'
+              spawner.environment['ANALYSIS_S3_PATH'] = f's3://__S3_BUCKET__/analysis/{username}/{server_name}/'
               spawner.environment['MLFLOW_EXPERIMENT_PREFIX'] = f'{username}/{server_name}/'
 
           # Feature 008: Custom image override
@@ -94,6 +94,31 @@ hub:
               spawner.mem_guarantee = mem_guarantee
           if mem_limit is not None:
               spawner.mem_limit = mem_limit
+
+          # Sandbox Jupyter file browser to the S3-backed workspace
+          spawner.notebook_dir = '/home/jovyan/work'
+
+          # Add s3fs sidecar to mount analysis S3 prefix
+          if server_name:
+              spawner.extra_containers = [{
+                  'name': 's3fs-workspace',
+                  'image': '__S3FS_SIDECAR_IMAGE__',
+                  'securityContext': {'privileged': True},
+                  'env': [
+                      {'name': 'S3_BUCKET', 'value': '__S3_BUCKET__'},
+                      {'name': 'S3_PREFIX', 'value': f'analysis/{username}/{server_name}'},
+                      {'name': 'S3_ENDPOINT', 'value': '__S3_ENDPOINT__'},
+                      {'name': 'AWS_ACCESS_KEY_ID', 'valueFrom': {'secretKeyRef': {'name': 's3-credentials', 'key': 'access-key'}}},
+                      {'name': 'AWS_SECRET_ACCESS_KEY', 'valueFrom': {'secretKeyRef': {'name': 's3-credentials', 'key': 'secret-key'}}},
+                  ],
+                  'volumeMounts': [
+                      {'name': 'workspace-fuse', 'mountPath': '/mnt/workspace', 'mountPropagation': 'Bidirectional'},
+                      {'name': 's3fs-ready', 'mountPath': '/mnt/ready'},
+                  ],
+              }]
+
+          # Wait for s3fs mount before starting Jupyter
+          spawner.cmd = ['sh', '-c', 'until [ -f /tmp/s3fs-ready/.done ]; do sleep 0.5; done; exec jupyterhub-singleuser --notebook-dir=/home/jovyan/work']
 
       c.KubeSpawner.pre_spawn_hook = pre_spawn_hook
 
@@ -122,47 +147,38 @@ singleuser:
     AWS_ACCESS_KEY_ID:
       valueFrom:
         secretKeyRef:
-          name: sample-data-readonly-credentials
-          key: AWS_ACCESS_KEY_ID
+          name: s3-credentials
+          key: access-key
     AWS_SECRET_ACCESS_KEY:
       valueFrom:
         secretKeyRef:
-          name: sample-data-readonly-credentials
-          key: AWS_SECRET_ACCESS_KEY
+          name: s3-credentials
+          key: secret-key
   profileList:
     - display_name: Exploratory
       description: Interactive data exploration and small experiments
       slug: exploratory
       default: true
   storage:
-    type: dynamic
-    capacity: 10Gi
-    homeMountPath: /home/jovyan
+    type: none
     extraVolumes:
-      - name: sample-notebook
-        configMap:
-          name: sample-notebook
-      - name: batch-inference-notebook
-        configMap:
-          name: batch-inference-notebook
+      - name: workspace-fuse
+        emptyDir: {}
+      - name: s3fs-ready
+        emptyDir: {}
+      - name: home-ephemeral
+        emptyDir: {}
       - name: jupyterlab-config
         configMap:
           name: jupyterlab-config
-      - name: sample-visualization
-        configMap:
-          name: sample-visualization
     extraVolumeMounts:
-      - name: sample-notebook
-        mountPath: /home/jovyan/examples/sample-delta-data.ipynb
-        subPath: sample-delta-data.ipynb
-        readOnly: true
-      - name: batch-inference-notebook
-        mountPath: /home/jovyan/examples/batch-inference.ipynb
-        subPath: batch-inference.ipynb
-        readOnly: true
-      - name: sample-visualization
-        mountPath: /home/jovyan/visualize/sample_dashboard.py
-        subPath: sample_dashboard.py
+      - name: home-ephemeral
+        mountPath: /home/jovyan
+      - name: workspace-fuse
+        mountPath: /home/jovyan/work
+        mountPropagation: HostToContainer
+      - name: s3fs-ready
+        mountPath: /tmp/s3fs-ready
         readOnly: true
       - name: jupyterlab-config
         mountPath: /opt/conda/etc/jupyter/labconfig/page_config.json

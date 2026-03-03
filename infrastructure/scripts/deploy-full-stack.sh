@@ -94,6 +94,10 @@ reconcile_kserve_release() {
   k apply --server-side --force-conflicts -f "${KSERVE_RELEASE_URL}/kserve-cluster-resources.yaml"
 }
 
+S3FS_SIDECAR_IMAGE="ml-platform-s3fs-sidecar:latest"
+echo "[${CONTEXT}] building s3fs-fuse sidecar image"
+docker build -t "$S3FS_SIDECAR_IMAGE" "$ROOT_DIR/infrastructure/docker/s3fs-sidecar/"
+
 echo "[${CONTEXT}] preparing helm repositories"
 helm repo add bitnami https://charts.bitnami.com/bitnami --force-update >/dev/null
 helm repo add minio https://charts.min.io/ --force-update >/dev/null
@@ -159,6 +163,9 @@ h upgrade --install mlflow "$ROOT_DIR/infrastructure/helm/mlflow" \
   -n "$NS" \
   -f "$ROOT_DIR/infrastructure/helm/mlflow/values.yaml" \
   --wait --timeout 15m
+
+echo "[${CONTEXT}] applying s3-credentials secret"
+k apply -f "$ROOT_DIR/infrastructure/k8s/platform/base/s3-credentials-secret.yaml"
 
 echo "[${CONTEXT}] deploying jupyterhub"
 JH_VALUES="$(mktemp)"

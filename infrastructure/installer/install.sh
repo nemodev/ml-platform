@@ -117,6 +117,16 @@ KEYCLOAK_OAUTH_CALLBACK_URL="${PLATFORM_URL}/hub/oauth_callback"
 NOTEBOOK_IMAGE_NAME="${NOTEBOOK_IMAGE%:*}"
 NOTEBOOK_IMAGE_TAG="${NOTEBOOK_IMAGE##*:}"
 
+# S3fs sidecar image — defaults to same registry/tag as notebook image
+if [[ -z "${S3FS_SIDECAR_IMAGE:-}" ]]; then
+  S3FS_SIDECAR_REGISTRY="${NOTEBOOK_IMAGE_NAME%/*}"
+  if [[ "$S3FS_SIDECAR_REGISTRY" == "$NOTEBOOK_IMAGE_NAME" ]]; then
+    S3FS_SIDECAR_IMAGE="ml-platform-s3fs-sidecar:${NOTEBOOK_IMAGE_TAG}"
+  else
+    S3FS_SIDECAR_IMAGE="${S3FS_SIDECAR_REGISTRY}/ml-platform-s3fs-sidecar:${NOTEBOOK_IMAGE_TAG}"
+  fi
+fi
+
 # Frontend service ports
 FRONTEND_HTTP_PORT="${FRONTEND_HTTP_PORT:-80}"
 
@@ -208,6 +218,7 @@ render() {
     -e "s|__NOTEBOOK_IMAGE__|${NOTEBOOK_IMAGE}|g" \
     -e "s|__NOTEBOOK_IMAGE_NAME__|${NOTEBOOK_IMAGE_NAME}|g" \
     -e "s|__NOTEBOOK_IMAGE_TAG__|${NOTEBOOK_IMAGE_TAG}|g" \
+    -e "s|__S3FS_SIDECAR_IMAGE__|${S3FS_SIDECAR_IMAGE}|g" \
     -e "s|__PLATFORM_URL__|${PLATFORM_URL}|g" \
     -e "s|__FRONTEND_SERVICE_TYPE__|${FRONTEND_SERVICE_TYPE}|g" \
     -e "s|__FRONTEND_NODE_PORT__|${FRONTEND_NODE_PORT:-30080}|g" \
